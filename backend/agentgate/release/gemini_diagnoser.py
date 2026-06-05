@@ -287,6 +287,8 @@ def _parse_gemini_json(raw: str) -> dict[str, Any]:
 def _is_gemini_api_error(error: Exception) -> bool:
     name = type(error).__name__
     module = type(error).__module__
+    if name == "DefaultCredentialsError" and "google.auth" in module:
+        return True
     return bool(name in {"ClientError", "ServerError"} and "google.genai" in module)
 
 
