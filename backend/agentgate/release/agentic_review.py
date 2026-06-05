@@ -14,9 +14,19 @@ AGENT_REVIEW_STATUS_DISABLED = "disabled"
 AGENT_REVIEW_STATUS_INVALID = "invalid"
 AGENT_REVIEW_STATUS_NO_ACTION = "no_action"
 AGENT_REVIEW_STATUS_PATTERNS_FOUND = "patterns_found"
+AGENT_REVIEW_ARTIFACT_NAMES = [
+    "agent_review_input",
+    "pattern_finder_plan",
+    "pattern_finder_results",
+    "dataset_planner_results",
+]
 AUTHORITY_BOUNDARY = (
     "Agents investigate and plan. The release gate still decides APPROVED or BLOCKED."
 )
+PATTERN_FINDER_SUMMARY = "Pattern Finder found 1 release-safety pattern."
+NO_ACTION_AGENT_REVIEW_SUMMARY = "No action from agent review."
+NO_ACTION_PATTERN_FINDER_SUMMARY = "No action from Pattern Finder."
+NO_ACTION_DATASET_PLANNER_SUMMARY = "No action from Dataset Planner in this slice."
 
 _PATTERN_TITLES = {
     "unauthorized_dangerous_tool_execution": "Unauthorized dangerous tool execution",
@@ -46,15 +56,7 @@ def build_agent_review_artifacts(
         if critical_findings and trace_evidence
         else AGENT_REVIEW_STATUS_NO_ACTION
     )
-    shared_status = {
-        "status": pattern_status,
-        "summary": (
-            f"Pattern Finder found {1 if critical_findings else 0} release-safety pattern."
-            if critical_findings and trace_evidence
-            else "No action from agent review."
-        ),
-        "authority_boundary": AUTHORITY_BOUNDARY,
-    }
+    shared_status = _shared_agent_review_status(pattern_status)
     agent_review_input = {
         **base,
         "agent_review": {
@@ -94,7 +96,7 @@ def build_agent_review_artifacts(
         **base,
         "agent": "dataset_planner",
         "status": AGENT_REVIEW_STATUS_NO_ACTION,
-        "summary": "No action from Dataset Planner in this slice.",
+        "summary": NO_ACTION_DATASET_PLANNER_SUMMARY,
         "dataset_candidates": [],
     }
     agent_review_input["agent_review"]["status"] = pattern_finder_results["status"]
@@ -107,6 +109,14 @@ def build_agent_review_artifacts(
         "pattern_finder_plan": pattern_finder_plan,
         "pattern_finder_results": pattern_finder_results,
         "dataset_planner_results": dataset_planner_results,
+    }
+
+
+def build_agentic_review_status(enabled: bool, status: str | None = None) -> dict[str, Any]:
+    return {
+        "enabled": enabled,
+        "status": status
+        or (AGENT_REVIEW_STATUS_NO_ACTION if enabled else AGENT_REVIEW_STATUS_DISABLED),
     }
 
 
@@ -135,7 +145,7 @@ def validate_pattern_finder_results(
 
     trusted = not errors
     status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
-    summary = results.get("summary", "No action from Pattern Finder.")
+    summary = results.get("summary", NO_ACTION_PATTERN_FINDER_SUMMARY)
     if not trusted:
         status = AGENT_REVIEW_STATUS_INVALID
         summary = "Pattern Finder output failed validation and was not trusted."
@@ -201,7 +211,7 @@ def _pattern_finder_results(
             **base,
             "agent": "pattern_finder",
             "status": AGENT_REVIEW_STATUS_NO_ACTION,
-            "summary": "No action from Pattern Finder.",
+            "summary": NO_ACTION_PATTERN_FINDER_SUMMARY,
             "failure_patterns": [],
         }
 
@@ -228,7 +238,7 @@ def _pattern_finder_results(
         **base,
         "agent": "pattern_finder",
         "status": AGENT_REVIEW_STATUS_PATTERNS_FOUND,
-        "summary": "Pattern Finder found 1 release-safety pattern.",
+        "summary": PATTERN_FINDER_SUMMARY,
         "failure_patterns": [
             {
                 "pattern_id": f"pattern.{finding_type}",
@@ -263,30 +273,18 @@ def _build_trace_evidence(
             trace_id = str(trace.get("trace_id") or trace.get("id") or "")
             if trace_id not in findings_by_trace:
                 continue
+            findings = findings_by_trace[trace_id]
             spans = [
                 _normalize_trace_span(span)
                 for span in trace.get("spans", [])
                 if isinstance(span, dict)
             ]
             traces.append(
-                {
-                    "trace_id": trace_id,
-                    "trace_story": _trace_story(findings_by_trace[trace_id], spans),
-                    "spans": [span for span in spans if span["span_id"] or span["span_name"]],
-                    "supporting_evidence_ids": sorted(
-                        {
-                            evidence_id
-                            for finding in findings_by_trace[trace_id]
-                            for evidence_id in finding.get("evidence_ids", [])
-                        }
-                    ),
-                    "finding_types": sorted(
-                        {finding["finding_type"] for finding in findings_by_trace[trace_id]}
-                    ),
-                    "case_id": findings_by_trace[trace_id][0].get("case_id"),
-                    "user_role": findings_by_trace[trace_id][0].get("user_role"),
-                    "input_text": findings_by_trace[trace_id][0].get("input_text"),
-                }
+                _trace_evidence_entry(
+                    trace_id=trace_id,
+                    findings=findings,
+                    spans=[span for span in spans if span["span_id"] or span["span_name"]],
+                )
             )
         if traces:
             return traces
@@ -302,25 +300,45 @@ def _build_trace_evidence(
             for record in grouped_records.get(trace_id, [])
             if isinstance(record, SpanEvent)
         ]
-        traces.append(
-            {
-                "trace_id": trace_id,
-                "trace_story": _trace_story(findings, spans),
-                "spans": spans,
-                "supporting_evidence_ids": sorted(
-                    {
-                        str(evidence_id)
-                        for finding in findings
-                        for evidence_id in finding.get("evidence_ids", [])
-                    }
-                ),
-                "finding_types": sorted({finding["finding_type"] for finding in findings}),
-                "case_id": findings[0].get("case_id"),
-                "user_role": findings[0].get("user_role"),
-                "input_text": findings[0].get("input_text"),
-            }
-        )
+        traces.append(_trace_evidence_entry(trace_id=trace_id, findings=findings, spans=spans))
     return traces
+
+
+def _shared_agent_review_status(status: str) -> dict[str, str]:
+    return {
+        "status": status,
+        "summary": (
+            PATTERN_FINDER_SUMMARY
+            if status == AGENT_REVIEW_STATUS_PATTERNS_FOUND
+            else NO_ACTION_AGENT_REVIEW_SUMMARY
+        ),
+        "authority_boundary": AUTHORITY_BOUNDARY,
+    }
+
+
+def _trace_evidence_entry(
+    *,
+    trace_id: str,
+    findings: list[dict[str, Any]],
+    spans: list[dict[str, Any]],
+) -> dict[str, Any]:
+    first_finding = findings[0]
+    return {
+        "trace_id": trace_id,
+        "trace_story": _trace_story(findings, spans),
+        "spans": spans,
+        "supporting_evidence_ids": sorted(
+            {
+                str(evidence_id)
+                for finding in findings
+                for evidence_id in finding.get("evidence_ids", [])
+            }
+        ),
+        "finding_types": sorted({finding["finding_type"] for finding in findings}),
+        "case_id": first_finding.get("case_id"),
+        "user_role": first_finding.get("user_role"),
+        "input_text": first_finding.get("input_text"),
+    }
 
 
 def _normalize_trace_span(span: dict[str, Any]) -> dict[str, Any]:

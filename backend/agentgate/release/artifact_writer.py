@@ -5,10 +5,15 @@ from pathlib import Path
 from typing import Any
 
 from backend.agentgate.core.product_config import ReleaseCheckConfig
+from backend.agentgate.release.agentic_review import (
+    AGENT_REVIEW_ARTIFACT_NAMES,
+    AGENT_REVIEW_STATUS_NO_ACTION,
+    AUTHORITY_BOUNDARY,
+    NO_ACTION_AGENT_REVIEW_SUMMARY,
+    build_agentic_review_status,
+)
 
 SCHEMA_VERSION = "day4.metrics.v1"
-AGENT_REVIEW_STATUS_NO_ACTION = "no_action"
-AGENT_REVIEW_STATUS_DISABLED = "disabled"
 DECISION_INPUT_ARTIFACT_NAMES = [
     "metrics_summary",
     "dangerous_sessions",
@@ -18,13 +23,6 @@ DECISION_INPUT_ARTIFACT_NAMES = [
     "agent_profile",
     "eval_suite",
 ]
-AGENT_REVIEW_ARTIFACT_NAMES = [
-    "agent_review_input",
-    "pattern_finder_plan",
-    "pattern_finder_results",
-    "dataset_planner_results",
-]
-
 
 def write_release_artifacts(
     output_dir: Path,
@@ -170,7 +168,7 @@ def write_release_artifacts(
     }
     artifacts["release_decision"]["decision_inputs"] = DECISION_INPUT_ARTIFACT_NAMES
     artifacts["release_decision"]["agentic_review"] = (
-        agentic_review_status or _agentic_review_status(agentic_review_enabled)
+        agentic_review_status or build_agentic_review_status(agentic_review_enabled)
     )
     artifacts["release_decision"]["artifact_paths"] = {
         artifact_name: str(path) for artifact_name, path in paths.items()
@@ -227,10 +225,8 @@ def _build_agent_review_artifacts(
     high_risk_activity = dangerous_sessions.get("high_risk_activity_log", [])
     shared_status = {
         "status": AGENT_REVIEW_STATUS_NO_ACTION,
-        "summary": "No action from agent review.",
-        "authority_boundary": (
-            "Agents investigate and plan. The release gate still decides APPROVED or BLOCKED."
-        ),
+        "summary": NO_ACTION_AGENT_REVIEW_SUMMARY,
+        "authority_boundary": AUTHORITY_BOUNDARY,
     }
     return {
         "agent_review_input": {
@@ -272,11 +268,4 @@ def _build_agent_review_artifacts(
             **shared_status,
             "dataset_candidates": [],
         },
-    }
-
-
-def _agentic_review_status(enabled: bool) -> dict[str, Any]:
-    return {
-        "enabled": enabled,
-        "status": AGENT_REVIEW_STATUS_NO_ACTION if enabled else AGENT_REVIEW_STATUS_DISABLED,
     }
