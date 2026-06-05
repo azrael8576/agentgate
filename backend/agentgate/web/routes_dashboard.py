@@ -40,6 +40,7 @@ class ReleaseCheckRequest(BaseModel):
     output_dir: Path | None = None
     evidence: Path | None = None
     diagnosis_mode: DiagnosisMode | None = None
+    agentic_review_enabled: bool | None = None
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -127,6 +128,11 @@ def run_release_check(
         release_controls_ref=controls_ref,
         release_controls_resolution_source="api_request" if controls_ref else None,
     )
+    resolved_agentic_review = (
+        payload.agentic_review_enabled
+        if payload.agentic_review_enabled is not None
+        else payload.source == "phoenix"
+    )
     try:
         if payload.source == "local":
             evidence = payload.evidence or settings.local_evidence_path
@@ -135,6 +141,7 @@ def run_release_check(
                 output_dir=output_dir,
                 diagnosis_mode=diagnosis_mode,
                 release_config=release_config,
+                agentic_review_enabled=resolved_agentic_review,
             )
         else:
             result = release_check_module.run_release_check_from_phoenix_mcp(
@@ -144,6 +151,7 @@ def run_release_check(
                 last_n_minutes=payload.last_n_minutes or settings.last_n_minutes,
                 diagnosis_mode=diagnosis_mode,
                 release_config=release_config,
+                agentic_review_enabled=resolved_agentic_review,
             )
     except (PhoenixMCPError, ValueError, FileNotFoundError) as error:
         return JSONResponse(

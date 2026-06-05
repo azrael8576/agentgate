@@ -256,6 +256,11 @@ def release_check(
         "--release-controls",
         help="Path to a prior regression_gates.json artifact for inherited release-control verification.",
     ),
+    agentic_review: bool | None = typer.Option(
+        None,
+        "--agentic-review/--no-agentic-review",
+        help="Enable or disable agentic review artifacts. Phoenix defaults to enabled; local/offline defaults to disabled.",
+    ),
 ) -> None:
     release_config = ReleaseCheckConfig(
         agent_pack_path=agent_pack,
@@ -266,6 +271,9 @@ def release_check(
         release_controls_resolution_source="cli_argument" if release_controls else None,
     )
     resolved_source = source or ("local" if evidence else "phoenix")
+    resolved_agentic_review = (
+        agentic_review if agentic_review is not None else resolved_source == "phoenix"
+    )
     if resolved_source == "local":
         if evidence is None:
             typer.echo(
@@ -278,6 +286,7 @@ def release_check(
             output_dir,
             diagnosis_mode=diagnosis_mode,
             release_config=release_config,
+            agentic_review_enabled=resolved_agentic_review,
         )
     elif resolved_source == "phoenix":
         try:
@@ -293,6 +302,7 @@ def release_check(
                 eval_first=eval_first,
                 require_eval_complete=require_eval_complete,
                 release_config=release_config,
+                agentic_review_enabled=resolved_agentic_review,
             )
         except (PhoenixMCPError, ValueError) as error:
             typer.echo(f"AgentGate Phoenix release check failed: {error}", err=True)
@@ -310,7 +320,9 @@ def release_check(
         f"indeterminate_findings={payload.get('indeterminate_findings', 0)} "
         f"high_risk_activity={payload.get('high_risk_activity_count', 0)} "
         f"reviewed_safe={payload['reviewed_safe']} diagnosis_mode={diagnosis_mode} "
-        f"source={resolved_source} output_dir={output_dir}"
+        f"source={resolved_source} "
+        f"agentic_review={payload.get('agentic_review', {}).get('status', 'disabled')} "
+        f"output_dir={output_dir}"
     )
     if fail_on_block and payload["decision"] == "BLOCKED":
         typer.echo(

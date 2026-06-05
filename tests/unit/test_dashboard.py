@@ -500,6 +500,7 @@ def test_release_check_api_defaults_to_phoenix_gemini(tmp_path: Path, monkeypatc
             "last_n_minutes": 1440,
             "diagnosis_mode": "gemini",
             "release_config": ReleaseCheckConfig(),
+            "agentic_review_enabled": True,
         }
     ]
 
@@ -605,6 +606,35 @@ def test_report_context_includes_gate_binding_and_fingerprints(tmp_path: Path) -
     assert context["audit_summary"]["regression_gate_count"] >= 1
     if context["critical_findings"]:
         assert "expected_intent_id" in context["critical_findings"][0]
+
+
+def test_report_context_includes_no_action_agent_review_sections(tmp_path: Path) -> None:
+    latest_dir = tmp_path / "latest"
+    run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
+
+    context = build_report_context(latest_dir)
+
+    assert context["agent_review"]["enabled"] is True
+    assert context["agent_review"]["pattern_finder"]["status"] == "no_action"
+    assert context["agent_review"]["dataset_planner"]["status"] == "no_action"
+
+
+def test_report_renders_no_action_agent_review_sections(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    latest_dir = tmp_path / "latest"
+    run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
+    monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(latest_dir))
+    client = TestClient(app)
+
+    response = client.get("/reports/latest")
+
+    assert response.status_code == 200
+    assert "Agent review" in response.text
+    assert "Pattern Finder" in response.text
+    assert "Dataset Planner" in response.text
+    assert "No action from agent review" in response.text
+    assert "The release gate still decides APPROVED or BLOCKED." in response.text
 
 
 def _inject_nonblocking_inherited_control_failure(output_dir: Path) -> None:

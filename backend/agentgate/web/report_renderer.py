@@ -27,11 +27,18 @@ CORE_ARTIFACT_FILENAMES = {
     "dangerous_sessions.json",
     "regression_gates.json",
 }
+AGENT_REVIEW_ARTIFACT_FILENAMES = {
+    "agent_review_input.json",
+    "pattern_finder_plan.json",
+    "pattern_finder_results.json",
+    "dataset_planner_results.json",
+}
 ARTIFACT_FILENAMES = CORE_ARTIFACT_FILENAMES | {
     "agent_profile.json",
     "eval_suite.json",
     "audit_manifest.json",
     "control_verification_results.json",
+    *AGENT_REVIEW_ARTIFACT_FILENAMES,
 }
 HTML_ARTIFACT_FILENAME = "release_report.html"
 REMEDIATION_VISIBLE_LIMIT = 4
@@ -75,6 +82,22 @@ ARTIFACT_PURPOSES: dict[str, dict[str, str]] = {
         "purpose": "Per-control PASS/FAIL verification against inherited release controls from a prior blocked run.",
         "format": "JSON",
     },
+    "agent_review_input.json": {
+        "purpose": "Shared no-action agent review packet for Pattern Finder and Dataset Planner.",
+        "format": "JSON",
+    },
+    "pattern_finder_plan.json": {
+        "purpose": "Pattern Finder workflow and current focus areas.",
+        "format": "JSON",
+    },
+    "pattern_finder_results.json": {
+        "purpose": "Pattern Finder output. Informational only; it does not approve or block releases.",
+        "format": "JSON",
+    },
+    "dataset_planner_results.json": {
+        "purpose": "Dataset Planner output. Informational only; it does not approve or block releases.",
+        "format": "JSON",
+    },
     HTML_ARTIFACT_FILENAME: {
         "purpose": "Offline audit report export.",
         "format": "HTML",
@@ -100,7 +123,7 @@ def latest_artifacts_exist(output_dir: Path) -> bool:
     return all((output_dir / filename).exists() for filename in CORE_ARTIFACT_FILENAMES)
 
 
-def artifact_links() -> list[dict[str, str]]:
+def artifact_links(available_artifact_names: set[str] | None = None) -> list[dict[str, str]]:
     links = [
         {
             "name": "release_decision",
@@ -150,6 +173,29 @@ def artifact_links() -> list[dict[str, str]]:
             "kind": "html",
         },
     ]
+    if available_artifact_names and AGENT_REVIEW_ARTIFACT_FILENAMES.issubset(available_artifact_names):
+        links[8:8] = [
+            {
+                "name": "agent_review_input",
+                "filename": "agent_review_input.json",
+                "href": "/artifacts/agent_review_input.json",
+            },
+            {
+                "name": "pattern_finder_plan",
+                "filename": "pattern_finder_plan.json",
+                "href": "/artifacts/pattern_finder_plan.json",
+            },
+            {
+                "name": "pattern_finder_results",
+                "filename": "pattern_finder_results.json",
+                "href": "/artifacts/pattern_finder_results.json",
+            },
+            {
+                "name": "dataset_planner_results",
+                "filename": "dataset_planner_results.json",
+                "href": "/artifacts/dataset_planner_results.json",
+            },
+        ]
     return [{**link, **ARTIFACT_PURPOSES.get(link["filename"], {})} for link in links]
 
 
@@ -440,6 +486,64 @@ def _next_action_bullets(
             "Promote top traces into generated release controls, then rerun release check.",
         ]
     return ["Review evidence completeness and policy thresholds before acting."]
+
+
+def _agent_review_section(
+    *,
+    release_decision: dict[str, Any],
+    agent_review_input: dict[str, Any] | None,
+    pattern_finder_plan: dict[str, Any] | None,
+    pattern_finder_results: dict[str, Any] | None,
+    dataset_planner_results: dict[str, Any] | None,
+) -> dict[str, Any]:
+    decision_agentic_review = release_decision.get("agentic_review", {})
+    enabled = bool(
+        decision_agentic_review.get("enabled")
+        or agent_review_input
+        or pattern_finder_plan
+        or pattern_finder_results
+        or dataset_planner_results
+    )
+    if not enabled:
+        return {
+            "enabled": False,
+            "headline": "Agent review disabled",
+            "summary": "This run did not request agent review artifacts.",
+            "authority_boundary": "The release gate still decides APPROVED or BLOCKED.",
+            "pattern_finder": {"status": "disabled", "summary": "Not requested."},
+            "dataset_planner": {"status": "disabled", "summary": "Not requested."},
+        }
+
+    review_payload = agent_review_input.get("agent_review", {}) if agent_review_input else {}
+    return {
+        "enabled": True,
+        "headline": "Agent review",
+        "summary": review_payload.get("summary") or "No action from agent review.",
+        "authority_boundary": review_payload.get("authority_boundary")
+        or "The release gate still decides APPROVED or BLOCKED.",
+        "pattern_finder": {
+            "status": pattern_finder_results.get("status", "unknown")
+            if pattern_finder_results
+            else "unknown",
+            "summary": pattern_finder_results.get("summary", "Pattern Finder did not return findings.")
+            if pattern_finder_results
+            else "Pattern Finder did not return findings.",
+            "focus_areas": pattern_finder_plan.get("focus_areas", []) if pattern_finder_plan else [],
+        },
+        "dataset_planner": {
+            "status": dataset_planner_results.get("status", "unknown")
+            if dataset_planner_results
+            else "unknown",
+            "summary": dataset_planner_results.get(
+                "summary", "Dataset Planner did not return planning items."
+            )
+            if dataset_planner_results
+            else "Dataset Planner did not return planning items.",
+            "dataset_candidates": dataset_planner_results.get("dataset_candidates", [])
+            if dataset_planner_results
+            else [],
+        },
+    }
 
 
 def _verdict_panel(
@@ -1039,6 +1143,12 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
         output_dir, "control_verification_results.json"
     )
     audit_manifest = _read_optional_json_artifact(output_dir, "audit_manifest.json")
+    agent_review_input = _read_optional_json_artifact(output_dir, "agent_review_input.json")
+    pattern_finder_plan = _read_optional_json_artifact(output_dir, "pattern_finder_plan.json")
+    pattern_finder_results = _read_optional_json_artifact(output_dir, "pattern_finder_results.json")
+    dataset_planner_results = _read_optional_json_artifact(
+        output_dir, "dataset_planner_results.json"
+    )
     eval_suite_artifact = _read_optional_json_artifact(output_dir, "eval_suite.json")
     fallback_profile = pack.profile
     agent_profile = _bundle_agent_profile(output_dir, fallback_profile)
@@ -1136,6 +1246,14 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
         indeterminate_findings=indeterminate_findings,
         dangerous_session_diagnoses=dangerous_diagnoses,
     )
+    available_artifact_names = set((audit_manifest or {}).get("artifacts", {}).keys())
+    agent_review = _agent_review_section(
+        release_decision=release_decision,
+        agent_review_input=agent_review_input,
+        pattern_finder_plan=pattern_finder_plan,
+        pattern_finder_results=pattern_finder_results,
+        dataset_planner_results=dataset_planner_results,
+    )
 
     return {
         "agent_profile": agent_profile,
@@ -1208,6 +1326,7 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
             release_decision,
             control_verification,
         ),
+        "agent_review": agent_review,
         "control_verification": control_verification,
         "audit_archive_summary": _audit_archive_summary(
             release_decision=release_decision,
@@ -1227,8 +1346,8 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
             failing_metrics=failing_metrics,
             normalized_regression_gates=normalized_regression_gates,
         ),
-        "artifact_cards": artifact_links(),
-        "artifact_links": artifact_links(),
+        "artifact_cards": artifact_links(available_artifact_names),
+        "artifact_links": artifact_links(available_artifact_names),
         "recommended_next_tasks": _recommended_next_tasks(regression_gate_list, critical_findings),
         "source_is_local": evidence_source.get("type") == "local_jsonl",
         "summary": _executive_summary(release_decision, audit_summary),

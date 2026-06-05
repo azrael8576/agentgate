@@ -14,6 +14,9 @@
     <a href="#future-verification">Future verification</a>
     <a href="#release-controls">Release controls</a>
     {% endif %}
+    {% if agent_review.enabled %}
+    <a href="#agent-review">Agent review</a>
+    {% endif %}
     <a href="#evidence-summary">Evidence</a>
     <a href="#audit-archive">Audit archive</a>
     <a href="#audit-artifacts">Artifacts</a>
@@ -237,6 +240,33 @@
 {% else %}
 {{ future_verification_band() }}
 {{ release_controls_band() }}
+{% endif %}
+
+{% if agent_review.enabled %}
+<section class="band" id="agent-review">
+  <div class="section-head">
+    <p class="eyebrow">Agent review</p>
+    <h2>{{ agent_review.headline }}</h2>
+    <p class="section-note">{{ agent_review.summary }}</p>
+    <p class="section-note">{{ agent_review.authority_boundary }}</p>
+  </div>
+  <div class="gate-blocker-grid">
+    <article class="gate-blocker-card">
+      <div class="gate-blocker-head">
+        <span class="control-id">Pattern Finder</span>
+      </div>
+      <h3>{{ agent_review.pattern_finder.status | replace("_", " ") | title }}</h3>
+      <p class="gate-reason">{{ agent_review.pattern_finder.summary }}</p>
+    </article>
+    <article class="gate-blocker-card">
+      <div class="gate-blocker-head">
+        <span class="control-id">Dataset Planner</span>
+      </div>
+      <h3>{{ agent_review.dataset_planner.status | replace("_", " ") | title }}</h3>
+      <p class="gate-reason">{{ agent_review.dataset_planner.summary }}</p>
+    </article>
+  </div>
+</section>
 {% endif %}
 
 <section class="band evidence-summary-band" id="evidence-summary">

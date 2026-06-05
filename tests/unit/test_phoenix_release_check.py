@@ -470,11 +470,15 @@ def test_cli_release_check_defaults_to_phoenix_without_evidence(
     def fake_release_check(**kwargs):
         assert kwargs["project_identifier"] == "agentgate-reference-ops-demo"
         assert kwargs["agent_version"] == "v2"
+        assert kwargs["agentic_review_enabled"] is True
         return {
             "agent_version": "v2",
             "decision": "BLOCKED",
             "critical_findings": 1,
             "reviewed_safe": 0,
+            "indeterminate_findings": 0,
+            "high_risk_activity_count": 0,
+            "agentic_review": {"enabled": True, "status": "no_action"},
         }
 
     monkeypatch.setattr(
@@ -500,6 +504,47 @@ def test_cli_release_check_defaults_to_phoenix_without_evidence(
     assert result.exit_code == 0
     assert "source=phoenix" in result.output
     assert "decision=BLOCKED" in result.output
+    assert "agentic_review=no_action" in result.output
+
+
+def test_cli_release_check_can_disable_agent_review_for_phoenix(
+    monkeypatch, tmp_path: Path
+) -> None:
+    def fake_release_check(**kwargs):
+        assert kwargs["agentic_review_enabled"] is False
+        return {
+            "agent_version": "v2",
+            "decision": "BLOCKED",
+            "critical_findings": 1,
+            "reviewed_safe": 0,
+            "indeterminate_findings": 0,
+            "high_risk_activity_count": 0,
+            "agentic_review": {"enabled": False, "status": "disabled"},
+        }
+
+    monkeypatch.setattr(
+        "backend.agentgate.cli.run_release_check_from_phoenix_mcp", fake_release_check
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "release",
+            "check",
+            "--source",
+            "phoenix",
+            "--project-identifier",
+            "agentgate-reference-ops-demo",
+            "--agent-version",
+            "v2",
+            "--no-agentic-review",
+            "--output-dir",
+            str(tmp_path / "release"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "agentic_review=disabled" in result.output
 
 
 def test_cli_release_check_phoenix_reports_missing_config(monkeypatch, tmp_path: Path) -> None:

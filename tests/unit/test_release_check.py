@@ -151,6 +151,62 @@ def test_cli_release_check_writes_all_artifacts(tmp_path: Path) -> None:
     assert (output_dir / "release_report.html").exists()
 
 
+def test_local_release_check_can_write_agent_review_skeleton_artifacts(tmp_path: Path) -> None:
+    evidence = _seed("v2", tmp_path)
+    output_dir = tmp_path / "release" / "v2"
+
+    result = run_release_check(evidence, output_dir, agentic_review_enabled=True)
+    manifest = _read_json(output_dir / "audit_manifest.json")
+    decision = _read_json(output_dir / "release_decision.json")
+    agent_review_input = _read_json(output_dir / "agent_review_input.json")
+    pattern_plan = _read_json(output_dir / "pattern_finder_plan.json")
+    pattern_results = _read_json(output_dir / "pattern_finder_results.json")
+    dataset_results = _read_json(output_dir / "dataset_planner_results.json")
+
+    assert result["decision"] == "BLOCKED"
+    assert result["agentic_review"]["enabled"] is True
+    assert result["agentic_review"]["status"] == "no_action"
+    assert decision["decision"] == "BLOCKED"
+    assert decision["decision_inputs"] == manifest["decision_inputs"]
+    assert "agent_review_input" not in manifest["decision_inputs"]
+    assert manifest["agent_review_artifacts"] == [
+        "agent_review_input",
+        "pattern_finder_plan",
+        "pattern_finder_results",
+        "dataset_planner_results",
+    ]
+    assert manifest["artifacts"]["agent_review_input"]["required_for_offline_audit"] is False
+    assert agent_review_input["agent_review"]["status"] == "no_action"
+    assert pattern_plan["status"] == "no_action"
+    assert pattern_plan["focus_areas"] == []
+    assert pattern_results["status"] == "no_action"
+    assert pattern_results["failure_patterns"] == []
+    assert dataset_results["status"] == "no_action"
+    assert dataset_results["dataset_candidates"] == []
+
+
+def test_cli_local_release_check_defaults_agent_review_off(tmp_path: Path) -> None:
+    evidence = _seed("v2", tmp_path)
+    output_dir = tmp_path / "release" / "v2"
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "release",
+            "check",
+            "--evidence",
+            str(evidence),
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "agentic_review=disabled" in result.output
+    assert not (output_dir / "agent_review_input.json").exists()
+
+
 def test_release_check_writes_release_authority_audit_manifest(tmp_path: Path) -> None:
     evidence = _seed("v2", tmp_path)
     output_dir = tmp_path / "release" / "v2"

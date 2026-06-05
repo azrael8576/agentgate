@@ -55,6 +55,7 @@ def run_release_check(
     diagnosis_mode: DiagnosisMode = "deterministic",
     release_config: ReleaseCheckConfig | None = None,
     release_controls_ref: Path | None = None,
+    agentic_review_enabled: bool = False,
 ) -> dict[str, Any]:
     records = load_evidence_jsonl(evidence_path)
     return run_release_check_from_records(
@@ -66,6 +67,7 @@ def run_release_check(
         },
         diagnosis_mode=diagnosis_mode,
         release_config=_with_release_controls_ref(release_config, release_controls_ref),
+        agentic_review_enabled=agentic_review_enabled,
     )
 
 
@@ -74,6 +76,7 @@ def run_release_check_from_phoenix_spans(
     output_dir: Path,
     diagnosis_mode: DiagnosisMode = "deterministic",
     release_config: ReleaseCheckConfig | None = None,
+    agentic_review_enabled: bool = False,
 ) -> dict[str, Any]:
     records = load_phoenix_spans_json(spans_json_path)
     return run_release_check_from_records(
@@ -85,6 +88,7 @@ def run_release_check_from_phoenix_spans(
         },
         diagnosis_mode=diagnosis_mode,
         release_config=release_config,
+        agentic_review_enabled=agentic_review_enabled,
     )
 
 
@@ -101,6 +105,7 @@ def run_release_check_from_phoenix_mcp(
     eval_first: bool = False,
     require_eval_complete: bool = False,
     release_config: ReleaseCheckConfig | None = None,
+    agentic_review_enabled: bool = True,
 ) -> dict[str, Any]:
     if eval_first:
         if agent_version is None:
@@ -130,6 +135,7 @@ def run_release_check_from_phoenix_mcp(
                 diagnosis_mode=diagnosis_mode,
                 require_eval_complete=require_eval_complete,
                 release_config=release_config,
+                agentic_review_enabled=agentic_review_enabled,
             )
 
     if project_identifier is None:
@@ -149,6 +155,7 @@ def run_release_check_from_phoenix_mcp(
         diagnosis_mode=diagnosis_mode,
         require_eval_complete=require_eval_complete,
         release_config=release_config,
+        agentic_review_enabled=agentic_review_enabled,
     )
 
 
@@ -160,6 +167,7 @@ def _run_release_check_from_phoenix_client(
     diagnosis_mode: DiagnosisMode,
     require_eval_complete: bool = False,
     release_config: ReleaseCheckConfig | None = None,
+    agentic_review_enabled: bool = True,
 ) -> dict[str, Any]:
     config = release_config or ReleaseCheckConfig()
     pack = config.load_pack()
@@ -226,6 +234,7 @@ def _run_release_check_from_phoenix_client(
         diagnosis_mode=diagnosis_mode,
         require_eval_complete=require_eval_complete,
         release_config=config,
+        agentic_review_enabled=agentic_review_enabled,
     )
 
 
@@ -236,6 +245,7 @@ def run_release_check_from_records(
     diagnosis_mode: DiagnosisMode = "deterministic",
     require_eval_complete: bool = False,
     release_config: ReleaseCheckConfig | None = None,
+    agentic_review_enabled: bool = False,
 ) -> dict[str, Any]:
     config = release_config or ReleaseCheckConfig()
     pack = config.load_pack()
@@ -317,6 +327,7 @@ def run_release_check_from_records(
         diagnosis_metadata=diagnosis_metadata,
         release_config=config,
         control_verification=control_verification,
+        agentic_review_enabled=agentic_review_enabled,
     )
     html_path = export_release_report_html(output_dir)
     artifact_paths["release_report"] = str(html_path)
@@ -333,6 +344,10 @@ def run_release_check_from_records(
         "diagnosis_metadata": diagnosis_metadata,
         "coverage": coverage,
         "future_verification": decision.get("future_verification"),
+        "agentic_review": {
+            "enabled": agentic_review_enabled,
+            "status": "no_action" if agentic_review_enabled else "disabled",
+        },
     }
 
 
