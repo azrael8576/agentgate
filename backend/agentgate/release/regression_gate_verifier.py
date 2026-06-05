@@ -14,7 +14,14 @@ ResolutionSource = Literal[
     "not_found",
 ]
 
-BUNDLED_REFERENCE_REGRESSION_GATES = Path("artifacts/release/reference-v2/regression_gates.json")
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+# Shipped reference demo artifact (not a runtime output path under artifacts/release/).
+BUNDLED_REFERENCE_REGRESSION_GATES = (
+    _repo_root() / "examples" / "artifacts" / "reference-v2" / "regression_gates.json"
+)
 
 # Heuristic gate_id -> metrics and pass rules for the reference demo workflow.
 _GATE_RULES: dict[str, dict[str, Any]] = {
