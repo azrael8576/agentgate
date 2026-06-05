@@ -7,6 +7,17 @@ from typing import Any
 from backend.agentgate.core.product_config import ReleaseCheckConfig
 
 SCHEMA_VERSION = "day4.metrics.v1"
+AGENT_REVIEW_STATUS_NO_ACTION = "no_action"
+AGENT_REVIEW_STATUS_DISABLED = "disabled"
+DECISION_INPUT_ARTIFACT_NAMES = [
+    "metrics_summary",
+    "dangerous_sessions",
+    "regression_gates",
+    "control_verification_results",
+    "release_decision",
+    "agent_profile",
+    "eval_suite",
+]
 AGENT_REVIEW_ARTIFACT_NAMES = [
     "agent_review_input",
     "pattern_finder_plan",
@@ -27,6 +38,8 @@ def write_release_artifacts(
     release_config: ReleaseCheckConfig | None = None,
     control_verification: dict[str, Any] | None = None,
     agentic_review_enabled: bool = False,
+    agent_review_artifacts: dict[str, dict[str, Any]] | None = None,
+    agentic_review_status: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     config = release_config or ReleaseCheckConfig()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -84,20 +97,22 @@ def write_release_artifacts(
             **base,
             "suite": reference_suite,
         }
+    agent_review_artifacts = agent_review_artifacts or _build_agent_review_artifacts(
+        base=base,
+        evidence_source=evidence_source,
+        dangerous_sessions=dangerous_sessions,
+    )
     if agentic_review_enabled:
-        artifacts.update(
-            _build_agent_review_artifacts(
-                base=base,
-                evidence_source=evidence_source,
-                dangerous_sessions=dangerous_sessions,
-            )
-        )
+        artifacts.update(agent_review_artifacts)
 
     paths = {
-        "metrics_summary": output_dir / "metrics_summary.json",
-        "dangerous_sessions": output_dir / "dangerous_sessions.json",
-        "regression_gates": output_dir / "regression_gates.json",
-        "release_decision": output_dir / "release_decision.json",
+        artifact_name: output_dir / f"{artifact_name}.json"
+        for artifact_name in (
+            "metrics_summary",
+            "dangerous_sessions",
+            "regression_gates",
+            "release_decision",
+        )
     }
     if "control_verification_results" in artifacts:
         paths["control_verification_results"] = output_dir / "control_verification_results.json"
@@ -106,20 +121,13 @@ def write_release_artifacts(
     if "eval_suite" in artifacts:
         paths["eval_suite"] = output_dir / "eval_suite.json"
     if agentic_review_enabled:
-        paths["agent_review_input"] = output_dir / "agent_review_input.json"
-        paths["pattern_finder_plan"] = output_dir / "pattern_finder_plan.json"
-        paths["pattern_finder_results"] = output_dir / "pattern_finder_results.json"
-        paths["dataset_planner_results"] = output_dir / "dataset_planner_results.json"
+        paths.update(
+            {
+                artifact_name: output_dir / f"{artifact_name}.json"
+                for artifact_name in AGENT_REVIEW_ARTIFACT_NAMES
+            }
+        )
     paths["audit_manifest"] = output_dir / "audit_manifest.json"
-    decision_inputs = [
-        "metrics_summary",
-        "dangerous_sessions",
-        "regression_gates",
-        "control_verification_results",
-        "release_decision",
-        "agent_profile",
-        "eval_suite",
-    ]
     artifacts["audit_manifest"] = {
         **base,
         "product_surface": "release_authority",
@@ -128,7 +136,7 @@ def write_release_artifacts(
         "decision_reproducible_without_llm_rerun": True,
         "llm_rerun_required": False,
         "phoenix_required_for_offline_decision": False,
-        "decision_inputs": decision_inputs,
+        "decision_inputs": DECISION_INPUT_ARTIFACT_NAMES,
         "agent_review_artifacts": AGENT_REVIEW_ARTIFACT_NAMES if agentic_review_enabled else [],
         "reproducibility_recipe": [
             "Read release_decision.json for policy version, gate_binding, decision reasons, and future_verification.",
@@ -160,11 +168,10 @@ def write_release_artifacts(
             "eval_suite_included": "eval_suite" in artifacts,
         },
     }
-    artifacts["release_decision"]["decision_inputs"] = decision_inputs
-    artifacts["release_decision"]["agentic_review"] = {
-        "enabled": agentic_review_enabled,
-        "status": "no_action" if agentic_review_enabled else "disabled",
-    }
+    artifacts["release_decision"]["decision_inputs"] = DECISION_INPUT_ARTIFACT_NAMES
+    artifacts["release_decision"]["agentic_review"] = (
+        agentic_review_status or _agentic_review_status(agentic_review_enabled)
+    )
     artifacts["release_decision"]["artifact_paths"] = {
         artifact_name: str(path) for artifact_name, path in paths.items()
     }
@@ -219,7 +226,7 @@ def _build_agent_review_artifacts(
     reviewed_safe = dangerous_sessions.get("reviewed_safe", [])
     high_risk_activity = dangerous_sessions.get("high_risk_activity_log", [])
     shared_status = {
-        "status": "no_action",
+        "status": AGENT_REVIEW_STATUS_NO_ACTION,
         "summary": "No action from agent review.",
         "authority_boundary": (
             "Agents investigate and plan. The release gate still decides APPROVED or BLOCKED."
@@ -265,4 +272,11 @@ def _build_agent_review_artifacts(
             **shared_status,
             "dataset_candidates": [],
         },
+    }
+
+
+def _agentic_review_status(enabled: bool) -> dict[str, Any]:
+    return {
+        "enabled": enabled,
+        "status": AGENT_REVIEW_STATUS_NO_ACTION if enabled else AGENT_REVIEW_STATUS_DISABLED,
     }

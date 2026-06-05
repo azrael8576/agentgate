@@ -5,6 +5,7 @@ import pytest
 from backend.agentgate.cli import app
 from backend.agentgate.core.config import load_demo_release_policy
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
+from backend.agentgate.release.agentic_review import validate_pattern_finder_results
 from backend.agentgate.release.release_check import run_release_check
 from typer.testing import CliRunner
 
@@ -151,7 +152,9 @@ def test_cli_release_check_writes_all_artifacts(tmp_path: Path) -> None:
     assert (output_dir / "release_report.html").exists()
 
 
-def test_local_release_check_can_write_agent_review_skeleton_artifacts(tmp_path: Path) -> None:
+def test_local_release_check_writes_pattern_finder_artifacts_for_blocked_evidence(
+    tmp_path: Path,
+) -> None:
     evidence = _seed("v2", tmp_path)
     output_dir = tmp_path / "release" / "v2"
 
@@ -165,7 +168,7 @@ def test_local_release_check_can_write_agent_review_skeleton_artifacts(tmp_path:
 
     assert result["decision"] == "BLOCKED"
     assert result["agentic_review"]["enabled"] is True
-    assert result["agentic_review"]["status"] == "no_action"
+    assert result["agentic_review"]["status"] == "patterns_found"
     assert decision["decision"] == "BLOCKED"
     assert decision["decision_inputs"] == manifest["decision_inputs"]
     assert "agent_review_input" not in manifest["decision_inputs"]
@@ -176,13 +179,86 @@ def test_local_release_check_can_write_agent_review_skeleton_artifacts(tmp_path:
         "dataset_planner_results",
     ]
     assert manifest["artifacts"]["agent_review_input"]["required_for_offline_audit"] is False
-    assert agent_review_input["agent_review"]["status"] == "no_action"
-    assert pattern_plan["status"] == "no_action"
-    assert pattern_plan["focus_areas"] == []
-    assert pattern_results["status"] == "no_action"
-    assert pattern_results["failure_patterns"] == []
+    assert agent_review_input["agent_review"]["status"] == "patterns_found"
+    assert agent_review_input["trace_evidence"]
+    assert agent_review_input["trace_evidence"][0]["trace_story"]
+    assert agent_review_input["trace_evidence"][0]["spans"]
+    assert pattern_plan["status"] == "patterns_found"
+    assert pattern_plan["focus_areas"]
+    assert pattern_results["status"] == "patterns_found"
+    assert pattern_results["validation"]["trusted"] is True
+    assert len(pattern_results["failure_patterns"]) == 1
+    assert (
+        pattern_results["failure_patterns"][0]["pattern_id"]
+        == "pattern.unauthorized_dangerous_tool_execution"
+    )
+    assert pattern_results["failure_patterns"][0]["supporting_trace_ids"]
+    assert pattern_results["failure_patterns"][0]["supporting_evidence_ids"]
     assert dataset_results["status"] == "no_action"
     assert dataset_results["dataset_candidates"] == []
+
+
+def test_pattern_finder_validation_rejects_invented_references() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_001",
+                "spans": [{"span_id": "span_real_001"}],
+            }
+        ]
+    }
+    results = {
+        "status": "patterns_found",
+        "failure_patterns": [
+            {
+                "pattern_id": "pattern.unauthorized_dangerous_tool_execution",
+                "supporting_trace_ids": ["trace_fake_999"],
+                "supporting_evidence_ids": ["span_fake_999"],
+                "example_traces": [{"trace_id": "trace_fake_999"}],
+            }
+        ],
+    }
+
+    validated = validate_pattern_finder_results(results, agent_review_input)
+
+    assert validated["status"] == "invalid"
+    assert validated["failure_patterns"] == []
+    assert validated["validation"]["trusted"] is False
+    assert validated["validation"]["errors"]
+
+
+def test_pattern_finder_validation_rejects_missing_example_traces() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_001",
+                "spans": [{"span_id": "span_real_001"}],
+            }
+        ]
+    }
+    results = {
+        "status": "patterns_found",
+        "failure_patterns": [
+            {
+                "pattern_id": "pattern.unauthorized_dangerous_tool_execution",
+                "title": "Unauthorized dangerous tool execution",
+                "severity": "critical",
+                "problem_summary": "A dangerous action executed for the wrong role.",
+                "why_it_matters": "Wrong-role dangerous execution is a release blocker.",
+                "policy_runtime_mismatch": "Policy expected deny, but runtime allowed execution.",
+                "supporting_trace_ids": ["trace_real_001"],
+                "supporting_evidence_ids": ["span_real_001"],
+                "example_traces": [],
+            }
+        ],
+    }
+
+    validated = validate_pattern_finder_results(results, agent_review_input)
+
+    assert validated["status"] == "invalid"
+    assert validated["failure_patterns"] == []
+    assert validated["validation"]["trusted"] is False
+    assert "missing example_traces" in validated["validation"]["errors"]
 
 
 def test_cli_local_release_check_defaults_agent_review_off(tmp_path: Path) -> None:

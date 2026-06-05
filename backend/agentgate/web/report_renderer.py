@@ -33,6 +33,80 @@ AGENT_REVIEW_ARTIFACT_FILENAMES = {
     "pattern_finder_results.json",
     "dataset_planner_results.json",
 }
+HTML_ARTIFACT_FILENAME = "release_report.html"
+BASE_ARTIFACT_LINKS = [
+    {
+        "name": "release_decision",
+        "filename": "release_decision.json",
+        "href": "/artifacts/release_decision.json",
+    },
+    {
+        "name": "metrics_summary",
+        "filename": "metrics_summary.json",
+        "href": "/artifacts/metrics_summary.json",
+    },
+    {
+        "name": "dangerous_sessions",
+        "filename": "dangerous_sessions.json",
+        "href": "/artifacts/dangerous_sessions.json",
+    },
+    {
+        "name": "regression_gates",
+        "filename": "regression_gates.json",
+        "href": "/artifacts/regression_gates.json",
+    },
+    {
+        "name": "control_verification_results",
+        "filename": "control_verification_results.json",
+        "href": "/artifacts/control_verification_results.json",
+    },
+    {
+        "name": "agent_profile",
+        "filename": "agent_profile.json",
+        "href": "/artifacts/agent_profile.json",
+    },
+    {
+        "name": "eval_suite",
+        "filename": "eval_suite.json",
+        "href": "/artifacts/eval_suite.json",
+    },
+]
+AGENT_REVIEW_ARTIFACT_LINKS = [
+    {
+        "name": "agent_review_input",
+        "filename": "agent_review_input.json",
+        "href": "/artifacts/agent_review_input.json",
+    },
+    {
+        "name": "pattern_finder_plan",
+        "filename": "pattern_finder_plan.json",
+        "href": "/artifacts/pattern_finder_plan.json",
+    },
+    {
+        "name": "pattern_finder_results",
+        "filename": "pattern_finder_results.json",
+        "href": "/artifacts/pattern_finder_results.json",
+    },
+    {
+        "name": "dataset_planner_results",
+        "filename": "dataset_planner_results.json",
+        "href": "/artifacts/dataset_planner_results.json",
+    },
+]
+TRAILING_ARTIFACT_LINKS = [
+    {
+        "name": "audit_manifest",
+        "filename": "audit_manifest.json",
+        "href": "/artifacts/audit_manifest.json",
+    },
+    {
+        "name": "release_report",
+        "filename": HTML_ARTIFACT_FILENAME,
+        "href": f"/artifacts/{HTML_ARTIFACT_FILENAME}",
+        "label": "Download HTML report",
+        "kind": "html",
+    },
+]
 ARTIFACT_FILENAMES = CORE_ARTIFACT_FILENAMES | {
     "agent_profile.json",
     "eval_suite.json",
@@ -40,7 +114,6 @@ ARTIFACT_FILENAMES = CORE_ARTIFACT_FILENAMES | {
     "control_verification_results.json",
     *AGENT_REVIEW_ARTIFACT_FILENAMES,
 }
-HTML_ARTIFACT_FILENAME = "release_report.html"
 REMEDIATION_VISIBLE_LIMIT = 4
 SERVABLE_ARTIFACT_FILENAMES = ARTIFACT_FILENAMES | {HTML_ARTIFACT_FILENAME}
 
@@ -124,78 +197,12 @@ def latest_artifacts_exist(output_dir: Path) -> bool:
 
 
 def artifact_links(available_artifact_names: set[str] | None = None) -> list[dict[str, str]]:
-    links = [
-        {
-            "name": "release_decision",
-            "filename": "release_decision.json",
-            "href": "/artifacts/release_decision.json",
-        },
-        {
-            "name": "metrics_summary",
-            "filename": "metrics_summary.json",
-            "href": "/artifacts/metrics_summary.json",
-        },
-        {
-            "name": "dangerous_sessions",
-            "filename": "dangerous_sessions.json",
-            "href": "/artifacts/dangerous_sessions.json",
-        },
-        {
-            "name": "regression_gates",
-            "filename": "regression_gates.json",
-            "href": "/artifacts/regression_gates.json",
-        },
-        {
-            "name": "control_verification_results",
-            "filename": "control_verification_results.json",
-            "href": "/artifacts/control_verification_results.json",
-        },
-        {
-            "name": "agent_profile",
-            "filename": "agent_profile.json",
-            "href": "/artifacts/agent_profile.json",
-        },
-        {
-            "name": "eval_suite",
-            "filename": "eval_suite.json",
-            "href": "/artifacts/eval_suite.json",
-        },
-        {
-            "name": "audit_manifest",
-            "filename": "audit_manifest.json",
-            "href": "/artifacts/audit_manifest.json",
-        },
-        {
-            "name": "release_report",
-            "filename": HTML_ARTIFACT_FILENAME,
-            "href": f"/artifacts/{HTML_ARTIFACT_FILENAME}",
-            "label": "Download HTML report",
-            "kind": "html",
-        },
-    ]
-    if available_artifact_names and AGENT_REVIEW_ARTIFACT_FILENAMES.issubset(available_artifact_names):
-        links[8:8] = [
-            {
-                "name": "agent_review_input",
-                "filename": "agent_review_input.json",
-                "href": "/artifacts/agent_review_input.json",
-            },
-            {
-                "name": "pattern_finder_plan",
-                "filename": "pattern_finder_plan.json",
-                "href": "/artifacts/pattern_finder_plan.json",
-            },
-            {
-                "name": "pattern_finder_results",
-                "filename": "pattern_finder_results.json",
-                "href": "/artifacts/pattern_finder_results.json",
-            },
-            {
-                "name": "dataset_planner_results",
-                "filename": "dataset_planner_results.json",
-                "href": "/artifacts/dataset_planner_results.json",
-            },
-        ]
+    links = [*BASE_ARTIFACT_LINKS]
+    if available_artifact_names and AGENT_REVIEW_ARTIFACT_FILENAMES.issubset(
+        available_artifact_names
+    ):
+        links.extend(AGENT_REVIEW_ARTIFACT_LINKS)
+    links.extend(TRAILING_ARTIFACT_LINKS)
     return [{**link, **ARTIFACT_PURPOSES.get(link["filename"], {})} for link in links]
 
 
@@ -529,6 +536,9 @@ def _agent_review_section(
             if pattern_finder_results
             else "Pattern Finder did not return findings.",
             "focus_areas": pattern_finder_plan.get("focus_areas", []) if pattern_finder_plan else [],
+            "failure_patterns": pattern_finder_results.get("failure_patterns", [])
+            if pattern_finder_results
+            else [],
         },
         "dataset_planner": {
             "status": dataset_planner_results.get("status", "unknown")

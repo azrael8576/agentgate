@@ -257,6 +257,13 @@
       </div>
       <h3>{{ agent_review.pattern_finder.status | replace("_", " ") | title }}</h3>
       <p class="gate-reason">{{ agent_review.pattern_finder.summary }}</p>
+      {% if agent_review.pattern_finder.failure_patterns %}
+        {% for pattern in agent_review.pattern_finder.failure_patterns %}
+          <p class="gate-reason"><strong>{{ pattern.title }}</strong></p>
+          <p class="section-note">{{ pattern.problem_summary }}</p>
+          <p class="section-note">{{ pattern.policy_runtime_mismatch }}</p>
+        {% endfor %}
+      {% endif %}
     </article>
     <article class="gate-blocker-card">
       <div class="gate-blocker-head">

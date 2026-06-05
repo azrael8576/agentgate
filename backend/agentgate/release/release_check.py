@@ -7,6 +7,7 @@ from backend.agentgate.evals.coverage_report import build_coverage_report
 from backend.agentgate.evals.phoenix_client_config import load_phoenix_client
 from backend.agentgate.evals.phoenix_eval_runner import run_phoenix_eval_job
 from backend.agentgate.release.artifact_writer import write_release_artifacts
+from backend.agentgate.release.agentic_review import build_agent_review_artifacts
 from backend.agentgate.release.audit_session_report import build_audit_session_report
 from backend.agentgate.release.dangerous_evidence_classifier import (
     prioritize_trace_ids_for_pull,
@@ -315,6 +316,26 @@ def run_release_check_from_records(
         control_verification,
         release_decision=decision["decision"],
     )
+    agent_review_artifacts = None
+    if agentic_review_enabled:
+        agent_review_artifacts = build_agent_review_artifacts(
+            base={
+                "schema_version": "day4.metrics.v1",
+                "agent_id": identity["agent_id"],
+                "agent_version": identity["agent_version"],
+            },
+            records=records,
+            evidence_source={**evidence_source, "coverage": coverage},
+            dangerous_sessions=dangerous_sessions,
+        )
+    agentic_review_status = (
+        {
+            "enabled": True,
+            "status": agent_review_artifacts["agent_review_input"]["agent_review"]["status"],
+        }
+        if agent_review_artifacts is not None
+        else _agentic_review_status(False)
+    )
 
     artifact_paths = write_release_artifacts(
         output_dir=output_dir,
@@ -328,6 +349,8 @@ def run_release_check_from_records(
         release_config=config,
         control_verification=control_verification,
         agentic_review_enabled=agentic_review_enabled,
+        agent_review_artifacts=agent_review_artifacts,
+        agentic_review_status=agentic_review_status,
     )
     html_path = export_release_report_html(output_dir)
     artifact_paths["release_report"] = str(html_path)
@@ -344,10 +367,7 @@ def run_release_check_from_records(
         "diagnosis_metadata": diagnosis_metadata,
         "coverage": coverage,
         "future_verification": decision.get("future_verification"),
-        "agentic_review": {
-            "enabled": agentic_review_enabled,
-            "status": "no_action" if agentic_review_enabled else "disabled",
-        },
+        "agentic_review": agentic_review_status,
     }
 
 
@@ -374,3 +394,10 @@ def _resolution_source_for_controls_ref(
     if release_controls_ref is None:
         return None
     return "cli_argument"
+
+
+def _agentic_review_status(enabled: bool) -> dict[str, Any]:
+    return {
+        "enabled": enabled,
+        "status": "no_action" if enabled else "disabled",
+    }

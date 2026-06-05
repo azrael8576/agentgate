@@ -615,13 +615,12 @@ def test_report_context_includes_no_action_agent_review_sections(tmp_path: Path)
     context = build_report_context(latest_dir)
 
     assert context["agent_review"]["enabled"] is True
-    assert context["agent_review"]["pattern_finder"]["status"] == "no_action"
+    assert context["agent_review"]["pattern_finder"]["status"] == "patterns_found"
+    assert context["agent_review"]["pattern_finder"]["failure_patterns"]
     assert context["agent_review"]["dataset_planner"]["status"] == "no_action"
 
 
-def test_report_renders_no_action_agent_review_sections(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypatch: Any) -> None:
     latest_dir = tmp_path / "latest"
     run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
     monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(latest_dir))
@@ -633,7 +632,7 @@ def test_report_renders_no_action_agent_review_sections(
     assert "Agent review" in response.text
     assert "Pattern Finder" in response.text
     assert "Dataset Planner" in response.text
-    assert "No action from agent review" in response.text
+    assert "Unauthorized dangerous tool execution" in response.text
     assert "The release gate still decides APPROVED or BLOCKED." in response.text
 
 
