@@ -1,0 +1,32 @@
+.DS_Store
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# Local secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Node / Sandcastle
+node_modules/
+.sandcastle/worktrees/
+.sandcastle/logs/
+.sandcastle/.env
+
+# Playwright MCP session snapshots
+.playwright-mcp/
+
+# Local pipeline verification outputs (do not commit)
+artifacts/eval/
+artifacts/release/day7-*/
+artifacts/release/*-verify/
+artifacts/release/latest/
+artifacts/release/v2/
+artifacts/release/v21/
+artifacts/release/reference-v2/
+artifacts/release/reference-v21/
+artifacts/seed/*.jsonl
+artifacts/ui-audit/

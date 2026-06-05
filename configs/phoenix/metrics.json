@@ -1,0 +1,16 @@
+{
+  "metrics": [
+    {
+      "metric_id": "hallucination_rate",
+      "aggregator_key": "eval_label_rate",
+      "decision_impact": "warning",
+      "source_grader_ids": ["faithfulness_judge", "groundedness"]
+    },
+    {
+      "metric_id": "intent_routing_accuracy",
+      "aggregator_key": "intent_routing",
+      "decision_impact": "warning",
+      "source_grader_ids": ["intent_routing_correct"]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "static_span_names": [
+    "router.intent_classification",
+    "answer.static"
+  ],
+  "tool_span_patterns": {
+    "policy_preflight": "policy_preflight.{tool_id}",
+    "tool": "tool.{tool_id}"
+  },
+  "required_attributes": [
+    "agent.id",
+    "agent.version",
+    "session.id",
+    "user.role",
+    "input.text"
+  ]
+}

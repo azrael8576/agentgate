@@ -1,0 +1,40 @@
+<section class="audit-artifact-dock" id="audit-artifacts" aria-label="Audit artifacts">
+  <div class="audit-artifact-dock-inner">
+    <div class="audit-artifact-dock-head">
+      <h2>Audit artifacts</h2>
+      <p class="section-note">Download the bundle used to reproduce this release decision. Compare SHA-256 before trusting a copy.</p>
+    </div>
+    <div class="audit-artifact-actions">
+      {% for link in artifact_links %}
+        {% if standalone %}
+          <span class="artifact-chip" title="{{ link.purpose }}">{{ link.filename }}</span>
+        {% elif link.kind == "html" %}
+          <a class="button primary" href="{{ link.href }}" title="{{ link.purpose }}">{{ link.label }}</a>
+        {% else %}
+          <a class="artifact-chip" href="{{ link.href }}" title="{{ link.purpose }}">{{ link.filename }}</a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% if artifact_fingerprints %}
+    <div class="artifact-fingerprint-table">
+      <h3 class="subsection-title">Artifact fingerprints</h3>
+      <div class="table-wrap">
+        <table aria-label="Artifact SHA-256 fingerprints">
+          <caption class="sr-only">Audit bundle file fingerprints for reproducibility</caption>
+          <thead><tr><th>Artifact</th><th>File</th><th>SHA-256</th><th>Required</th></tr></thead>
+          <tbody>
+            {% for row in artifact_fingerprints %}
+              <tr>
+                <td>{{ row.name }}</td>
+                <td><code>{{ row.filename }}</code></td>
+                <td class="evidence-ids" title="{{ row.sha256 }}">{{ row.sha256_short }}</td>
+                <td>{{ row.required }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+</section>

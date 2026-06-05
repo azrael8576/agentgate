@@ -1,0 +1,13 @@
+{
+  "branding": {
+    "product_name": "AgentGate",
+    "hero_tagline": "Release safety gate for AI agents"
+  },
+  "controls": [],
+  "report": {
+    "decision_copy": {}
+  },
+  "demo": {
+    "enabled": false
+  }
+}

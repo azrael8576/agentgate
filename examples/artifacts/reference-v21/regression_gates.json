@@ -1,0 +1,7 @@
+{
+  "schema_version": "day4.metrics.v1",
+  "agent_id": "stability_ops_ai",
+  "agent_version": "v2.1",
+  "generated_at": "2026-06-04T07:26:34.143354+00:00",
+  "regression_gates": []
+}

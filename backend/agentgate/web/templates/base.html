@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}AgentGate{% endblock %}</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/static/dashboard.css">
+  </head>
+  <body class="{% block body_class %}{% endblock %}">
+    <header class="topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        AgentGate
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+      <nav id="site-nav">
+        <a href="/"{% if active_nav == "overview" %} class="is-active"{% endif %}>Overview</a>
+        <a href="/run"{% if active_nav == "run" %} class="is-active"{% endif %}>Run check</a>
+        <a href="/reports/latest"{% if active_nav == "report" %} class="is-active"{% endif %}>Latest Report</a>
+        <a href="/api/agentgate/runs/latest">API</a>
+      </nav>
+    </header>
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+    <script>
+      (function () {
+        const toggle = document.querySelector(".nav-toggle");
+        const nav = document.getElementById("site-nav");
+        if (!toggle || !nav) return;
+        toggle.addEventListener("click", () => {
+          const open = nav.classList.toggle("is-open");
+          toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+        document.addEventListener("click", (event) => {
+          if (!nav.classList.contains("is-open") || event.target.closest(".topbar")) return;
+          nav.classList.remove("is-open");
+          toggle.setAttribute("aria-expanded", "false");
+        });
+      })();
+    </script>
+  </body>
+</html>

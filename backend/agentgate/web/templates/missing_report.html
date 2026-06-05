@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}No Latest Report{% endblock %}
+{% block content %}
+<section class="page-head empty-state">
+  <p class="eyebrow">Report unavailable</p>
+  <h1>No candidate report yet.</h1>
+  <p class="lede">Run a release check to collect evidence, apply the release policy, and write the report artifacts under <code>{{ settings.latest_artifact_dir }}</code>.</p>
+  <div class="actions">
+    <a class="button primary" href="/run">Run release check</a>
+  </div>
+</section>
+{% endblock %}

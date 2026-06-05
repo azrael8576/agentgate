@@ -1,0 +1,65 @@
+name: Release Gate Demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_version:
+        description: Agent version to gate (Stability Ops reference)
+        required: true
+        default: v2
+        type: choice
+        options:
+          - v2
+          - v2.1
+      block_cd:
+        description: Fail the pipeline when decision is BLOCKED
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Map candidate version to seed evidence
+        id: evidence
+        run: |
+          case "${{ inputs.candidate_version }}" in
+            v2) echo "path=configs/agents/stability_ops/seed/v2_evidence.jsonl" >> "$GITHUB_OUTPUT" ;;
+            v2.1) echo "path=configs/agents/stability_ops/seed/v21_evidence.jsonl" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unsupported candidate version: ${{ inputs.candidate_version }}" >&2; exit 1 ;;
+          esac
+
+      - name: Run AgentGate release check
+        run: |
+          uv run agentgate release check --source local \
+            --evidence "${{ steps.evidence.outputs.path }}" \
+            --output-dir "artifacts/release/${{ inputs.candidate_version }}" \
+            --diagnosis-mode deterministic \
+            --agent-pack configs/agents/stability_ops \
+            $([ "${{ inputs.block_cd }}" = "true" ] && echo "--fail-on-block")
+
+      - name: Upload release audit bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-audit-${{ inputs.candidate_version }}
+          path: artifacts/release/${{ inputs.candidate_version }}/
+
+  deploy-stability-ops:
+    needs: release-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy candidate (demo stub)
+        run: |
+          echo "Would deploy Stability Ops AI ${{ inputs.candidate_version }} to production"
+          echo "This job only runs when AgentGate release gate APPROVED"

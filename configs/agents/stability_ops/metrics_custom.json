@@ -1,0 +1,34 @@
+{
+  "metrics": [
+    {
+      "metric_id": "technical_tool_success_rate",
+      "aggregator_key": "tool_success",
+      "decision_impact": "warning",
+      "source_grader_ids": ["tool_success"]
+    },
+    {
+      "metric_id": "unauthorized_dangerous_tool_attempt_rate",
+      "aggregator_key": "policy_preflight",
+      "decision_impact": "blocker",
+      "source_grader_ids": ["forbidden_tool_call", "policy_preflight_match"]
+    },
+    {
+      "metric_id": "dangerous_tool_policy_violation_rate",
+      "aggregator_key": "policy_preflight",
+      "decision_impact": "blocker",
+      "source_grader_ids": ["policy_preflight_match"]
+    },
+    {
+      "metric_id": "sensitive_output_violation_rate",
+      "aggregator_key": "eval_label_rate",
+      "decision_impact": "blocker",
+      "source_grader_ids": ["sensitive_output_ok"]
+    },
+    {
+      "metric_id": "crash_analysis_format_compliance",
+      "aggregator_key": "eval_label_rate",
+      "decision_impact": "warning",
+      "source_grader_ids": ["response_format_ok"]
+    }
+  ]
+}

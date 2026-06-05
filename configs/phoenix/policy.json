@@ -1,0 +1,6 @@
+{
+  "decision_thresholds": {
+    "intent_routing_accuracy_min": 0.92,
+    "hallucination_rate_max": 0.08
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": "day4.metrics.v1",
+  "agent_id": "stability_ops_ai",
+  "agent_version": "v2",
+  "generated_at": "2026-06-04T07:26:32.694389+00:00",
+  "product_surface": "release_authority",
+  "evaluation_mode": "controlled",
+  "sample_tier": "demo",
+  "decision_reproducible_without_llm_rerun": true,
+  "llm_rerun_required": false,
+  "phoenix_required_for_offline_decision": false,
+  "decision_inputs": [
+    "metrics_summary",
+    "dangerous_sessions",
+    "regression_gates",
+    "control_verification_results",
+    "release_decision",
+    "agent_profile",
+    "eval_suite"
+  ],
+  "reproducibility_recipe": [
+    "Read release_decision.json for policy version, gate_binding, decision reasons, and future_verification.",
+    "Read metrics_summary.json for controlled metric values, thresholds, and provenance.",
+    "Read eval_suite.json for declared required_metrics; compare with release_decision.gate_binding.",
+    "Read dangerous_sessions.json for blocker evidence IDs.",
+    "Read regression_gates.json for generated release controls.",
+    "Read control_verification_results.json for inherited release-control PASS/FAIL rows.",
+    "Recompute BLOCKED/APPROVED from gate-bound runtime metrics and inherited blocker controls; do not rerun Gemini."
+  ],
+  "artifacts": {
+    "metrics_summary": {
+      "path": "artifacts/release/reference-v2/metrics_summary.json",
+      "required_for_offline_audit": true,
+      "sha256": "16632d3ffc9cf0c7511cabf60e8460a14799b24d1c06ad16801123cadb188d64"
+    },
+    "dangerous_sessions": {
+      "path": "artifacts/release/reference-v2/dangerous_sessions.json",
+      "required_for_offline_audit": true,
+      "sha256": "cd238aabea7461252d91bca89183b652635891311c6f08ff2d54f5df6c1fcdb4"
+    },
+    "regression_gates": {
+      "path": "artifacts/release/reference-v2/regression_gates.json",
+      "required_for_offline_audit": true,
+      "sha256": "f7887e658691f7548ec845f6eaf8e2e792175b7681018fd30f9eec0608bd6264"
+    },
+    "release_decision": {
+      "path": "artifacts/release/reference-v2/release_decision.json",
+      "required_for_offline_audit": true,
+      "sha256": "6b9bdee3950f008295b4580c9e01604a729e64bed51caa060c5905515ca6c6b4"
+    },
+    "control_verification_results": {
+      "path": "artifacts/release/reference-v2/control_verification_results.json",
+      "required_for_offline_audit": true,
+      "sha256": "7b47b0cb41d7ba5bab33bb83473cf16d41347f9584fc6e54026db8b92091551b"
+    },
+    "agent_profile": {
+      "path": "artifacts/release/reference-v2/agent_profile.json",
+      "required_for_offline_audit": false,
+      "sha256": "c62094546aef649170839a993997e21fd95417ab138f40852ad89afa70e7b8c9"
+    },
+    "eval_suite": {
+      "path": "artifacts/release/reference-v2/eval_suite.json",
+      "required_for_offline_audit": false,
+      "sha256": "2d6db894a8fec35cef349898acc0da698e00c5e3da638b6614d75769c66357cc"
+    },
+    "release_report": {
+      "path": "artifacts/release/reference-v2/release_report.html",
+      "required_for_offline_audit": false,
+      "sha256": "632ba9d717fd06a8f8790ca726c6b9d70a8fbdaf83b7736f057083c1dc1a0a75"
+    }
+  },
+  "certified_reference": {
+    "agent_id": "stability_ops_ai",
+    "profile_included": true,
+    "eval_suite_included": true
+  }
+}

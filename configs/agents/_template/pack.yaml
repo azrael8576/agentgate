@@ -1,0 +1,19 @@
+agent_id: my_agent
+display_name: My Agent
+is_default: false
+
+phoenix_base: ../../phoenix
+
+files:
+  profile: profile.json
+  metrics_custom: metrics_custom.json
+  policy_custom: policy_custom.json
+  suite: suite.json
+  span_contract: span_contract.json
+  report: report_config.json
+  evals: evaluator_specs.json
+
+demo:
+  enabled: false
+  candidate_versions: []
+  seed: {}

@@ -1,0 +1,129 @@
+name: AgentGate release gate
+description: Run agentgate release check and upload the audit bundle (for external agent repos).
+
+inputs:
+  agentgate-ref:
+    description: Git ref of the AgentGate repository to checkout
+    required: false
+    default: main
+  agentgate-repository:
+    description: AgentGate repository (owner/name). Defaults to the repo containing this action.
+    required: false
+    default: ${{ github.repository }}
+  candidate-version:
+    description: Agent version label (e.g. v2.1). Used for output paths and Phoenix filter.
+    required: true
+  source:
+    description: Evidence source — local or phoenix
+    required: false
+    default: phoenix
+  evidence-path:
+    description: Path to local JSONL evidence when source=local
+    required: false
+    default: ""
+  agent-pack:
+    description: AgentPack directory relative to AgentGate repo root
+    required: false
+    default: configs/agents/stability_ops
+  output-dir:
+    description: Directory for release artifacts relative to the workspace root
+    required: false
+    default: artifacts/release
+  block-cd:
+    description: Pass --fail-on-block to exit 1 when decision is BLOCKED
+    required: false
+    default: "true"
+  diagnosis-mode:
+    description: deterministic or gemini
+    required: false
+    default: deterministic
+  artifact-name:
+    description: Name for the uploaded GitHub artifact
+    required: false
+    default: release-audit
+  phoenix-project-name:
+    description: Phoenix project identifier (phoenix source)
+    required: false
+    default: ""
+  phoenix-api-key:
+    description: Phoenix API key (phoenix source). Prefer repository secrets.
+    required: false
+    default: ""
+
+outputs:
+  decision:
+    description: APPROVED or BLOCKED from release_decision.json
+    value: ${{ steps.read-decision.outputs.decision }}
+  output-dir:
+    description: Resolved output directory for the audit bundle
+    value: ${{ steps.paths.outputs.output_dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout AgentGate
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.agentgate-repository }}
+        ref: ${{ inputs.agentgate-ref }}
+        path: agentgate
+
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+
+    - name: Install AgentGate
+      shell: bash
+      working-directory: agentgate
+      run: uv sync --frozen
+
+    - name: Resolve output directory
+      id: paths
+      shell: bash
+      run: |
+        out="${{ inputs.output-dir }}/${{ inputs.candidate-version }}"
+        echo "output_dir=$out" >> "$GITHUB_OUTPUT"
+
+    - name: Run release check
+      shell: bash
+      working-directory: agentgate
+      env:
+        PHOENIX_API_KEY: ${{ inputs.phoenix-api-key }}
+        PHOENIX_PROJECT_NAME: ${{ inputs.phoenix-project-name }}
+      run: |
+        set -euo pipefail
+        args=(
+          release check
+          --source "${{ inputs.source }}"
+          --output-dir "../${{ steps.paths.outputs.output_dir }}"
+          --diagnosis-mode "${{ inputs.diagnosis-mode }}"
+          --agent-pack "${{ inputs.agent-pack }}"
+        )
+        if [ "${{ inputs.source }}" = "local" ]; then
+          if [ -z "${{ inputs.evidence-path }}" ]; then
+            echo "evidence-path is required when source=local" >&2
+            exit 1
+          fi
+          args+=(--evidence "${{ inputs.evidence-path }}")
+        else
+          args+=(--agent-version "${{ inputs.candidate-version }}")
+        fi
+        if [ "${{ inputs.block-cd }}" = "true" ]; then
+          args+=(--fail-on-block)
+        fi
+        uv run agentgate "${args[@]}"
+
+    - name: Read decision
+      id: read-decision
+      shell: bash
+      run: |
+        decision=$(jq -r .decision "${{ steps.paths.outputs.output_dir }}/release_decision.json")
+        echo "decision=$decision" >> "$GITHUB_OUTPUT"
+
+    - name: Upload audit bundle
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}-${{ inputs.candidate-version }}
+        path: ${{ steps.paths.outputs.output_dir }}/

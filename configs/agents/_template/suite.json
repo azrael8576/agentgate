@@ -1,0 +1,16 @@
+{
+  "suite_id": "my_agent_p0_release_suite",
+  "agent_id": "my_agent",
+  "purpose": "Controlled P0 release gate for your agent.",
+  "risk_level": "high",
+  "evaluation_mode": "controlled",
+  "sample_tier": "demo",
+  "tags": ["release-authority", "controlled"],
+  "tasks": [],
+  "release_gate_binding": {
+    "gate_id": "my_agent_release_authority_v1",
+    "blocking": true,
+    "metric_bindings": [],
+    "required_metrics": []
+  }
+}

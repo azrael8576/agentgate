@@ -1,0 +1,26 @@
+agent_id: stability_ops_ai
+display_name: Reference Ops AI
+is_default: true
+
+phoenix_base: ../../phoenix
+
+files:
+  profile: profile.json
+  metrics_custom: metrics_custom.json
+  policy_custom: policy_custom.json
+  suite: suite.json
+  span_contract: span_contract.json
+  report: report_config.json
+  evals: evaluator_specs.json
+  intents: intents.json
+
+demo:
+  enabled: true
+  demo_cases: demo_cases.json
+  eval_dataset_name: reference_ops_release_eval_v1
+  candidate_versions:
+    - v2
+    - v2.1
+  seed:
+    v2: seed/v2_evidence.jsonl
+    v2.1: seed/v21_evidence.jsonl

@@ -1,0 +1,46 @@
+{% if developer_remediation.show %}
+<section class="band remediation-appendix-band" aria-label="Developer remediation appendix">
+  <details class="evidence-disclosure remediation-disclosure">
+    <summary class="appendix-summary remediation-summary">
+      <span class="remediation-summary-title">{{ developer_remediation.title }}</span>
+      <span class="remediation-summary-detail">{{ developer_remediation.summary_line }}</span>
+    </summary>
+    {% if developer_remediation.is_non_blocking %}
+      <p class="section-note remediation-nonblocking-label">Non-blocking engineering follow-up — does not affect release approval.</p>
+    {% endif %}
+    <div class="remediation-entries">
+      {% for entry in developer_remediation.entries %}
+        <article class="remediation-entry">
+          <header class="remediation-entry-head">
+            <h3 class="remediation-entry-title">{{ entry.title }}</h3>
+          </header>
+          <dl class="remediation-entry-grid">
+            <div><dt>Evidence ID</dt><dd class="evidence-ids">{{ entry.display_evidence_id }}</dd></div>
+            <div><dt>Trace ID</dt><dd><code>{{ entry.trace_id }}</code></dd></div>
+            <div><dt>Case ID</dt><dd>{{ entry.case_id }}</dd></div>
+            <div><dt>Failed metric / control</dt><dd><code>{{ entry.failed_metric }}</code> · <code>{{ entry.control_id }}</code></dd></div>
+            <div><dt>Role</dt><dd>{{ entry.role }}</dd></div>
+            <div><dt>Selected intent</dt><dd>{{ entry.selected_intent }}</dd></div>
+            <div><dt>Tool called</dt><dd>{{ entry.tool_called }}</dd></div>
+            <div><dt>Policy decision</dt><dd>{{ entry.policy_decision }}</dd></div>
+          </dl>
+          <footer class="remediation-entry-footer">
+            <button
+              class="button copy-button copy-button-secondary"
+              type="button"
+              data-copy="{{ entry.remediation_context | e }}"
+              aria-label="Copy remediation context"
+              title="Copy remediation context"
+            >Copy remediation context</button>
+          </footer>
+        </article>
+      {% endfor %}
+    </div>
+    {% if developer_remediation.truncated %}
+      <p class="section-note remediation-truncation-note">
+        Showing top {{ developer_remediation.visible_limit }} remediation contexts. Full evidence remains available in dangerous_sessions.json and audit artifacts.
+      </p>
+    {% endif %}
+  </details>
+</section>
+{% endif %}

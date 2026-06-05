@@ -1,0 +1,49 @@
+[project]
+name = "agentgate"
+version = "0.1.0"
+description = "Release authority for AI agents — Phoenix evidence, policy gates, auditable artifacts"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "arize-phoenix-client>=1.0.0",
+    "arize-phoenix-evals>=2.0.0",
+    "arize-phoenix-otel>=0.16.1",
+    "fastapi>=0.115.0",
+    "google-adk>=1.0.0",
+    "google-genai>=1.0.0",
+    "jinja2>=3.1.0",
+    "opentelemetry-exporter-otlp>=1.42.1",
+    "opentelemetry-sdk>=1.42.1",
+    "pandas>=2.0.0",
+    "pydantic>=2.8.0",
+    "pyyaml>=6.0.0",
+    "python-dotenv>=1.0.0",
+    "typer>=0.12.0",
+    "uvicorn>=0.30.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/azrael8576/agentgate#readme"
+Repository = "https://github.com/azrael8576/agentgate"
+Issues = "https://github.com/azrael8576/agentgate/issues"
+
+[project.scripts]
+agentgate = "backend.agentgate.cli:app"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27.0",
+    "pytest>=8.3.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ release_decision.agent_version }} AgentGate Report</title>
+    <link rel="icon" href="data:,">
+    <!-- agentgate:embedded-css -->
+  </head>
+  <body class="report-page">
+    <main>
+      {% include "release_report_content.html" %}
+      {% with standalone=true %}
+      {% include "release_report_artifacts.html" %}
+      {% endwith %}
+      {% include "release_report_remediation.html" %}
+    </main>
+  </body>
+</html>

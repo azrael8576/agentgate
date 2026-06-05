@@ -1,0 +1,33 @@
+{
+  "name": "agentgate",
+  "version": "1.0.0",
+  "description": "AgentGate blocks unsafe AI agent versions before production.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "sandcastle": "npx tsx .sandcastle/main.mts",
+    "sandcastle:docker": "SANDCASTLE_USE_DOCKER=true npx tsx .sandcastle/main.mts",
+    "sandcastle:build-image": "npx @ai-hero/sandcastle docker build-image"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/azrael8576/agentgate.git"
+  },
+  "keywords": [],
+  "author": "HE,XUAN-WEI",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/azrael8576/agentgate/issues"
+  },
+  "homepage": "https://github.com/azrael8576/agentgate#readme",
+  "devDependencies": {
+    "@ai-hero/sandcastle": "^0.7.0",
+    "tsx": "^4.22.4",
+    "zod": "^4.4.3"
+  }
+}

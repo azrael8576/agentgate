@@ -1,0 +1,13 @@
+{
+  "policy_id": "my_agent_release_policy_v1",
+  "policy_version": "1.0.0",
+  "agent_id": "my_agent",
+  "dangerous_tools": [],
+  "decision_thresholds": {},
+  "role_policy": {},
+  "dangerous_tool_policy": {
+    "require_preflight_span": true,
+    "require_user_role_check": true
+  },
+  "response_policy": {}
+}

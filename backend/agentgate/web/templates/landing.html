@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}AgentGate Overview{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Release authority · Phoenix evidence path</p>
+    <h1>Block unsafe AI agent releases before production.</h1>
+    <p class="lede">AgentGate reads candidate execution evidence, applies AgentPack policy, computes gate-bound metrics, and writes deterministic BLOCK/APPROVE decisions.</p>
+    <div class="hero-contrast" aria-label="AgentGate and Phoenix responsibilities">
+      <article>
+        <span>Phoenix</span>
+        <strong>Evidence backend</strong>
+        <p>Traces, spans, eval labels, annotations, and what happened.</p>
+      </article>
+      <article>
+        <span>AgentGate</span>
+        <strong>Release authority</strong>
+        <p>AgentPack thresholds, company-specific metrics, audit artifacts, and ship/no-ship.</p>
+      </article>
+    </div>
+    <div class="actions">
+      <a class="button primary" href="/run">Run release check</a>
+      <a class="button" href="/reports/latest">Open latest report</a>
+    </div>
+    <nav class="page-jumps" aria-label="On this page">
+      {% if landing_story.improvement_loop %}<a href="#reference-demo">{{ landing_story.reference_demo_nav_label or landing_story.reference_demo_section_title }}</a>{% endif %}
+      <a href="#how-it-works">How it works</a>
+      <a href="#stack">Stack</a>
+    </nav>
+  </div>
+  {% if landing_story.featured_intervention %}
+  <aside class="proof-stack" aria-label="Release intervention proof">
+    <div class="proof-intro">
+      <span class="summary-label">Featured release intervention</span>
+      <h2>AgentGate stopped a dangerous AI agent release.</h2>
+    </div>
+
+    <article class="summary-panel proof-card proof-card-blocked">
+      <header class="summary-card-head">
+        <div class="summary-candidate">
+          <span class="summary-label">Reference blocked candidate</span>
+          <p class="summary-agent-name">{{ landing_story.agent_display_name }}</p>
+          <p class="summary-agent-version"><span class="version-label">Candidate version</span> <span class="version-value">{{ landing_story.featured_intervention.version }}</span></p>
+        </div>
+        <span class="status summary-status {{ landing_story.featured_intervention.decision | lower }}">{{ landing_story.featured_intervention.decision }}</span>
+      </header>
+      <p class="proof-note">{{ landing_story.featured_intervention.risk_summary }}</p>
+      <p class="proof-note">{{ landing_story.featured_intervention.path_summary }}</p>
+      <p class="proof-note">{{ landing_story.featured_intervention.intervention_note }}</p>
+      <div class="kpi-row proof-kpis" aria-label="Metrics for blocked reference candidate {{ landing_story.featured_intervention.version }}">
+        <div><span class="stat-value">{{ landing_story.featured_intervention.regression_gate_count }}</span><span class="stat-label">Generated release controls</span></div>
+        <div><span class="stat-value">{{ landing_story.featured_intervention.dangerous_trace_count }}</span><span class="stat-label">Dangerous traces</span></div>
+      </div>
+    </article>
+
+    {% if landing_story.secondary_proof %}
+    <article class="summary-panel proof-card proof-card-approved">
+      <header class="summary-card-head">
+        <div class="summary-candidate">
+          <span class="summary-label">Loop-closing follow-up</span>
+          <p class="summary-agent-version"><span class="version-label">Candidate version</span> <span class="version-value">{{ landing_story.secondary_proof.version }}</span></p>
+        </div>
+        <span class="status summary-status {{ landing_story.secondary_proof.decision | lower }}">{{ landing_story.secondary_proof.decision }}</span>
+      </header>
+      <div class="judgement-block judgement-block-compact">
+        <span class="judgement-label">Release outcome</span>
+        <strong>{{ landing_story.secondary_proof.verdict_note }}</strong>
+      </div>
+      {% if landing_story.secondary_proof.blocker_summary %}
+      <p class="proof-note">{{ landing_story.secondary_proof.blocker_summary }}</p>
+      {% endif %}
+      {% if landing_story.secondary_proof.warning_summary %}
+      <p class="proof-note">{{ landing_story.secondary_proof.warning_summary }}</p>
+      {% endif %}
+    </article>
+    {% endif %}
+
+  </aside>
+  {% else %}
+  <aside class="summary-panel summary-judgement" aria-label="Latest candidate decision">
+    {% if latest %}
+      <header class="summary-card-head">
+        <div class="summary-candidate">
+          <span class="summary-label">Candidate under review</span>
+          <p class="summary-agent-name">{{ latest.agent_display_name or landing_story.agent_display_name or latest.agent_id }}</p>
+          <p class="summary-agent-version"><span class="version-label">Candidate version</span> <span class="version-value">{{ latest.agent_version }}</span></p>
+        </div>
+        <span class="status summary-status {{ latest.decision | lower }}">{{ latest.decision }}</span>
+      </header>
+      <p class="summary-note">Run a release check to produce a decision and release report.</p>
+    {% else %}
+      <header class="summary-card-head">
+        <div class="summary-candidate">
+          <span class="summary-label">Candidate under review</span>
+          <p class="summary-agent-name">No candidate yet</p>
+        </div>
+        <span class="status summary-status unknown">No report</span>
+      </header>
+      <p class="summary-note">Run a release check to produce a decision and release report.</p>
+    {% endif %}
+  </aside>
+  {% endif %}
+</section>
+
+{% if landing_story.improvement_loop %}
+  <section class="section" id="reference-demo">
+    <div class="section-head">
+      <h2>{{ landing_story.reference_demo_section_title }}{% if landing_story.agent_display_name %}: {{ landing_story.agent_display_name }}{% endif %}</h2>
+      <p class="section-note">{{ landing_story.reference_demo_section_note }}</p>
+    </div>
+    <div class="compare-bar">
+      <article class="compare-card blocked">
+        <span class="loop-version">{{ landing_story.improvement_loop.blocked_version }}</span>
+        <span class="stat-value">{{ landing_story.improvement_loop.blocked_decision }}</span>
+        <p>{{ landing_story.improvement_loop.blocked_summary }}</p>
+      </article>
+      <div class="compare-mid">
+        <span class="stat-value">{{ landing_story.improvement_loop.regression_gate_count }}</span>
+        <span class="stat-label">Release controls generated</span>
+      </div>
+      <article class="compare-card approved">
+        <span class="loop-version">{{ landing_story.improvement_loop.approved_version }}</span>
+        <span class="stat-value">{{ landing_story.improvement_loop.approved_decision }}</span>
+        <p>{{ landing_story.improvement_loop.approved_summary }}</p>
+      </article>
+    </div>
+    {% if landing_story.blocked_cards %}
+    <details class="blocked-cards-collapsible">
+      <summary>View blocker evidence detail</summary>
+      <div class="blocked-card-grid" aria-label="Top blocker findings from reference workflow">
+      {% for card in landing_story.blocked_cards %}
+      <article class="blocked-card">
+        <header>
+          <span class="gate-id">{{ card.gate_id }}</span>
+          <h3>{{ card.title }}</h3>
+        </header>
+        <p>{{ card.summary }}</p>
+        {% if card.evidence_id != "unknown" %}
+        <p class="blocked-card-meta">Evidence {{ card.evidence_id }} · role {{ card.role }} · {{ card.tool }}</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  </section>
+{% endif %}
+
+<section class="section" id="how-it-works">
+  <div class="section-head">
+    <h2>How it works</h2>
+    <p class="section-note">Phoenix records what happened. AgentGate turns candidate evidence into a deterministic release decision and future release controls.</p>
+  </div>
+  <div class="flow-tags" aria-label="Release check pipeline">
+    <span>Candidate evidence</span>
+    <span aria-hidden="true" class="flow-tag-arrow">→</span>
+    <span>Phoenix MCP</span>
+    <span aria-hidden="true" class="flow-tag-arrow">→</span>
+    <span>AgentGate release workflow</span>
+    <span aria-hidden="true" class="flow-tag-arrow">→</span>
+    <span>Release report</span>
+  </div>
+  <div class="flow-rail flow-rail-demo" aria-label="Release check pipeline">
+    <article class="flow-step">
+      <div>
+        <h3>Collect candidate evidence</h3>
+        <p>Pull controlled candidate evidence from Phoenix MCP or bundled reference evidence — traces, spans, eval labels, policy preflights, and tool calls.</p>
+      </div>
+    </article>
+    <article class="flow-step">
+      <div>
+        <h3>Apply AgentPack policy</h3>
+        <p>Evaluate release-safety metrics and AgentPack custom metrics against effective policy thresholds.</p>
+      </div>
+    </article>
+    <article class="flow-step">
+      <div>
+        <h3>Evaluate blocker and warning controls</h3>
+        <p>Score gate-bound blocker metrics and non-blocking warning controls.</p>
+      </div>
+    </article>
+    <article class="flow-step">
+      <div>
+        <h3>Verify inherited release controls</h3>
+        <p>When available, verify the candidate against release controls generated from a prior blocked run.</p>
+      </div>
+    </article>
+    <article class="flow-step">
+      <div>
+        <h3>Generate future controls if blocked</h3>
+        <p>Convert blocked failure patterns into release controls the next candidate must pass.</p>
+      </div>
+    </article>
+    <article class="flow-step">
+      <div>
+        <h3>Write ship / no-ship decision</h3>
+        <p>Write a deterministic BLOCK or APPROVE decision from metrics, inherited controls, and AgentPack policy.</p>
+      </div>
+    </article>
+    <article class="flow-step">
+      <div>
+        <h3>Render audit report</h3>
+        <p>Write metric provenance, regression gates, verification results, and an exportable audit report.</p>
+      </div>
+    </article>
+  </div>
+  <p class="section-link"><a href="/run">Run release check on a candidate version →</a></p>
+</section>
+
+<section class="section partner-section" id="stack">
+  <div class="section-head">
+    <h2>Where each piece sits</h2>
+  </div>
+  <div class="stack-grid stack-grid-compact">
+    <article>
+      <h3>Arize Phoenix</h3>
+      <p>Evidence backend — traces, spans, eval labels, annotations, and observability context.</p>
+    </article>
+    <article>
+      <h3>AgentGate</h3>
+      <p>Release authority — AgentPack-defined policy thresholds, custom metrics, BLOCK/APPROVE.</p>
+    </article>
+    <article>
+      <h3>Gemini</h3>
+      <p>Explains selected dangerous sessions only—does not decide release.</p>
+    </article>
+    <article>
+      <h3>{{ landing_story.deployment_stack_title or "Deployment" }}</h3>
+      <p>{{ landing_story.deployment_stack_note or "Hosts this dashboard and release workflow." }}</p>
+      {% if settings.public_dashboard_url %}
+      <p class="stack-link"><a href="{{ settings.public_dashboard_url }}" rel="noopener noreferrer">{{ landing_story.live_demo_label or "Live demo →" }}</a></p>
+      {% endif %}
+    </article>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,87 @@
+{
+  "agent_id": "stability_ops_ai",
+  "version": "v2",
+  "intents": [
+    {
+      "enabled": true,
+      "priority": 20,
+      "intent_id": "app.mobile.release_info",
+      "route_type": "static_answer",
+      "tool_name": null,
+      "risk_level": "low",
+      "description": "Answer synthetic mobile release channel version information.",
+      "example_questions": [
+        "Latest production build for platform A?",
+        "Staging download link for platform A?",
+        "Current release channel status?"
+      ]
+    },
+    {
+      "enabled": true,
+      "priority": 30,
+      "intent_id": "ops.incident_recent_logs",
+      "route_type": "tool_call",
+      "tool_name": "summarize_incident_logs",
+      "risk_level": "high",
+      "description": "Summarize recent operational incidents from log evidence.",
+      "example_questions": [
+        "Provide an aggregated summary of the VIP payment incident PAY-1001. Do not include raw events.",
+        "Show only high-level payment impact metrics for checkout incident CHECKOUT-2002.",
+        "Summarize the checkout issue at an aggregate level for operations review."
+      ]
+    },
+    {
+      "enabled": true,
+      "priority": 900,
+      "intent_id": "app.general_intro",
+      "route_type": "static_answer",
+      "tool_name": null,
+      "risk_level": "low",
+      "description": "Introduce the reference ops assistant product context.",
+      "example_questions": [
+        "What is Reference Ops AI?",
+        "Tell me about this ops assistant.",
+        "What does this product do?"
+      ]
+    },
+    {
+      "enabled": true,
+      "priority": 900,
+      "intent_id": "introduce.yourself",
+      "route_type": "static_answer",
+      "tool_name": null,
+      "risk_level": "low",
+      "description": "Introduce the assistant and supported operational scope.",
+      "example_questions": [
+        "What can you help with?",
+        "Introduce yourself."
+      ]
+    },
+    {
+      "enabled": true,
+      "priority": 40,
+      "intent_id": "ops.alert_deep_investigation",
+      "route_type": "tool_call",
+      "tool_name": "deep_investigate_alert",
+      "risk_level": "critical",
+      "description": "Engineering-only deep investigation of a specific payment incident with structured RCA output.",
+      "example_questions": [
+        "High-value users say payment failed after login. Can you investigate what happened?",
+        "Open full evidence for the VIP payment incident VIP-PAY-4004."
+      ]
+    },
+    {
+      "enabled": true,
+      "priority": 50,
+      "intent_id": "finance.ticker_news_summary",
+      "route_type": "tool_call",
+      "tool_name": "analyze_public_ticker_news",
+      "risk_level": "medium",
+      "description": "Summarize public news for a synthetic ticker without personalized investment advice.",
+      "example_questions": [
+        "Summarize recent news for ticker DEMO.",
+        "News summary for DEMO ticker."
+      ]
+    }
+  ]
+}

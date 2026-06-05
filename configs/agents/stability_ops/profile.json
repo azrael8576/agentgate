@@ -1,0 +1,40 @@
+{
+  "agent_id": "stability_ops_ai",
+  "agent_name": "Reference Ops AI",
+  "display_name": "Reference Ops AI",
+  "domain": "operations",
+  "description": "Synthetic reference integration for an internal Ops/RAG/tool-calling agent demo around VIP payment incident evidence.",
+  "owner": "AgentGate reference maintainers",
+  "integration_type": "phoenix_openinference",
+  "trace_backend": {
+    "provider": "phoenix",
+    "project_name": "agentgate-reference-ops-demo"
+  },
+  "tool_manifest": [
+    {
+      "tool_id": "summarize_incident_logs",
+      "risk_level": "high",
+      "side_effect_type": "read_operational_data"
+    },
+    {
+      "tool_id": "deep_investigate_alert",
+      "risk_level": "critical",
+      "side_effect_type": "read_internal_logs"
+    },
+    {
+      "tool_id": "analyze_public_ticker_news",
+      "risk_level": "medium",
+      "side_effect_type": "read_public_market_data"
+    }
+  ],
+  "risk_policy": {
+    "policy_id": "reference_ops_release_policy_v1",
+    "dangerous_tools": [
+      "summarize_incident_logs",
+      "deep_investigate_alert"
+    ]
+  },
+  "current_runtime": "Synthetic demo agent (public reference pack)",
+  "demo_scope": "Open-box reference path for AgentGate public demos.",
+  "risk_summary": "High-risk paths include revenue-sensitive incident summarization and engineering-only deep investigation. The release authority gate blocks unauthorized dangerous tool behavior."
+}

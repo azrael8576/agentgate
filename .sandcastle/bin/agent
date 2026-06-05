@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Sandcastle cursor() invokes: agent --print --output-format stream-json ...
+# Headless runs need --trust (same as manual: agent --print --trust --model auto).
+set -euo pipefail
+
+if [[ -n "${CURSOR_AGENT_BIN:-}" ]]; then
+  REAL="$CURSOR_AGENT_BIN"
+elif REAL="$(command -v agent 2>/dev/null)"; then
+  :
+else
+  echo "Cursor Agent CLI not found. Install it, run 'agent login', or set CURSOR_AGENT_BIN." >&2
+  exit 127
+fi
+
+exec "$REAL" --trust "$@"
