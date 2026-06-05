@@ -9,8 +9,8 @@
     "test": "tests"
   },
   "scripts": {
-    "sandcastle": "npx tsx .sandcastle/main.mts",
-    "sandcastle:docker": "SANDCASTLE_USE_DOCKER=true npx tsx .sandcastle/main.mts",
+    "sandcastle": "SANDCASTLE_USE_DOCKER=true npx tsx .sandcastle/main.mts",
+    "sandcastle:host": "SANDCASTLE_USE_DOCKER=false npx tsx .sandcastle/main.mts",
     "sandcastle:build-image": "npx @ai-hero/sandcastle docker build-image"
   },
   "repository": {

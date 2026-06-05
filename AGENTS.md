@@ -107,10 +107,11 @@ uv run uvicorn backend.agentgate.main:app --reload
 Label GitHub issues with `Sandcastle` (or set `SANDCASTLE_ISSUE_LABEL` in `.sandcastle/.env`).
 
 ```bash
-cp .sandcastle/.env.example .sandcastle/.env   # GH_TOKEN, optional SANDCASTLE_BRANCH
+cp .sandcastle/.env.example .sandcastle/.env   # GH_TOKEN (gh auth token), optional CODEX_MODEL
 npm install
-npm run sandcastle                             # host mode (default)
-# SANDCASTLE_USE_DOCKER=true npm run sandcastle
+npm run sandcastle:build-image                 # Docker image with Codex CLI
+npm run sandcastle                             # Docker + Codex CLI (default)
+# npm run sandcastle:host                      # host mode (no Docker)
 ```
 
 Runs implement → review on the **current branch** unless `SANDCASTLE_BRANCH` is set. Commits use the `RALPH:` prefix.
