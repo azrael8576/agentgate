@@ -10,9 +10,7 @@ def test_runtime_metric_catalog_concentrates_metric_facts() -> None:
     assert "policy.preflight.decision" in catalog.required_span_attributes(
         "dangerous_tool_policy_violation_rate"
     )
-    assert "response_format_ok" in catalog.required_eval_labels(
-        "crash_analysis_format_compliance"
-    )
+    assert "response_format_ok" in catalog.required_eval_labels("crash_analysis_format_compliance")
 
 
 def test_runtime_metric_catalog_requires_configured_aggregator_key() -> None:

@@ -46,9 +46,8 @@ def test_seed_paths() -> None:
 
 
 def test_release_check_default_pack_blocks_v2(tmp_path: Path) -> None:
-    from typer.testing import CliRunner
-
     from backend.agentgate.cli import app
+    from typer.testing import CliRunner
 
     runner = CliRunner()
     output_dir = tmp_path / "release" / "v2"
@@ -74,9 +73,8 @@ def test_release_check_default_pack_blocks_v2(tmp_path: Path) -> None:
 
 
 def test_release_check_v21_approved(tmp_path: Path) -> None:
-    from typer.testing import CliRunner
-
     from backend.agentgate.cli import app
+    from typer.testing import CliRunner
 
     runner = CliRunner()
     output_dir = tmp_path / "release" / "v21"
@@ -124,7 +122,10 @@ def test_llm_classifier_specs_from_agent_pack() -> None:
     assert "response_format_ok" in specs
     assert "sensitive_output_ok" in specs
     assert "RCA summary" in specs["response_format_ok"].prompt_template
-    assert specs["response_format_ok"].choices == {"compliant": 1.0, "non_compliant": 0.0}
+    assert specs["response_format_ok"].choices == {
+        "compliant": 1.0,
+        "non_compliant": 0.0,
+    }
 
 
 def test_agent_pack_path_respects_env(monkeypatch) -> None:

@@ -5,8 +5,14 @@ from typing import Any
 
 from backend.agentgate.core.product_config import ReleaseCheckConfig
 from backend.agentgate.release.audit_session_report import build_audit_session_report
-from backend.agentgate.release.dangerous_evidence_classifier import prioritize_trace_ids_for_pull
-from backend.agentgate.release.evidence_loader import EvidenceRecord, evidence_identity, load_evidence_jsonl
+from backend.agentgate.release.dangerous_evidence_classifier import (
+    prioritize_trace_ids_for_pull,
+)
+from backend.agentgate.release.evidence_loader import (
+    EvidenceRecord,
+    evidence_identity,
+    load_evidence_jsonl,
+)
 from backend.agentgate.release.gemini_diagnoser import (
     DiagnosisMode,
     build_diagnosis_payload,

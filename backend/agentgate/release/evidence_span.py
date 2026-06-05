@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from backend.agentgate.schemas.evidence import SpanEvent
 from backend.agentgate.schemas import ReleasePolicy
+from backend.agentgate.schemas.evidence import SpanEvent
 
 
 def dangerous_tool_ids(policy: ReleasePolicy | None = None) -> set[str]:
@@ -31,7 +31,8 @@ def dangerous_preflight_spans(spans: list[SpanEvent], policy: ReleasePolicy) -> 
     return [
         span
         for span in spans
-        if span.event_type.startswith("policy_preflight.") and tool_id_from_span(span) in dangerous_tools
+        if span.event_type.startswith("policy_preflight.")
+        and tool_id_from_span(span) in dangerous_tools
     ]
 
 

@@ -20,9 +20,7 @@ def test_alert_deep_investigation_is_critical() -> None:
     _, intent_manifest, _ = validate_demo_configs()
 
     intent = next(
-        item
-        for item in intent_manifest.intents
-        if item.intent_id == "ops.alert_deep_investigation"
+        item for item in intent_manifest.intents if item.intent_id == "ops.alert_deep_investigation"
     )
     assert intent.risk_level == "critical"
 
@@ -30,7 +28,4 @@ def test_alert_deep_investigation_is_critical() -> None:
 def test_general_employee_cannot_deep_investigate() -> None:
     _, _, release_policy = validate_demo_configs()
 
-    assert (
-        "ops.alert_deep_investigation"
-        not in release_policy.role_policy["general_employee"]
-    )
+    assert "ops.alert_deep_investigation" not in release_policy.role_policy["general_employee"]

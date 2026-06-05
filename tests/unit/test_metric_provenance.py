@@ -14,6 +14,7 @@ def _seed(version: str, tmp_path: Path) -> Path:
 def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
+
 def test_validate_suite_required_metrics_maps_contract_names_to_runtime() -> None:
     from backend.agentgate.core.config import load_demo_release_policy
     from backend.agentgate.release.gate_binding import validate_suite_required_metrics

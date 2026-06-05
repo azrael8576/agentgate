@@ -13,12 +13,23 @@ from typing import Any
 from backend.agentgate.core.agent_pack import LoadedAgentPack
 from backend.agentgate.core.product_config import ReleaseCheckConfig
 from backend.agentgate.evals.annotation_parser import eval_labels_from_annotations
-from backend.agentgate.evals.evaluator_registry import ANNOTATION_TO_LABEL, build_llm_evaluators
-from backend.agentgate.evals.phoenix_client_config import get_phoenix_project_name, load_phoenix_client
+from backend.agentgate.evals.evaluator_registry import (
+    ANNOTATION_TO_LABEL,
+    build_llm_evaluators,
+)
+from backend.agentgate.evals.phoenix_client_config import (
+    get_phoenix_project_name,
+    load_phoenix_client,
+)
 from backend.agentgate.evals.span_eval_frame import build_eval_dataframe
-from backend.agentgate.release.evidence_loader import EvidenceRecord
-from backend.agentgate.release.phoenix_evidence_source import PhoenixEvidenceQuery, query_phoenix_spans
-from backend.agentgate.release.phoenix_mcp_client import PhoenixMCPClient, load_phoenix_mcp_config
+from backend.agentgate.release.phoenix_evidence_source import (
+    PhoenixEvidenceQuery,
+    query_phoenix_spans,
+)
+from backend.agentgate.release.phoenix_mcp_client import (
+    PhoenixMCPClient,
+    load_phoenix_mcp_config,
+)
 from backend.agentgate.release.phoenix_normalizer import normalize_phoenix_spans
 from backend.agentgate.settings import (
     get_eval_annotation_cooldown_seconds,
@@ -69,12 +80,20 @@ def run_phoenix_eval_job(
     if eval_df.empty:
         raise ValueError("No eval rows could be built from Phoenix spans.")
 
-    _emit(progress, f"Running LLM evaluators on {len(eval_df)} traces (cooldown + retry enabled)...")
+    _emit(
+        progress,
+        f"Running LLM evaluators on {len(eval_df)} traces (cooldown + retry enabled)...",
+    )
     pack = ReleaseCheckConfig().load_pack()
     annotations = _run_evaluators(eval_df, pack=pack, progress=progress)
-    error_count = sum(1 for item in annotations if str(item.get("result", {}).get("label")) == "error")
+    error_count = sum(
+        1 for item in annotations if str(item.get("result", {}).get("label")) == "error"
+    )
     if not dry_run and annotations:
-        _emit(progress, f"Writing {len(annotations)} annotations to Phoenix (one-by-one with cooldown)...")
+        _emit(
+            progress,
+            f"Writing {len(annotations)} annotations to Phoenix (one-by-one with cooldown)...",
+        )
         _write_annotations_with_cooldown(annotations, progress=progress)
     elif dry_run:
         _emit(progress, "Dry run enabled; skipping Phoenix annotation write.")
@@ -107,7 +126,9 @@ def run_phoenix_eval_job(
     if output_dir is not None:
         output_dir.mkdir(parents=True, exist_ok=True)
         summary_path = output_dir / "eval_run_summary.json"
-        summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        summary_path.write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
         summary["summary_path"] = str(summary_path)
     return summary
 
@@ -135,7 +156,10 @@ def _write_annotations_with_cooldown(
     for index, annotation in enumerate(annotations, start=1):
         phoenix_client.spans.log_span_annotations(span_annotations=[annotation], sync=True)
         if index < total and cooldown > 0:
-            _emit(progress, f"Wrote annotation {index}/{total}; cooling down {cooldown:.1f}s...")
+            _emit(
+                progress,
+                f"Wrote annotation {index}/{total}; cooling down {cooldown:.1f}s...",
+            )
             time.sleep(cooldown)
 
 
@@ -218,7 +242,8 @@ def _run_evaluators(
                     "result": {
                         "label": normalized_label,
                         "score": normalized_score,
-                        "explanation": getattr(score, "explanation", None) or str(getattr(score, "rationale", "")),
+                        "explanation": getattr(score, "explanation", None)
+                        or str(getattr(score, "rationale", "")),
                     },
                 }
             )

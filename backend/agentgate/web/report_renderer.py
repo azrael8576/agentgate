@@ -1,6 +1,6 @@
-from datetime import UTC, datetime
 import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +13,9 @@ from backend.agentgate.core.agent_pack import (
     resolve_agent_pack_for_artifacts,
 )
 from backend.agentgate.core.product_config import ReleaseCheckConfig
-from backend.agentgate.release.regression_gate_verifier import future_verification_api_summary
+from backend.agentgate.release.regression_gate_verifier import (
+    future_verification_api_summary,
+)
 
 WEB_DIR = Path(__file__).parent
 TEMPLATE_DIR = WEB_DIR / "templates"
@@ -50,6 +52,7 @@ RELEASE_CONTROL_DISPLAY_TITLES: dict[str, str] = {
 def control_definitions(pack: Any | None = None) -> dict[str, dict[str, str]]:
     resolved = pack or get_default_agent_pack()
     return resolved.control_definitions()
+
 
 ARTIFACT_PURPOSES: dict[str, dict[str, str]] = {
     "release_decision.json": {
@@ -99,18 +102,46 @@ def latest_artifacts_exist(output_dir: Path) -> bool:
 
 def artifact_links() -> list[dict[str, str]]:
     links = [
-        {"name": "release_decision", "filename": "release_decision.json", "href": "/artifacts/release_decision.json"},
-        {"name": "metrics_summary", "filename": "metrics_summary.json", "href": "/artifacts/metrics_summary.json"},
-        {"name": "dangerous_sessions", "filename": "dangerous_sessions.json", "href": "/artifacts/dangerous_sessions.json"},
-        {"name": "regression_gates", "filename": "regression_gates.json", "href": "/artifacts/regression_gates.json"},
+        {
+            "name": "release_decision",
+            "filename": "release_decision.json",
+            "href": "/artifacts/release_decision.json",
+        },
+        {
+            "name": "metrics_summary",
+            "filename": "metrics_summary.json",
+            "href": "/artifacts/metrics_summary.json",
+        },
+        {
+            "name": "dangerous_sessions",
+            "filename": "dangerous_sessions.json",
+            "href": "/artifacts/dangerous_sessions.json",
+        },
+        {
+            "name": "regression_gates",
+            "filename": "regression_gates.json",
+            "href": "/artifacts/regression_gates.json",
+        },
         {
             "name": "control_verification_results",
             "filename": "control_verification_results.json",
             "href": "/artifacts/control_verification_results.json",
         },
-        {"name": "agent_profile", "filename": "agent_profile.json", "href": "/artifacts/agent_profile.json"},
-        {"name": "eval_suite", "filename": "eval_suite.json", "href": "/artifacts/eval_suite.json"},
-        {"name": "audit_manifest", "filename": "audit_manifest.json", "href": "/artifacts/audit_manifest.json"},
+        {
+            "name": "agent_profile",
+            "filename": "agent_profile.json",
+            "href": "/artifacts/agent_profile.json",
+        },
+        {
+            "name": "eval_suite",
+            "filename": "eval_suite.json",
+            "href": "/artifacts/eval_suite.json",
+        },
+        {
+            "name": "audit_manifest",
+            "filename": "audit_manifest.json",
+            "href": "/artifacts/audit_manifest.json",
+        },
         {
             "name": "release_report",
             "filename": HTML_ARTIFACT_FILENAME,
@@ -136,11 +167,15 @@ def render_standalone_release_report_html(output_dir: Path) -> Path:
     return html_path
 
 
-def update_release_decision_artifact_paths(output_dir: Path, artifact_paths: dict[str, str]) -> None:
+def update_release_decision_artifact_paths(
+    output_dir: Path, artifact_paths: dict[str, str]
+) -> None:
     decision_path = output_dir / "release_decision.json"
     decision = json.loads(decision_path.read_text(encoding="utf-8"))
     decision["artifact_paths"] = artifact_paths
-    decision_path.write_text(json.dumps(decision, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    decision_path.write_text(
+        json.dumps(decision, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     _update_audit_manifest_artifact_hashes(output_dir, artifact_paths)
 
 
@@ -343,7 +378,10 @@ def _executive_verdict(
         }
     if decision == "BLOCKED":
         actions = [
-            gate.get("expected_behavior", "Promote this trace pattern into a generated release control.")
+            gate.get(
+                "expected_behavior",
+                "Promote this trace pattern into a generated release control.",
+            )
             for gate in regression_gates[:3]
         ]
         if not actions:
@@ -389,7 +427,11 @@ def _next_action_bullets(
             "Keep artifact SHA fingerprints with the change ticket.",
         ]
     if decision == "BLOCKED":
-        bullets = [gate.get("expected_behavior", "") for gate in regression_gates[:2] if gate.get("expected_behavior")]
+        bullets = [
+            gate.get("expected_behavior", "")
+            for gate in regression_gates[:2]
+            if gate.get("expected_behavior")
+        ]
         if bullets:
             bullets.append("Rerun release check after fixes land.")
             return bullets
@@ -514,9 +556,13 @@ def _future_verification_summary_counts(
     summary = control_verification.get("summary") or {}
     return {
         "blocking_failed": int(
-            future.get("blocking_failed") if future.get("blocking_failed") is not None else summary.get("blocking_failed", 0)
+            future.get("blocking_failed")
+            if future.get("blocking_failed") is not None
+            else summary.get("blocking_failed", 0)
         ),
-        "failed": int(future.get("failed") if future.get("failed") is not None else summary.get("failed", 0)),
+        "failed": int(
+            future.get("failed") if future.get("failed") is not None else summary.get("failed", 0)
+        ),
     }
 
 
@@ -548,7 +594,9 @@ def _future_verification_row_decision_impact(row: dict[str, Any]) -> dict[str, s
     }
 
 
-def _sort_future_verification_rows(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _sort_future_verification_rows(
+    results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     def sort_key(row: dict[str, Any]) -> tuple[int, int, str]:
         status = row.get("verification_status", "")
         is_fail = 0 if status == "FAIL" else 1
@@ -558,17 +606,23 @@ def _sort_future_verification_rows(results: list[dict[str, Any]]) -> list[dict[s
     return sorted(results, key=sort_key)
 
 
-def _future_verification_table_rows(control_verification: dict[str, Any]) -> list[dict[str, Any]]:
+def _future_verification_table_rows(
+    control_verification: dict[str, Any],
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for row in _sort_future_verification_rows(control_verification.get("results", [])):
         matched = row.get("matched_metric_ids") or []
-        candidate_evidence = ", ".join(matched) if matched else _format_candidate_evidence(
-            row.get("candidate_values", {})
+        candidate_evidence = (
+            ", ".join(matched)
+            if matched
+            else _format_candidate_evidence(row.get("candidate_values", {}))
         )
         verification_status = row.get("verification_status", "NOT_AVAILABLE")
         impact = _future_verification_row_decision_impact(row)
         gate_id = str(row.get("gate_id") or "")
-        release_control = RELEASE_CONTROL_DISPLAY_TITLES.get(gate_id) or row.get("control_title") or gate_id
+        release_control = (
+            RELEASE_CONTROL_DISPLAY_TITLES.get(gate_id) or row.get("control_title") or gate_id
+        )
         rows.append(
             {
                 "release_control": release_control,
@@ -589,7 +643,6 @@ def _future_verification_section(
     future = release_decision.get("future_verification") or {}
     status = future.get("status") or control_verification.get("status") or "not_available"
     counts = _future_verification_summary_counts(future, control_verification)
-    blocking_failed = counts["blocking_failed"]
     failed = counts["failed"]
     resolution = future.get("resolution_source") or ""
 
@@ -640,17 +693,13 @@ def _future_verification_section(
             "show_table": bool(rows),
         }
 
-    source_version = (
-        control_verification.get("source_release", {}).get("agent_version") or "v2"
-    )
+    source_version = control_verification.get("source_release", {}).get("agent_version") or "v2"
     agent_version = release_decision.get("agent_version", "candidate")
     copy = (
         f"{agent_version} verified the release controls generated by the blocked {source_version} run. "
         "All inherited blocker controls passed."
     )
-    secondary_copy = (
-        "Non-blocking warnings remain visible for review." if failed > 0 else ""
-    )
+    secondary_copy = "Non-blocking warnings remain visible for review." if failed > 0 else ""
     resolution_note = ""
     if resolution == "bundled_reference_fallback":
         resolution_note = "Verified from bundled reference controls."
@@ -667,7 +716,9 @@ def _future_verification_section(
     }
 
 
-def future_verification_run_card_copy(future_verification: dict[str, Any] | None) -> dict[str, str]:
+def future_verification_run_card_copy(
+    future_verification: dict[str, Any] | None,
+) -> dict[str, str]:
     """Human-readable copy for the run page future-verification result card."""
     future = future_verification or {}
     status = future.get("status") or "not_available"
@@ -687,10 +738,7 @@ def future_verification_run_card_copy(future_verification: dict[str, Any] | None
         }
     if status == "verified" and blocking_failed == 0 and failed > 0:
         return {
-            "summary": (
-                "Inherited blocker controls passed. "
-                "Non-blocking controls remain visible."
-            ),
+            "summary": ("Inherited blocker controls passed. Non-blocking controls remain visible."),
         }
     if status == "verified" and blocking_failed == 0:
         return {"summary": "Inherited blocker controls passed."}
@@ -716,7 +764,9 @@ def _fix_now(
     regression_gates: list[dict[str, Any]],
 ) -> dict[str, Any]:
     decision = release_decision.get("decision", "UNKNOWN")
-    bridge_note = "regression_gates.json is the technical artifact backing generated release controls."
+    bridge_note = (
+        "regression_gates.json is the technical artifact backing generated release controls."
+    )
     if decision == "APPROVED":
         return {
             "eyebrow": "Release controls status",
@@ -759,7 +809,9 @@ def _audit_archive_summary(
     generated_at_display: str,
     suite_id: str,
 ) -> dict[str, Any]:
-    coverage = evidence_source.get("coverage") if isinstance(evidence_source.get("coverage"), dict) else {}
+    coverage = (
+        evidence_source.get("coverage") if isinstance(evidence_source.get("coverage"), dict) else {}
+    )
     ready = coverage.get("ready_for_release_gate")
     missing = coverage.get("missing_count")
     present = coverage.get("present_count")
@@ -776,18 +828,33 @@ def _audit_archive_summary(
     return {
         "headline": "Audit archive summary",
         "fields": [
-            {"label": "Evidence source", "value": evidence_source.get("type") or "unknown"},
-            {"label": "Eval mode", "value": f"{evaluation_mode or 'unknown'} / {sample_tier or 'unknown'}"},
+            {
+                "label": "Evidence source",
+                "value": evidence_source.get("type") or "unknown",
+            },
+            {
+                "label": "Eval mode",
+                "value": f"{evaluation_mode or 'unknown'} / {sample_tier or 'unknown'}",
+            },
             {"label": "Coverage", "value": coverage_label, "detail": coverage_detail},
-            {"label": "Gate binding", "value": f"{len(gate_binding_rows)} mapped metric(s)"},
-            {"label": "Fingerprints", "value": f"{len(artifact_fingerprints)} artifact hash(es)"},
+            {
+                "label": "Gate binding",
+                "value": f"{len(gate_binding_rows)} mapped metric(s)",
+            },
+            {
+                "label": "Fingerprints",
+                "value": f"{len(artifact_fingerprints)} artifact hash(es)",
+            },
             {"label": "Generated", "value": generated_at_display},
             {
                 "label": "Policy",
                 "value": f"{release_decision.get('policy_id', 'unknown')} / {release_decision.get('policy_version', 'unknown')}",
             },
             {"label": "Suite", "value": suite_id},
-            {"label": "Phoenix project", "value": audit_scope.get("project_identifier") or "unknown"},
+            {
+                "label": "Phoenix project",
+                "value": audit_scope.get("project_identifier") or "unknown",
+            },
         ],
     }
 
@@ -810,7 +877,9 @@ def _appendix_sections(
     }
 
 
-def _gemini_diagnosis_themes(diagnoses: list[dict[str, Any]], *, samples_per_theme: int = 2) -> list[dict[str, Any]]:
+def _gemini_diagnosis_themes(
+    diagnoses: list[dict[str, Any]], *, samples_per_theme: int = 2
+) -> list[dict[str, Any]]:
     buckets: dict[str, list[dict[str, Any]]] = {}
     for diagnosis in diagnoses:
         finding_type = str(diagnosis.get("finding_type") or "session_diagnosis")
@@ -834,8 +903,12 @@ def _high_risk_supplemental(
     high_risk_non_authorized: list[dict[str, Any]],
     critical_findings: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    blocker_traces = {finding.get("trace_id") for finding in critical_findings if finding.get("trace_id")}
-    return [entry for entry in high_risk_non_authorized if entry.get("trace_id") not in blocker_traces]
+    blocker_traces = {
+        finding.get("trace_id") for finding in critical_findings if finding.get("trace_id")
+    }
+    return [
+        entry for entry in high_risk_non_authorized if entry.get("trace_id") not in blocker_traces
+    ]
 
 
 def _eval_representation_warning(evaluation_mode: str, sample_tier: str) -> str | None:
@@ -887,8 +960,12 @@ def _percent_metric(metric: dict[str, Any], *, pack: Any | None = None) -> dict[
         "display_ratio": _format_ratio(metric.get("numerator"), metric.get("denominator")),
         "display_threshold_label": _format_threshold_label(threshold_key),
         "display_metric_source": metric_source.replace("_", " "),
-        "display_decision_impact": str(metric.get("decision_impact") or "informational").replace("_", " "),
-        "display_evaluation_mode": str(metric.get("evaluation_mode") or "unknown").replace("_", " "),
+        "display_decision_impact": str(metric.get("decision_impact") or "informational").replace(
+            "_", " "
+        ),
+        "display_evaluation_mode": str(metric.get("evaluation_mode") or "unknown").replace(
+            "_", " "
+        ),
         "display_sample_tier": str(metric.get("sample_tier") or "unknown").replace("_", " "),
         "display_grader_ids": ", ".join(metric.get("grader_ids") or []) or "not recorded",
         "display_grader_source": metric.get("grader_source") or "not recorded",
@@ -954,9 +1031,13 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
     pack = _resolve_report_pack(output_dir)
     release_decision = read_json_artifact(output_dir, "release_decision.json")
     metrics_summary = read_json_artifact(output_dir, "metrics_summary.json")
-    dangerous_sessions = _normalize_audit_sessions(read_json_artifact(output_dir, "dangerous_sessions.json"))
+    dangerous_sessions = _normalize_audit_sessions(
+        read_json_artifact(output_dir, "dangerous_sessions.json")
+    )
     regression_gates = read_json_artifact(output_dir, "regression_gates.json")
-    control_verification = _read_optional_json_artifact(output_dir, "control_verification_results.json")
+    control_verification = _read_optional_json_artifact(
+        output_dir, "control_verification_results.json"
+    )
     audit_manifest = _read_optional_json_artifact(output_dir, "audit_manifest.json")
     eval_suite_artifact = _read_optional_json_artifact(output_dir, "eval_suite.json")
     fallback_profile = pack.profile
@@ -970,8 +1051,13 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
     )
     failing_metrics = [metric for metric in metrics if metric.get("passes_threshold") is False]
     passing_metrics = [metric for metric in metrics if metric.get("passes_threshold") is True]
-    high_risk_activity_log = [_normalize_activity_entry(entry) for entry in dangerous_sessions.get("high_risk_activity_log", [])]
-    activity_by_trace = {entry.get("trace_id"): entry for entry in high_risk_activity_log if entry.get("trace_id")}
+    high_risk_activity_log = [
+        _normalize_activity_entry(entry)
+        for entry in dangerous_sessions.get("high_risk_activity_log", [])
+    ]
+    activity_by_trace = {
+        entry.get("trace_id"): entry for entry in high_risk_activity_log if entry.get("trace_id")
+    }
     critical_findings = [
         _normalize_finding(
             finding,
@@ -989,15 +1075,21 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
         for finding in dangerous_sessions.get("indeterminate_findings", [])
     ]
     dangerous_diagnoses = [
-        _normalize_diagnosis(diagnosis, release_decision=release_decision, findings=critical_findings)
+        _normalize_diagnosis(
+            diagnosis, release_decision=release_decision, findings=critical_findings
+        )
         for diagnosis in release_decision.get("dangerous_session_diagnoses", [])
     ]
     diagnosis_metadata = release_decision.get("diagnosis_metadata", {})
     evidence_source = release_decision.get("evidence_source", {})
     eval_suite = eval_suite_artifact.get("suite", {}) if eval_suite_artifact else {}
     suite_id = eval_suite.get("suite_id") or pack.suite.suite_id
-    evaluation_mode = audit_manifest.get("evaluation_mode") or _first_metric_value(metrics_summary, "evaluation_mode")
-    sample_tier = audit_manifest.get("sample_tier") or _first_metric_value(metrics_summary, "sample_tier")
+    evaluation_mode = audit_manifest.get("evaluation_mode") or _first_metric_value(
+        metrics_summary, "evaluation_mode"
+    )
+    sample_tier = audit_manifest.get("sample_tier") or _first_metric_value(
+        metrics_summary, "sample_tier"
+    )
     audit_summary = _audit_summary(
         release_decision=release_decision,
         failing_metrics=failing_metrics,
@@ -1014,12 +1106,18 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
     high_risk_non_authorized = [
         entry for entry in high_risk_activity_log if str(entry.get("verdict")) != "authorized"
     ]
-    gate_binding = release_decision.get("gate_binding") if isinstance(release_decision.get("gate_binding"), dict) else {}
+    gate_binding = (
+        release_decision.get("gate_binding")
+        if isinstance(release_decision.get("gate_binding"), dict)
+        else {}
+    )
     blocking_metric_names = _blocking_metric_names(release_decision)
     for metric in failing_metrics:
         metric["drives_release_block"] = str(metric.get("name") or "") in blocking_metric_names
     normalized_regression_gates = [
-        _normalize_regression_gate(gate, release_decision=release_decision, findings=critical_findings)
+        _normalize_regression_gate(
+            gate, release_decision=release_decision, findings=critical_findings
+        )
         for gate in regression_gate_list
     ]
     blocking_drivers = _blocking_driver_rows(release_decision, failing_metrics)
@@ -1073,7 +1171,9 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
             release_decision,
             regression_gates=regression_gate_list,
         ),
-        "eval_representation_warning": _eval_representation_warning(evaluation_mode or "unknown", sample_tier or "unknown"),
+        "eval_representation_warning": _eval_representation_warning(
+            evaluation_mode or "unknown", sample_tier or "unknown"
+        ),
         "reproducibility_recipe": reproducibility_recipe,
         "confidence_label": release_decision.get("confidence_label") or "unknown",
         "gemini_diagnosis_themes": gemini_diagnosis_themes,
@@ -1148,7 +1248,11 @@ def build_latest_run_payload(output_dir: Path) -> dict[str, Any]:
         }
     )
     agent_profile = context.get("agent_profile", {})
-    agent_display_name = agent_profile.get("display_name") or agent_profile.get("agent_name") or decision.get("agent_id")
+    agent_display_name = (
+        agent_profile.get("display_name")
+        or agent_profile.get("agent_name")
+        or decision.get("agent_id")
+    )
     return {
         "status": "ready",
         "agent_id": decision.get("agent_id"),
@@ -1214,7 +1318,10 @@ def _recommended_next_tasks(
     tasks = [
         {
             "task_id": gate.get("gate_id", "release_control"),
-            "recommendation": gate.get("expected_behavior", "Promote the failed finding into a generated release control."),
+            "recommendation": gate.get(
+                "expected_behavior",
+                "Promote the failed finding into a generated release control.",
+            ),
             "source_evidence_ids": gate.get("source_evidence_ids", []),
         }
         for gate in regression_gates[:5]
@@ -1244,7 +1351,8 @@ def _apply_regression_gate_catalog(
         enriched.append(
             {
                 **gate,
-                "expected_behavior": template.get("expected_behavior") or gate.get("expected_behavior"),
+                "expected_behavior": template.get("expected_behavior")
+                or gate.get("expected_behavior"),
                 "required_fix": template.get("required_fix") or gate.get("required_fix"),
             }
         )
@@ -1264,7 +1372,9 @@ def _regression_gate_template(
     return None
 
 
-def _update_audit_manifest_artifact_hashes(output_dir: Path, artifact_paths: dict[str, str]) -> None:
+def _update_audit_manifest_artifact_hashes(
+    output_dir: Path, artifact_paths: dict[str, str]
+) -> None:
     manifest_path = output_dir / "audit_manifest.json"
     if not manifest_path.exists():
         return
@@ -1285,7 +1395,9 @@ def _update_audit_manifest_artifact_hashes(output_dir: Path, artifact_paths: dic
         )
         artifacts[artifact_name]["path"] = str(path)
         artifacts[artifact_name]["sha256"] = _sha256_file(path)
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _sha256_file(path: Path) -> str:
@@ -1348,7 +1460,11 @@ def _normalize_finding(
     merged = {
         **finding,
         "trace_short": _short(finding.get("trace_id")),
-        "tool_name": _attr(finding, "tool.name", _first_tool_name(activity_entry) or _attr(finding, "tool_name", "unknown")),
+        "tool_name": _attr(
+            finding,
+            "tool.name",
+            _first_tool_name(activity_entry) or _attr(finding, "tool_name", "unknown"),
+        ),
         "intent_id": _attr(finding, "intent.id", selected_intent_id),
         "expected_intent_id": expected_intent_id,
         "selected_intent_id": selected_intent_id,
@@ -1370,12 +1486,16 @@ def _normalize_finding(
         "expected_allowed": _attr(
             finding,
             "expected.allowed",
-            activity_entry.get("expected_allowed") if activity_entry else _attr(finding, "expected_allowed", "unknown"),
+            activity_entry.get("expected_allowed")
+            if activity_entry
+            else _attr(finding, "expected_allowed", "unknown"),
         ),
         "actual_allowed": _attr(
             finding,
             "actual.allowed",
-            activity_entry.get("actual_allowed") if activity_entry else _attr(finding, "actual_allowed", "unknown"),
+            activity_entry.get("actual_allowed")
+            if activity_entry
+            else _attr(finding, "actual_allowed", "unknown"),
         ),
         "policy_preflight_decision": _attr(
             finding,
@@ -1427,7 +1547,9 @@ def _normalize_regression_gate(
         "matching_finding": matching_finding,
         "display_title": display_title,
     }
-    normalized["debug_prompt"] = build_ide_debug_prompt(matching_finding or gate, release_decision=release_decision)
+    normalized["debug_prompt"] = build_ide_debug_prompt(
+        matching_finding or gate, release_decision=release_decision
+    )
     return normalized
 
 
@@ -1474,11 +1596,7 @@ def _remediation_entry(
     resolved_control_id = control_id or subject.get("gate_id") or subject.get("control_id") or "n/a"
     resolved_metric = failed_metric or subject.get("finding_type") or subject.get("name") or "n/a"
     metric_label = str(resolved_metric).replace("_", " ")
-    title = (
-        subject.get("expected_behavior")
-        or subject.get("display_name")
-        or metric_label
-    )
+    title = subject.get("expected_behavior") or subject.get("display_name") or metric_label
     return {
         "title": str(title),
         "evidence_id": evidence_id,
@@ -1527,12 +1645,16 @@ def _developer_remediation_context(
     warning_failures = [
         metric
         for metric in failing_metrics
-        if metric.get("passes_threshold") is False and str(metric.get("decision_impact") or "") == "warning"
+        if metric.get("passes_threshold") is False
+        and str(metric.get("decision_impact") or "") == "warning"
     ]
 
     if decision == "BLOCKED":
         for finding in critical_findings:
-            append_entry(finding, failed_metric=str(finding.get("finding_type") or "blocker_finding"))
+            append_entry(
+                finding,
+                failed_metric=str(finding.get("finding_type") or "blocker_finding"),
+            )
         for gate in normalized_regression_gates:
             append_entry(gate, control_id=str(gate.get("gate_id") or "release_control"))
         for metric in warning_failures:
@@ -1638,16 +1760,22 @@ Investigate why candidate {agent_version} produced {subject.get("finding_type", 
 Do not modify AgentGate as if it were the production agent. AgentGate reports evidence; the runtime fix belongs in the evaluated agent."""
 
 
-def _audit_scope(release_decision: dict[str, Any], evidence_source: dict[str, Any], output_dir: Path) -> dict[str, Any]:
+def _audit_scope(
+    release_decision: dict[str, Any], evidence_source: dict[str, Any], output_dir: Path
+) -> dict[str, Any]:
     query = evidence_source.get("query") if isinstance(evidence_source.get("query"), dict) else {}
     agent_id = release_decision.get("agent_id", "unknown")
     return {
         "agent": agent_id,
         "candidate_version": release_decision.get("agent_version", "unknown"),
         "policy": f"{release_decision.get('policy_id', 'unknown')} / {release_decision.get('policy_version', 'unknown')}",
-        "project_identifier": evidence_source.get("project_identifier") or query.get("project_identifier") or "unknown",
+        "project_identifier": evidence_source.get("project_identifier")
+        or query.get("project_identifier")
+        or "unknown",
         "evidence_source": evidence_source.get("type") or "unknown",
-        "evaluation_window": f"last {query.get('last_n_minutes')} minutes" if query.get("last_n_minutes") else "unknown",
+        "evaluation_window": f"last {query.get('last_n_minutes')} minutes"
+        if query.get("last_n_minutes")
+        else "unknown",
         "max_dangerous_traces": query.get("max_dangerous_traces", "unknown"),
         "output_dir": str(output_dir),
     }

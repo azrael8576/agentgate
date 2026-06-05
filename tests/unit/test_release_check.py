@@ -2,12 +2,11 @@ import json
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
-
 from backend.agentgate.cli import app
 from backend.agentgate.core.config import load_demo_release_policy
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
 from backend.agentgate.release.release_check import run_release_check
+from typer.testing import CliRunner
 
 
 def _seed(version: str, tmp_path: Path) -> Path:
@@ -83,7 +82,9 @@ def test_release_metrics_include_all_policy_threshold_keys(tmp_path: Path) -> No
     assert "dev_mode_bypass_rate" not in {metric["name"] for metric in metrics}
 
 
-def test_day4_metrics_compute_llm_judge_and_tool_success_outputs(tmp_path: Path) -> None:
+def test_day4_metrics_compute_llm_judge_and_tool_success_outputs(
+    tmp_path: Path,
+) -> None:
     evidence = _seed("v2", tmp_path)
     output_dir = tmp_path / "release" / "v2"
 

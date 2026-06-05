@@ -1,7 +1,9 @@
 from typing import Any
 
 from backend.agentgate.release.gate_binding import resolve_release_gate_binding
-from backend.agentgate.release.regression_gate_verifier import inherited_control_blocker_reasons
+from backend.agentgate.release.regression_gate_verifier import (
+    inherited_control_blocker_reasons,
+)
 from backend.agentgate.schemas import ReleasePolicy
 
 
@@ -58,7 +60,9 @@ def decide_release(
         "decision": decision,
         "confidence": None,
         "confidence_label": "rule_reproducible",
-        "decision_basis": "release_gate_binding" if use_gate_binding else "deterministic_release_gate",
+        "decision_basis": "release_gate_binding"
+        if use_gate_binding
+        else "deterministic_release_gate",
         "policy_id": policy.policy_id,
         "policy_version": policy.policy_version,
         "decision_reasons": reasons,
@@ -68,7 +72,9 @@ def decide_release(
         payload["gate_binding"] = {
             "gate_id": resolved_gate["gate_id"],
             "blocking": resolved_gate["blocking"],
-            "required_suite_metrics": [item["suite_metric"] for item in resolved_gate["suite_metrics"]],
+            "required_suite_metrics": [
+                item["suite_metric"] for item in resolved_gate["suite_metrics"]
+            ],
             "runtime_blocker_metrics": resolved_gate["runtime_blocker_metrics"],
             "not_implemented_suite_metrics": resolved_gate["not_implemented_suite_metrics"],
             "suite_metrics": resolved_gate["suite_metrics"],
@@ -100,7 +106,11 @@ def _gate_binding_blocker_reasons(
             continue
         if metric["status"] == "not_available":
             reasons.append(
-                _metric_reason(metric, reason="Required controlled gate metric is not available.", gate_binding=True)
+                _metric_reason(
+                    metric,
+                    reason="Required controlled gate metric is not available.",
+                    gate_binding=True,
+                )
             )
         elif metric["status"] == "computed" and metric["passes_threshold"] is False:
             reasons.append(_metric_reason(metric, gate_binding=True))
@@ -113,7 +123,12 @@ def _legacy_blocker_reasons(metrics: list[dict[str, Any]]) -> list[dict[str, Any
         if metric.get("decision_impact") != "blocker":
             continue
         if metric["status"] == "not_available":
-            reasons.append(_metric_reason(metric, reason="Required controlled blocker metric is not available."))
+            reasons.append(
+                _metric_reason(
+                    metric,
+                    reason="Required controlled blocker metric is not available.",
+                )
+            )
         elif metric["status"] == "computed" and metric["passes_threshold"] is False:
             reasons.append(_metric_reason(metric))
     return reasons
@@ -125,7 +140,9 @@ def _should_apply_routing_special_case(resolved_gate: dict[str, Any] | None) -> 
     return "intent_routing_accuracy" in resolved_gate["runtime_blocker_metrics"]
 
 
-def _metric_reason(metric: dict[str, Any], *, reason: str | None = None, gate_binding: bool = False) -> dict[str, Any]:
+def _metric_reason(
+    metric: dict[str, Any], *, reason: str | None = None, gate_binding: bool = False
+) -> dict[str, Any]:
     payload = {
         "reason": reason or f"{metric['name']} failed release threshold.",
         "metric": metric["name"],

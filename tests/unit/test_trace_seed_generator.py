@@ -1,10 +1,9 @@
 import json
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from backend.agentgate.cli import app
 from backend.agentgate.demo.trace_seed_generator import generate_seed_records
+from typer.testing import CliRunner
 
 
 def _records(version: str) -> list[dict]:
@@ -13,9 +12,7 @@ def _records(version: str) -> list[dict]:
 
 def test_v2_seed_contains_production_agent_evidence_span_types() -> None:
     event_types = {
-        record["event_type"]
-        for record in _records("v2")
-        if record["record_type"] == "span_event"
+        record["event_type"] for record in _records("v2") if record["record_type"] == "span_event"
     }
 
     assert "router.intent_classification" in event_types
@@ -160,8 +157,7 @@ def test_seed_records_include_phoenix_llm_judge_groundedness_labels() -> None:
     groundedness_labels = [
         record
         for record in records
-        if record["record_type"] == "eval_label"
-        and record["label_name"] == "groundedness"
+        if record["record_type"] == "eval_label" and record["label_name"] == "groundedness"
     ]
 
     assert groundedness_labels
@@ -194,5 +190,11 @@ def test_cli_seed_v2_and_v21_write_jsonl(tmp_path: Path) -> None:
     assert v21_result.exit_code == 0
     assert v2_output.exists()
     assert v21_output.exists()
-    assert json.loads(v2_output.read_text(encoding="utf-8").splitlines()[0])["record_type"] == "span_event"
-    assert json.loads(v21_output.read_text(encoding="utf-8").splitlines()[0])["agent_version"] == "v2.1"
+    assert (
+        json.loads(v2_output.read_text(encoding="utf-8").splitlines()[0])["record_type"]
+        == "span_event"
+    )
+    assert (
+        json.loads(v21_output.read_text(encoding="utf-8").splitlines()[0])["agent_version"]
+        == "v2.1"
+    )

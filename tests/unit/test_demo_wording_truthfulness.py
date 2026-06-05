@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
 from backend.agentgate.main import app
+from fastapi.testclient import TestClient
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_BLOCKED = REPO_ROOT / "examples" / "artifacts" / "reference-v2"

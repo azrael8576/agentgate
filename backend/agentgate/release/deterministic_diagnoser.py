@@ -1,6 +1,9 @@
 from typing import Any
 
-from backend.agentgate.core.agent_pack import RegressionGateCatalog, get_default_agent_pack
+from backend.agentgate.core.agent_pack import (
+    RegressionGateCatalog,
+    get_default_agent_pack,
+)
 
 
 def _resolve_catalog(catalog: RegressionGateCatalog | None) -> RegressionGateCatalog:
@@ -113,7 +116,11 @@ def _trace_ids_for_metric(
         verdict = str(entry.get("verdict", ""))
         if verdict == "authorized":
             continue
-        if finding_types and not entry_findings.intersection(finding_types) and verdict != "indeterminate":
+        if (
+            finding_types
+            and not entry_findings.intersection(finding_types)
+            and verdict != "indeterminate"
+        ):
             continue
         trace_id = str(entry.get("trace_id", ""))
         if trace_id and trace_id not in trace_ids:

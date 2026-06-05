@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.agentgate.core.agent_pack import MetricDefinitionEntry, get_default_agent_pack
+from backend.agentgate.core.agent_pack import (
+    MetricDefinitionEntry,
+    get_default_agent_pack,
+)
 from backend.agentgate.release.runtime_metric_catalog import (
     RuntimeMetricCatalog,
     metric_name_from_threshold_key,
@@ -28,9 +31,7 @@ def validate_suite_required_metrics(
     effective_metrics: tuple[MetricDefinitionEntry, ...] | None = None,
 ) -> dict[str, Any]:
     graders = (
-        metric_graders
-        if metric_graders is not None
-        else get_default_agent_pack().metric_graders()
+        metric_graders if metric_graders is not None else get_default_agent_pack().metric_graders()
     )
     catalog = RuntimeMetricCatalog(effective_metrics or get_default_agent_pack().effective_metrics)
     runtime_names = runtime_metric_names(policy)
@@ -114,7 +115,9 @@ def resolve_suite_metric_to_runtime(
     return suite_metric
 
 
-def resolve_release_gate_binding(gate_binding: dict[str, Any] | None) -> dict[str, Any] | None:
+def resolve_release_gate_binding(
+    gate_binding: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     if not gate_binding:
         return None
 
@@ -130,7 +133,9 @@ def resolve_release_gate_binding(gate_binding: dict[str, Any] | None) -> dict[st
         suite_metric = _suite_metric_name(required_metric)
         runtime_metric = _runtime_metric_from_required_metric(required_metric)
         if runtime_metric == "":
-            runtime_metric = resolve_suite_metric_to_runtime(suite_metric, gate_binding=gate_binding)
+            runtime_metric = resolve_suite_metric_to_runtime(
+                suite_metric, gate_binding=gate_binding
+            )
 
         if runtime_metric is None:
             suite_metrics.append(
@@ -186,7 +191,9 @@ def _metric_bindings(gate_binding: dict[str, Any] | None) -> dict[str, str | Non
 
 def _suite_metric_name(required_metric: Any) -> str:
     if isinstance(required_metric, dict):
-        return str(required_metric.get("suite_metric") or required_metric.get("metric") or "").strip()
+        return str(
+            required_metric.get("suite_metric") or required_metric.get("metric") or ""
+        ).strip()
     return str(required_metric)
 
 
@@ -210,8 +217,7 @@ def _missing_runtime_message(suite_metric: str, runtime_metric: str) -> str:
 
 def _missing_aggregator_message(suite_metric: str, runtime_metric: str) -> str:
     return (
-        f"{suite_metric} maps to {runtime_metric}, "
-        "which has no metrics_aggregator implementation."
+        f"{suite_metric} maps to {runtime_metric}, which has no metrics_aggregator implementation."
     )
 
 

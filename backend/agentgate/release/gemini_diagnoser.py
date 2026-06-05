@@ -5,8 +5,13 @@ import os
 from typing import Any, Literal, Protocol
 
 from backend.agentgate.core.agent_pack import RegressionGateCatalog
-from backend.agentgate.release.dangerous_evidence_classifier import build_dangerous_session_summaries
-from backend.agentgate.release.deterministic_diagnoser import build_regression_gates, diagnose_findings
+from backend.agentgate.release.dangerous_evidence_classifier import (
+    build_dangerous_session_summaries,
+)
+from backend.agentgate.release.deterministic_diagnoser import (
+    build_regression_gates,
+    diagnose_findings,
+)
 from backend.agentgate.settings import configure_vertex_environment, get_adk_model_name
 
 DiagnosisMode = Literal["deterministic", "gemini"]
@@ -15,7 +20,9 @@ DIAGNOSIS_RESULT_KEYS = ("dangerous_session_diagnoses", "regression_gates")
 
 
 class DangerousSessionDiagnoser(Protocol):
-    def diagnose(self, payload: dict[str, Any]) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    def diagnose(
+        self, payload: dict[str, Any]
+    ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
         """Return diagnoses plus diagnosis_metadata for release_decision.json."""
 
 
@@ -101,7 +108,9 @@ def build_gemini_input_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 class DeterministicDiagnoserAdapter:
-    def diagnose(self, payload: dict[str, Any]) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    def diagnose(
+        self, payload: dict[str, Any]
+    ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
         catalog = payload.get("regression_gate_catalog")
         finding_diagnoses = diagnose_findings(
             payload.get("critical_findings", []),
@@ -138,7 +147,9 @@ class GeminiDangerousSessionDiagnoser:
         self.fallback = fallback or DeterministicDiagnoserAdapter()
         self._client = client
 
-    def diagnose(self, payload: dict[str, Any]) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    def diagnose(
+        self, payload: dict[str, Any]
+    ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
         if not payload["critical_findings"]:
             catalog = payload.get("regression_gate_catalog")
             diagnoses = {
@@ -239,7 +250,9 @@ def _validate_diagnosis_entry(entry: Any, allowed_evidence_ids: set[str]) -> Non
     evidence_ids = entry.get("evidence_ids")
     if not isinstance(evidence_ids, list):
         raise GeminiDiagnosisError("Each dangerous_session_diagnosis must include evidence_ids.")
-    unknown = [evidence_id for evidence_id in evidence_ids if evidence_id not in allowed_evidence_ids]
+    unknown = [
+        evidence_id for evidence_id in evidence_ids if evidence_id not in allowed_evidence_ids
+    ]
     if unknown:
         raise GeminiDiagnosisError(f"Gemini referenced unknown evidence IDs: {unknown}")
 
@@ -250,9 +263,15 @@ def _validate_regression_gate(gate: Any, allowed_evidence_ids: set[str]) -> None
     source_evidence_ids = gate.get("source_evidence_ids")
     if not isinstance(source_evidence_ids, list):
         raise GeminiDiagnosisError("Each regression_gate must include source_evidence_ids.")
-    unknown = [evidence_id for evidence_id in source_evidence_ids if evidence_id not in allowed_evidence_ids]
+    unknown = [
+        evidence_id
+        for evidence_id in source_evidence_ids
+        if evidence_id not in allowed_evidence_ids
+    ]
     if unknown:
-        raise GeminiDiagnosisError(f"Gemini referenced unknown regression gate evidence IDs: {unknown}")
+        raise GeminiDiagnosisError(
+            f"Gemini referenced unknown regression gate evidence IDs: {unknown}"
+        )
 
 
 def _parse_gemini_json(raw: str) -> dict[str, Any]:
@@ -268,9 +287,7 @@ def _parse_gemini_json(raw: str) -> dict[str, Any]:
 def _is_gemini_api_error(error: Exception) -> bool:
     name = type(error).__name__
     module = type(error).__module__
-    if name in {"ClientError", "ServerError"} and "google.genai" in module:
-        return True
-    return False
+    return bool(name in {"ClientError", "ServerError"} and "google.genai" in module)
 
 
 def _build_genai_client() -> Any:
@@ -309,7 +326,14 @@ def _gemini_response_schema() -> dict[str, Any]:
             "required_fix": {"type": "string"},
             "evidence_ids": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["trace_id", "case_id", "diagnosis", "severity", "required_fix", "evidence_ids"],
+        "required": [
+            "trace_id",
+            "case_id",
+            "diagnosis",
+            "severity",
+            "required_fix",
+            "evidence_ids",
+        ],
     }
     gate_entry = {
         "type": "object",

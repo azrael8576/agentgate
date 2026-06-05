@@ -3,7 +3,6 @@ from backend.agentgate.core.config import load_default_pack_release_policy
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
 from backend.agentgate.evals.coverage_report import build_coverage_report
 from backend.agentgate.release.evidence_loader import load_evidence_jsonl
-
 from tests.fixtures.paths import DEMO_SEED_V2_PATH
 
 

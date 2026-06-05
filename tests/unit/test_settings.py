@@ -1,8 +1,6 @@
 import os
 from typing import Any
 
-import pytest
-
 from backend.agentgate.settings import (
     configure_vertex_environment,
     get_adk_model_name,
@@ -24,7 +22,9 @@ def test_configure_vertex_environment_maps_vertex_aliases(monkeypatch: Any) -> N
     assert os.environ["GOOGLE_GENAI_USE_VERTEXAI"] == "True"
 
 
-def test_configure_vertex_environment_defaults_location_to_global(monkeypatch: Any) -> None:
+def test_configure_vertex_environment_defaults_location_to_global(
+    monkeypatch: Any,
+) -> None:
     monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
     monkeypatch.delenv("GOOGLE_CLOUD_LOCATION", raising=False)
     monkeypatch.delenv("VERTEX_PROJECT_ID", raising=False)

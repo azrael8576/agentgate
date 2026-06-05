@@ -46,7 +46,9 @@ def _route_type_by_intent(pack: LoadedAgentPack) -> dict[str, str]:
     if pack.intents is not None:
         for intent in pack.intents.intents:
             route = intent.route_type or "tool_call"
-            mapping[str(intent.intent_id)] = "static_answer" if route == "static_answer" else "tool_route"
+            mapping[str(intent.intent_id)] = (
+                "static_answer" if route == "static_answer" else "tool_route"
+            )
     return mapping
 
 
@@ -63,7 +65,9 @@ def _critical_tool(pack: LoadedAgentPack, tool_name: str | None) -> bool:
     return tool_name in _dangerous_tools(pack)
 
 
-def generate_seed_records(version: SeedVersion, pack: LoadedAgentPack | None = None) -> list[SeedRecord]:
+def generate_seed_records(
+    version: SeedVersion, pack: LoadedAgentPack | None = None
+) -> list[SeedRecord]:
     resolved = _resolve_pack(pack)
     records: list[SeedRecord] = []
     for case_index, case in enumerate(validate_demo_cases(resolved)):
@@ -72,7 +76,9 @@ def generate_seed_records(version: SeedVersion, pack: LoadedAgentPack | None = N
     return records
 
 
-def write_seed_evidence(version: SeedVersion, output: Path, pack: LoadedAgentPack | None = None) -> dict:
+def write_seed_evidence(
+    version: SeedVersion, output: Path, pack: LoadedAgentPack | None = None
+) -> dict:
     resolved = _resolve_pack(pack)
     records = generate_seed_records(version, resolved)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -125,7 +131,9 @@ def _records_for_case(
                 "misroute_to_dangerous_tool": behavior["misroute_to_dangerous_tool"],
                 "attack_type": case.attack_type,
                 "intent_id": behavior["selected_intent_id"],
-                "router.route_type": route_types.get(str(behavior["selected_intent_id"]), "tool_route"),
+                "router.route_type": route_types.get(
+                    str(behavior["selected_intent_id"]), "tool_route"
+                ),
                 "router.slots": _router_slots(case, behavior),
                 "tool_name": case.expected_tool_name,
             },
@@ -275,7 +283,9 @@ def _tool_route_spans(
     return records
 
 
-def _seed_behavior(case: DemoCase, version: SeedVersion, attempt_index: int, pack: LoadedAgentPack) -> dict:
+def _seed_behavior(
+    case: DemoCase, version: SeedVersion, attempt_index: int, pack: LoadedAgentPack
+) -> dict:
     dangerous_intent = _dangerous_intent_id(pack)
     selected_intent_id = case.expected_intent_id
     if version == "v2" and case.case_id.startswith("case_misroute_dangerous"):
@@ -290,27 +300,27 @@ def _seed_behavior(case: DemoCase, version: SeedVersion, attempt_index: int, pac
     else:
         actual_allowed = case.expected_allowed
 
-    tool_executed = selected_deep and actual_allowed and _critical_tool(pack, case.expected_tool_name)
+    tool_executed = (
+        selected_deep and actual_allowed and _critical_tool(pack, case.expected_tool_name)
+    )
     if case.expected_tool_name and not _critical_tool(pack, case.expected_tool_name):
         tool_executed = bool(actual_allowed)
 
     raw_event_dumped = (
-        version == "v2"
-        and selected_deep
-        and case.case_id.startswith("case_alert_bad_format")
+        version == "v2" and selected_deep and case.case_id.startswith("case_alert_bad_format")
     )
     grounded_response = not (version == "v2" and (raw_event_dumped or misroute_to_dangerous_tool))
     block_reason = None if actual_allowed else "role_not_allowed_for_critical_tool"
-    policy_violation = case.expected_allowed != actual_allowed or (version == "v2" and misroute_to_dangerous_tool)
+    policy_violation = case.expected_allowed != actual_allowed or (
+        version == "v2" and misroute_to_dangerous_tool
+    )
     sql_safety_classification = (
         "unsafe_policy_bypass"
         if version == "v2" and (unauthorized_deep or misroute_to_dangerous_tool)
         else "read_only_parameterized"
     )
     warning_only_tool_failure = (
-        version == "v2.1"
-        and case.case_id == "case_ticker_001"
-        and attempt_index == 0
+        version == "v2.1" and case.case_id == "case_ticker_001" and attempt_index == 0
     )
     warning_only_format_variance = version == "v2.1" and case.case_id == "case_alert_bad_format_001"
     response_format_ok = not raw_event_dumped and not warning_only_format_variance
@@ -322,7 +332,10 @@ def _seed_behavior(case: DemoCase, version: SeedVersion, attempt_index: int, pac
         "tool_success": bool(actual_allowed) and not warning_only_tool_failure,
         "raw_event_dumped": raw_event_dumped,
         "misroute_to_dangerous_tool": misroute_to_dangerous_tool,
-        "router_confidence": round((0.42 if misroute_to_dangerous_tool else 0.88) + (attempt_index % 4) * 0.018, 3),
+        "router_confidence": round(
+            (0.42 if misroute_to_dangerous_tool else 0.88) + (attempt_index % 4) * 0.018,
+            3,
+        ),
         "sql_safety_classification": sql_safety_classification,
         "sql_row_limit": 1000 if version == "v2" and raw_event_dumped else 100,
         "block_reason": block_reason,
@@ -331,12 +344,16 @@ def _seed_behavior(case: DemoCase, version: SeedVersion, attempt_index: int, pac
         "policy_enforced": version != "v2" or not (unauthorized_deep or misroute_to_dangerous_tool),
         "policy_violation": policy_violation,
         "dangerous_tool_executed": selected_deep and actual_allowed and not case.expected_allowed,
-        "violation_reason": "unsafe_policy_bypass_allowed_critical_tool" if policy_violation else None,
+        "violation_reason": "unsafe_policy_bypass_allowed_critical_tool"
+        if policy_violation
+        else None,
     }
 
 
 def _trace_count_for_case(case: DemoCase, version: SeedVersion) -> int:
-    if case.case_id.startswith(("case_unauth_deep", "case_misroute_dangerous", "case_alert_bad_format")):
+    if case.case_id.startswith(
+        ("case_unauth_deep", "case_misroute_dangerous", "case_alert_bad_format")
+    ):
         return 5 if version == "v2" else 4
     if case.case_id.startswith(("case_incident_recent", "case_alert_deep")):
         return 4
@@ -353,7 +370,9 @@ def _trace_context(
     observed_at = BASE_TIME + timedelta(minutes=case_index * 7 + attempt_index * 2)
     role_users = USER_IDS_BY_ROLE.get(case.user_role, ("u-unknown-000",))
     user_id = role_users[attempt_index % len(role_users)]
-    session_id = f"sess_{version.replace('.', '')}_{case.user_role}_{case_index:02d}_{attempt_index + 1:02d}"
+    session_id = (
+        f"sess_{version.replace('.', '')}_{case.user_role}_{case_index:02d}_{attempt_index + 1:02d}"
+    )
     return {
         "session.id": session_id,
         "user.id": user_id,
@@ -374,9 +393,18 @@ def _contains_cjk(text: str) -> bool:
 def _router_slots(case: DemoCase, behavior: dict) -> str:
     selected = str(behavior["selected_intent_id"])
     if selected == "ops.alert_deep_investigation":
-        return json.dumps({"alert_id": _alert_id(case.input_text), "platform": _platform(case.input_text)}, sort_keys=True)
+        return json.dumps(
+            {
+                "alert_id": _alert_id(case.input_text),
+                "platform": _platform(case.input_text),
+            },
+            sort_keys=True,
+        )
     if selected == "ops.incident_recent_logs":
-        return json.dumps({"window": "3d", "surface": _incident_surface(case.input_text)}, sort_keys=True)
+        return json.dumps(
+            {"window": "3d", "surface": _incident_surface(case.input_text)},
+            sort_keys=True,
+        )
     if selected == "finance.ticker_news_summary":
         return json.dumps({"ticker": "DEMO", "market": "SYN"}, sort_keys=True)
     return json.dumps({"platform": _platform(case.input_text)}, sort_keys=True)
@@ -395,9 +423,18 @@ def _tool_args(case: DemoCase, tool_name: str, behavior: dict) -> str:
             sort_keys=True,
         )
     if tool_name == "summarize_incident_logs":
-        return json.dumps({"lookback_days": 3, "surface": _incident_surface(case.input_text), "row_limit": 100}, sort_keys=True)
+        return json.dumps(
+            {
+                "lookback_days": 3,
+                "surface": _incident_surface(case.input_text),
+                "row_limit": 100,
+            },
+            sort_keys=True,
+        )
     if tool_name == "analyze_public_ticker_news":
-        return json.dumps({"ticker": "DEMO", "market": "SYN", "mode": "news_summary"}, sort_keys=True)
+        return json.dumps(
+            {"ticker": "DEMO", "market": "SYN", "mode": "news_summary"}, sort_keys=True
+        )
     return "{}"
 
 
@@ -412,7 +449,10 @@ def _alert_id(text: str) -> str:
 
 def _platform(text: str) -> str:
     lowered = text.lower()
-    if any(term in lowered for term in ("payment", "checkout", "revenue", "funnel", "vip", "high-value")):
+    if any(
+        term in lowered
+        for term in ("payment", "checkout", "revenue", "funnel", "vip", "high-value")
+    ):
         return "payments"
     if "platform b" in lowered:
         return "platform_b"
@@ -423,7 +463,10 @@ def _platform(text: str) -> str:
 
 def _incident_surface(text: str) -> str:
     lowered = text.lower()
-    if any(term in lowered for term in ("payment", "checkout", "revenue", "funnel", "vip", "high-value")):
+    if any(
+        term in lowered
+        for term in ("payment", "checkout", "revenue", "funnel", "vip", "high-value")
+    ):
         return "checkout"
     return "web"
 
@@ -454,9 +497,8 @@ def _eval_labels(
 ) -> list[EvalLabel]:
     dangerous_intent = _dangerous_intent_id(pack)
     response_format_ok = bool(behavior["response_format_ok"])
-    policy_compliant = (
-        bool(behavior["actual_allowed"]) == case.expected_allowed
-        and not bool(behavior["misroute_to_dangerous_tool"])
+    policy_compliant = bool(behavior["actual_allowed"]) == case.expected_allowed and not bool(
+        behavior["misroute_to_dangerous_tool"]
     )
     dangerous_tool_executed = (
         behavior["selected_intent_id"] == dangerous_intent

@@ -24,9 +24,7 @@ class PhoenixConfig:
 def load_phoenix_config() -> PhoenixConfig:
     missing = [name for name in REQUIRED_PHOENIX_ENV_VARS if not os.getenv(name)]
     if missing:
-        raise PhoenixConfigError(
-            "Missing Phoenix environment variables: " + ", ".join(missing)
-        )
+        raise PhoenixConfigError("Missing Phoenix environment variables: " + ", ".join(missing))
     return PhoenixConfig(
         endpoint=os.environ["PHOENIX_COLLECTOR_ENDPOINT"],
         api_key=os.environ["PHOENIX_API_KEY"],
@@ -45,4 +43,3 @@ def register_phoenix_tracer(service_name: str):
         verbose=False,
     )
     return tracer_provider.get_tracer(service_name), config
-

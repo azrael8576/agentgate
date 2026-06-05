@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from backend.agentgate.demo.demo_cases import validate_demo_cases
-from backend.agentgate.evals.phoenix_client_config import get_phoenix_project_name, load_phoenix_client
+from backend.agentgate.evals.phoenix_client_config import (
+    get_phoenix_project_name,
+    load_phoenix_client,
+)
 from backend.agentgate.settings import get_eval_dataset_name
 
 

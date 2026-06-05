@@ -2,7 +2,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
-from backend.agentgate.release.phoenix_mcp_client import PhoenixMCPClient, PhoenixMCPConfig
+from backend.agentgate.release.phoenix_mcp_client import (
+    PhoenixMCPClient,
+    PhoenixMCPConfig,
+)
 from backend.agentgate.release.phoenix_normalizer import resolve_supported_span_names
 from backend.agentgate.settings import get_max_dangerous_traces
 
@@ -185,7 +188,12 @@ def _attribute(span: dict[str, Any], key: str) -> Any:
             if isinstance(item, dict) and item.get("key") == key:
                 value = item.get("value")
                 if isinstance(value, dict):
-                    for value_key in ("stringValue", "intValue", "doubleValue", "boolValue"):
+                    for value_key in (
+                        "stringValue",
+                        "intValue",
+                        "doubleValue",
+                        "boolValue",
+                    ):
                         if value_key in value:
                             return value[value_key]
                     return value.get("value")

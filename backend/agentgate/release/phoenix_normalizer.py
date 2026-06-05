@@ -2,20 +2,24 @@ import json
 from pathlib import Path
 from typing import Any
 
+from backend.agentgate.core.agent_pack import get_default_agent_pack
 from backend.agentgate.demo.eval_label_schema import EvalLabel
 from backend.agentgate.evals.annotation_parser import eval_labels_from_span_payloads
-from backend.agentgate.schemas.evidence import SpanAttributeValue, SpanEvent
-from backend.agentgate.core.agent_pack import get_default_agent_pack
-from backend.agentgate.release.evidence_loader import EvidenceRecord
 from backend.agentgate.release.evidence_backfill import backfill_span_attributes
-from backend.agentgate.release.phoenix_span_identity import resolve_otel_span_id, resolve_otel_trace_id
+from backend.agentgate.release.evidence_loader import EvidenceRecord
+from backend.agentgate.release.phoenix_span_identity import (
+    resolve_otel_span_id,
+    resolve_otel_trace_id,
+)
+from backend.agentgate.schemas.evidence import SpanAttributeValue, SpanEvent
 
 
-def resolve_supported_span_names(supported_span_names: set[str] | None = None) -> set[str]:
+def resolve_supported_span_names(
+    supported_span_names: set[str] | None = None,
+) -> set[str]:
     if supported_span_names is not None:
         return supported_span_names
     return get_default_agent_pack().supported_span_names()
-
 
 
 def load_phoenix_spans_json(
@@ -121,7 +125,9 @@ def _span_to_record(
             or trace_id
         ),
         agent_id=str(attributes.get("agent.id") or attributes.get("agent_id") or "unknown"),
-        agent_version=str(attributes.get("agent.version") or attributes.get("agent_version") or "unknown"),
+        agent_version=str(
+            attributes.get("agent.version") or attributes.get("agent_version") or "unknown"
+        ),
         user_role=str(attributes.get("user.role") or attributes.get("user_role") or "unknown"),
         span_name=name,
         event_type=name,
@@ -135,7 +141,9 @@ def _normalize_attributes(raw: Any) -> dict[str, SpanAttributeValue]:
     if isinstance(raw, dict):
         return {
             str(key): value
-            for key, value in ((_normalize_key(key), _otel_value(value)) for key, value in raw.items())
+            for key, value in (
+                (_normalize_key(key), _otel_value(value)) for key, value in raw.items()
+            )
             if _is_scalar(value)
         }
     if isinstance(raw, list):
@@ -167,7 +175,10 @@ def _agentgate_attributes(
 
     if "expected.allowed" in attrs:
         normalized["expected_allowed"] = _bool(attrs["expected.allowed"])
-    if attrs.get("policy.tool.executed_despite_deny") is True or attrs.get("policy.actual_allowed") is True:
+    if (
+        attrs.get("policy.tool.executed_despite_deny") is True
+        or attrs.get("policy.actual_allowed") is True
+    ):
         normalized["actual_allowed"] = True
     elif "policy.preflight.decision" in attrs:
         normalized["actual_allowed"] = str(attrs["policy.preflight.decision"]).upper() == "ALLOW"
@@ -176,8 +187,8 @@ def _agentgate_attributes(
     selected = normalized.get("selected_intent_id")
     expected = normalized.get("expected_intent_id")
     if selected and expected and "misroute_to_dangerous_tool" not in normalized:
-        normalized["misroute_to_dangerous_tool"] = (
-            selected != expected and str(selected) in (dangerous_intent_ids or set())
+        normalized["misroute_to_dangerous_tool"] = selected != expected and str(selected) in (
+            dangerous_intent_ids or set()
         )
 
     if "sql.safety_classification" in attrs:
@@ -206,8 +217,16 @@ def _promote_replay_attributes(
         if canonical and canonical not in normalized:
             normalized[canonical] = value
 
-    _copy_attr(normalized, attrs, "router.misroute_to_dangerous_tool", "misroute_to_dangerous_tool")
-    if attrs.get("response.sensitive_output_violation") is True and "raw_event_dumped" not in normalized:
+    _copy_attr(
+        normalized,
+        attrs,
+        "router.misroute_to_dangerous_tool",
+        "misroute_to_dangerous_tool",
+    )
+    if (
+        attrs.get("response.sensitive_output_violation") is True
+        and "raw_event_dumped" not in normalized
+    ):
         normalized["raw_event_dumped"] = True
         normalized["response.raw_event_dumped"] = True
 
@@ -242,7 +261,9 @@ def _record_status(
 
 def _eval_labels_from_span(span: dict[str, Any]) -> list[EvalLabel]:
     span_attributes = _normalize_attributes(span.get("attributes", {}))
-    trace_id = _first_string(span, "trace_id", "traceId") or _nested_string(span, "context", "trace_id", "traceId")
+    trace_id = _first_string(span, "trace_id", "traceId") or _nested_string(
+        span, "context", "trace_id", "traceId"
+    )
     if trace_id is None:
         return []
 
@@ -254,9 +275,17 @@ def _eval_labels_from_span(span: dict[str, Any]) -> list[EvalLabel]:
             or span_attributes.get("session.id")
             or trace_id
         ),
-        "agent_id": str(span_attributes.get("agent.id") or span_attributes.get("agent_id") or "unknown"),
-        "agent_version": str(span_attributes.get("agent.version") or span_attributes.get("agent_version") or "unknown"),
-        "user_role": str(span_attributes.get("user.role") or span_attributes.get("user_role") or "unknown"),
+        "agent_id": str(
+            span_attributes.get("agent.id") or span_attributes.get("agent_id") or "unknown"
+        ),
+        "agent_version": str(
+            span_attributes.get("agent.version")
+            or span_attributes.get("agent_version")
+            or "unknown"
+        ),
+        "user_role": str(
+            span_attributes.get("user.role") or span_attributes.get("user_role") or "unknown"
+        ),
     }
 
     labels: list[EvalLabel] = []
@@ -305,7 +334,9 @@ def _eval_label_from_event(event: dict[str, Any], defaults: dict[str, str]) -> E
         evaluator=str(attributes.get("eval.evaluator") or "phoenix_span_event"),
         label_name=label_name,
         label_value=label_value,
-        rationale=str(attributes.get("eval.rationale") or f"Recovered from Phoenix span event {name}."),
+        rationale=str(
+            attributes.get("eval.rationale") or f"Recovered from Phoenix span event {name}."
+        ),
         metadata=metadata,
     )
 

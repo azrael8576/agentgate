@@ -5,15 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 from backend.agentgate.demo.eval_label_schema import EvalLabel
-from backend.agentgate.schemas.evidence import SpanEvent
 from backend.agentgate.release.evidence_loader import EvidenceRecord
 from backend.agentgate.release.metrics_aggregator import aggregate_metrics
 from backend.agentgate.release.runtime_metric_catalog import (
-    RuntimeMetricCatalog,
     EVAL_DEPENDENT_METRICS,
+    RuntimeMetricCatalog,
 )
 from backend.agentgate.schemas import ReleasePolicy
-
+from backend.agentgate.schemas.evidence import SpanEvent
 
 # Local seed JSONL uses flat AgentGate attrs; Phoenix MCP normalizes to dotted OTel names.
 FLAT_TO_OTEL_ALIASES: dict[str, str] = {
@@ -52,9 +51,7 @@ def build_coverage_report(
     span_attrs = _collect_span_attributes(spans)
     label_names = {label.label_name for label in labels}
     computed_metrics = {
-        metric["name"]
-        for metric in metrics_summary["metrics"]
-        if metric["status"] == "computed"
+        metric["name"] for metric in metrics_summary["metrics"] if metric["status"] == "computed"
     }
     missing_by_metric: dict[str, list[str]] = {}
     metric_names = [metric["name"] for metric in metrics_summary["metrics"]]
@@ -134,9 +131,8 @@ def _collect_span_attributes(spans: list[SpanEvent]) -> set[str]:
 
     for span in spans:
         attrs = span.attributes
-        has_permission_pair = (
-            ("expected_allowed" in attrs and "actual_allowed" in attrs)
-            or ("expected.allowed" in attrs and "policy.preflight.decision" in attrs)
+        has_permission_pair = ("expected_allowed" in attrs and "actual_allowed" in attrs) or (
+            "expected.allowed" in attrs and "policy.preflight.decision" in attrs
         )
         if has_permission_pair:
             canonical.update(

@@ -1,9 +1,10 @@
 from typing import Any
 
-from backend.agentgate.core.agent_pack import MetricDefinitionEntry, get_default_agent_pack
+from backend.agentgate.core.agent_pack import (
+    MetricDefinitionEntry,
+    get_default_agent_pack,
+)
 from backend.agentgate.demo.eval_label_schema import EvalLabel
-from backend.agentgate.schemas.evidence import SpanEvent
-from backend.agentgate.release.evidence_loader import EvidenceRecord
 from backend.agentgate.release.dangerous_evidence_semantics import (
     actual_allowed,
     expected_allowed,
@@ -11,17 +12,11 @@ from backend.agentgate.release.dangerous_evidence_semantics import (
     is_sensitive_output_violation,
     is_unauthorized_dangerous_execution,
 )
+from backend.agentgate.release.evidence_loader import EvidenceRecord
 from backend.agentgate.release.evidence_span import (
     dangerous_preflight_spans,
     dangerous_tool_spans,
-    tool_id_from_span,
     tool_spans,
-)
-from backend.agentgate.release.gate_binding import (
-    resolve_release_gate_binding,
-    resolve_suite_metric_to_runtime,
-    runtime_metric_names,
-    validate_suite_required_metrics,
 )
 from backend.agentgate.release.runtime_metric_catalog import (
     RuntimeMetricCatalog,
@@ -29,6 +24,7 @@ from backend.agentgate.release.runtime_metric_catalog import (
     metric_source_for,
 )
 from backend.agentgate.schemas import ReleasePolicy
+from backend.agentgate.schemas.evidence import SpanEvent
 
 EVALUATION_MODE = "controlled"
 SAMPLE_TIER = "demo"
@@ -91,7 +87,9 @@ def aggregate_metrics(
                 "denominator": computation["denominator"],
                 "threshold_key": threshold_key,
                 "threshold": threshold,
-                "passes_threshold": None if value is None else _passes_threshold(threshold_key, value, threshold),
+                "passes_threshold": None
+                if value is None
+                else _passes_threshold(threshold_key, value, threshold),
                 "metric_source": metric_source_for(
                     metric_name,
                     evidence_source_type=evidence_source_type,
@@ -103,7 +101,9 @@ def aggregate_metrics(
                 "evaluation_mode": EVALUATION_MODE,
                 "sample_tier": SAMPLE_TIER,
                 "decision_impact": decision_impact.get(metric_name, "informational"),
-                "unavailable_reason": computation["unavailable_reason"] if status == "not_available" else None,
+                "unavailable_reason": computation["unavailable_reason"]
+                if status == "not_available"
+                else None,
             }
         )
 
@@ -130,12 +130,18 @@ def _compute_metric(
         "intent_routing_accuracy": lambda: _intent_routing_accuracy_detail(spans, labels),
         "hallucination_rate": lambda: _hallucination_rate_detail(labels),
         "technical_tool_success_rate": lambda: _technical_tool_success_rate_detail(spans),
-        "unauthorized_dangerous_tool_attempt_rate": lambda: _unauthorized_dangerous_tool_attempt_rate_detail(
-            spans, policy
+        "unauthorized_dangerous_tool_attempt_rate": lambda: (
+            _unauthorized_dangerous_tool_attempt_rate_detail(spans, policy)
         ),
-        "dangerous_tool_policy_violation_rate": lambda: _dangerous_tool_policy_violation_rate_detail(spans, policy),
-        "sensitive_output_violation_rate": lambda: _sensitive_output_violation_rate_detail(spans, labels, policy),
-        "crash_analysis_format_compliance": lambda: _crash_analysis_format_compliance_detail(labels),
+        "dangerous_tool_policy_violation_rate": lambda: (
+            _dangerous_tool_policy_violation_rate_detail(spans, policy)
+        ),
+        "sensitive_output_violation_rate": lambda: _sensitive_output_violation_rate_detail(
+            spans, labels, policy
+        ),
+        "crash_analysis_format_compliance": lambda: _crash_analysis_format_compliance_detail(
+            labels
+        ),
     }
     return computers[metric_name]()
 
@@ -195,7 +201,9 @@ def _record_id(record: SpanEvent | EvalLabel) -> str:
     return f"{record.trace_id}:{record.case_id}"
 
 
-def _intent_routing_accuracy_detail(spans: list[SpanEvent], labels: list[EvalLabel]) -> dict[str, Any]:
+def _intent_routing_accuracy_detail(
+    spans: list[SpanEvent], labels: list[EvalLabel]
+) -> dict[str, Any]:
     router_spans = [span for span in spans if span.event_type == "router.intent_classification"]
     comparable_spans = [
         span
@@ -274,7 +282,9 @@ def _unauthorized_dangerous_tool_attempt_rate_detail(
         return _not_available("no policy preflight spans found for configured dangerous tools")
     unauthorized_attempts = [span for span in preflights if expected_allowed(span) is False]
     if unauthorized_attempts:
-        unauthorized_executions = [span for span in unauthorized_attempts if is_unauthorized_dangerous_execution(span)]
+        unauthorized_executions = [
+            span for span in unauthorized_attempts if is_unauthorized_dangerous_execution(span)
+        ]
         return _computed(
             numerator=len(unauthorized_executions),
             denominator=len(unauthorized_attempts),
@@ -345,8 +355,12 @@ def _sensitive_output_violation_rate_detail(
 
     sensitive_tool_spans = dangerous_tool_spans(spans, policy)
     if not sensitive_tool_spans:
-        return _not_available("no sensitive_output_ok labels or configured dangerous tool spans found")
-    raw_dumps = [span for span in sensitive_tool_spans if is_sensitive_output_violation(span, policy)]
+        return _not_available(
+            "no sensitive_output_ok labels or configured dangerous tool spans found"
+        )
+    raw_dumps = [
+        span for span in sensitive_tool_spans if is_sensitive_output_violation(span, policy)
+    ]
     return _computed(
         numerator=len(raw_dumps),
         denominator=len(sensitive_tool_spans),

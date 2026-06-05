@@ -4,15 +4,21 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from backend.agentgate.schemas.evidence import SpanEvent
 from backend.agentgate.release.dangerous_evidence_classifier import (
     classify_indeterminate_findings,
     classify_trace_findings,
     has_reviewable_high_risk_activity,
 )
-from backend.agentgate.release.evidence_loader import EvidenceRecord, group_records_by_trace
-from backend.agentgate.release.evidence_span import dangerous_tool_ids, primary_span_event_types
+from backend.agentgate.release.evidence_loader import (
+    EvidenceRecord,
+    group_records_by_trace,
+)
+from backend.agentgate.release.evidence_span import (
+    dangerous_tool_ids,
+    primary_span_event_types,
+)
 from backend.agentgate.schemas import ReleasePolicy
+from backend.agentgate.schemas.evidence import SpanEvent
 
 AuditVerdict = Literal["violation", "authorized", "indeterminate"]
 
@@ -30,7 +36,11 @@ def build_audit_session_report(
         spans = [record for record in trace_records if isinstance(record, SpanEvent)]
         material_findings = classify_trace_findings(trace_id, spans, policy)
         indeterminate = classify_indeterminate_findings(trace_id, spans, policy)
-        if not material_findings and not indeterminate and not has_reviewable_high_risk_activity(spans, policy):
+        if (
+            not material_findings
+            and not indeterminate
+            and not has_reviewable_high_risk_activity(spans, policy)
+        ):
             continue
 
         entry = _build_activity_entry(trace_id, spans, material_findings, indeterminate, policy)
@@ -57,8 +67,13 @@ def _build_activity_entry(
     policy: ReleasePolicy | None = None,
 ) -> dict[str, Any]:
     primary = _primary_span(spans, policy)
-    preflight = next((span for span in spans if span.event_type.startswith("policy_preflight.")), None)
-    tool_spans = [span for span in spans if span.event_type.startswith("tool.") and span.status == "ok"]
+    preflight = next(
+        (span for span in spans if span.event_type.startswith("policy_preflight.")),
+        None,
+    )
+    tool_spans = [
+        span for span in spans if span.event_type.startswith("tool.") and span.status == "ok"
+    ]
     verdict = _resolve_verdict(material_findings, indeterminate_findings, spans, policy)
     return {
         "trace_id": trace_id,
@@ -71,8 +86,17 @@ def _build_activity_entry(
         "actual_allowed": _optional_bool(preflight, "actual_allowed"),
         "policy_violation": _optional_bool(preflight, "policy_violation"),
         "verdict": verdict,
-        "verdict_reason": _verdict_reason(verdict, material_findings, indeterminate_findings, preflight, tool_spans),
-        "finding_types": [finding["finding_type"] for finding in material_findings + indeterminate_findings],
+        "verdict_reason": _verdict_reason(
+            verdict,
+            material_findings,
+            indeterminate_findings,
+            preflight,
+            tool_spans,
+            policy,
+        ),
+        "finding_types": [
+            finding["finding_type"] for finding in material_findings + indeterminate_findings
+        ],
         "evidence_ids": sorted(
             {
                 str(evidence_id)
@@ -106,9 +130,12 @@ def _verdict_reason(
     indeterminate_findings: list[dict[str, Any]],
     preflight: SpanEvent | None,
     tool_spans: list[SpanEvent],
+    policy: ReleasePolicy | None = None,
 ) -> str:
     if material_findings:
-        finding_types = ", ".join(sorted({finding["finding_type"] for finding in material_findings}))
+        finding_types = ", ".join(
+            sorted({finding["finding_type"] for finding in material_findings})
+        )
         return f"Material violation detected: {finding_types}."
     if indeterminate_findings:
         finding_types = {finding["finding_type"] for finding in indeterminate_findings}
@@ -185,4 +212,7 @@ def _authorized_session_summary(entry: dict[str, Any]) -> dict[str, Any]:
 
 def _activity_sort_key(entry: dict[str, Any]) -> tuple[int, str]:
     verdict_rank = {"violation": 0, "indeterminate": 1, "authorized": 2}
-    return (verdict_rank.get(str(entry.get("verdict")), 3), str(entry.get("trace_id", "")))
+    return (
+        verdict_rank.get(str(entry.get("verdict")), 3),
+        str(entry.get("trace_id", "")),
+    )

@@ -40,11 +40,7 @@ def configure_vertex_environment() -> None:
 
 def get_adk_model_name() -> str:
     load_local_env()
-    return (
-        os.getenv(AGENTGATE_GEMINI_MODEL_ENV)
-        or os.getenv(ADK_MODEL_ENV)
-        or DEFAULT_ADK_MODEL
-    )
+    return os.getenv(AGENTGATE_GEMINI_MODEL_ENV) or os.getenv(ADK_MODEL_ENV) or DEFAULT_ADK_MODEL
 
 
 def get_max_dangerous_traces() -> int:

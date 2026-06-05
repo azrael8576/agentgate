@@ -7,7 +7,9 @@ from backend.agentgate.release.dangerous_evidence_classifier import (
 )
 
 
-def _preflight_span(*, expected: bool, actual: bool, tool: str = "deep_investigate_alert") -> SpanEvent:
+def _preflight_span(
+    *, expected: bool, actual: bool, tool: str = "deep_investigate_alert"
+) -> SpanEvent:
     return SpanEvent(
         trace_id="trace_001",
         span_id="span_policy",
@@ -57,7 +59,9 @@ def test_policy_dangerous_tools_drive_unauthorized_findings() -> None:
         policy,
     )
 
-    assert any(finding["finding_type"] == "unauthorized_dangerous_tool_execution" for finding in findings)
+    assert any(
+        finding["finding_type"] == "unauthorized_dangerous_tool_execution" for finding in findings
+    )
 
 
 def test_non_policy_tool_is_ignored_by_classifier() -> None:

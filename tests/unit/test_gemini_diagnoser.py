@@ -3,9 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
-from backend.agentgate.release.deterministic_diagnoser import build_regression_gates, diagnose_findings
 from backend.agentgate.release.gemini_diagnoser import (
     DeterministicDiagnoserAdapter,
     GeminiDangerousSessionDiagnoser,
@@ -39,8 +37,13 @@ def _read_json(path: Path) -> dict:
 def _sample_payload(tmp_path: Path) -> dict[str, Any]:
     evidence = _seed("v2", tmp_path)
     from backend.agentgate.core.config import load_demo_release_policy
-    from backend.agentgate.release.audit_session_report import build_audit_session_report
-    from backend.agentgate.release.evidence_loader import evidence_identity, load_evidence_jsonl
+    from backend.agentgate.release.audit_session_report import (
+        build_audit_session_report,
+    )
+    from backend.agentgate.release.evidence_loader import (
+        evidence_identity,
+        load_evidence_jsonl,
+    )
     from backend.agentgate.release.metrics_aggregator import aggregate_metrics
 
     records = load_evidence_jsonl(evidence)
@@ -53,7 +56,11 @@ def _sample_payload(tmp_path: Path) -> dict[str, Any]:
         policy=policy,
         metrics_summary=metrics_summary,
         dangerous_sessions=dangerous_sessions,
-        evidence_source={"type": "local_jsonl", "path": str(evidence), "dangerous_traces": []},
+        evidence_source={
+            "type": "local_jsonl",
+            "path": str(evidence),
+            "dangerous_traces": [],
+        },
     )
 
 

@@ -2,11 +2,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi.testclient import TestClient
-
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
 from backend.agentgate.main import app
 from backend.agentgate.release.release_check import run_release_check
+from fastapi.testclient import TestClient
 
 
 def _seed(version: str, tmp_path: Path) -> Path:
@@ -49,7 +48,10 @@ def test_standalone_html_is_offline_capable(tmp_path: Path) -> None:
     assert "Release controls generated from this blocked failure" in html
     assert "Fix now" not in html
     assert "Hard block deep_investigate_alert unless user_role is developer or sre." in html
-    assert "regression_gates.json is the technical artifact backing generated release controls." in html
+    assert (
+        "regression_gates.json is the technical artifact backing generated release controls."
+        in html
+    )
     assert "Why blocked" in html
     assert "Audit archive summary" in html
     assert "Phoenix provides trace/eval evidence" in html

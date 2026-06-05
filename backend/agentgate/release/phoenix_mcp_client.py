@@ -84,7 +84,9 @@ class PhoenixMCPClient:
     def _notify(self, method: str, params: dict[str, Any]) -> None:
         process = self._require_process()
         assert process.stdin is not None
-        process.stdin.write(json.dumps({"jsonrpc": "2.0", "method": method, "params": params}) + "\n")
+        process.stdin.write(
+            json.dumps({"jsonrpc": "2.0", "method": method, "params": params}) + "\n"
+        )
         process.stdin.flush()
 
     def _request(self, method: str, params: dict[str, Any]) -> Any:
@@ -109,7 +111,9 @@ class PhoenixMCPClient:
         while True:
             ready, _, _ = select.select([process.stdout], [], [], self.timeout_seconds)
             if not ready:
-                raise PhoenixMCPError(f"Phoenix MCP {method} timed out after {self.timeout_seconds:.0f}s.")
+                raise PhoenixMCPError(
+                    f"Phoenix MCP {method} timed out after {self.timeout_seconds:.0f}s."
+                )
             line = process.stdout.readline()
             if line == "":
                 stderr = ""
@@ -140,11 +144,16 @@ def load_phoenix_mcp_config(
         resolved_base_url = _base_url_from_collector_endpoint(collector_endpoint)
 
     resolved_api_key = api_key or os.getenv("PHOENIX_API_KEY")
-    resolved_project = project_identifier or os.getenv("PHOENIX_PROJECT") or os.getenv("PHOENIX_PROJECT_NAME")
+    resolved_project = (
+        project_identifier or os.getenv("PHOENIX_PROJECT") or os.getenv("PHOENIX_PROJECT_NAME")
+    )
     missing = [
         name
         for name, value in (
-            ("PHOENIX_HOST or PHOENIX_BASE_URL or PHOENIX_COLLECTOR_ENDPOINT", resolved_base_url),
+            (
+                "PHOENIX_HOST or PHOENIX_BASE_URL or PHOENIX_COLLECTOR_ENDPOINT",
+                resolved_base_url,
+            ),
             ("PHOENIX_API_KEY", resolved_api_key),
             ("PHOENIX_PROJECT or PHOENIX_PROJECT_NAME", resolved_project),
         )
@@ -198,7 +207,7 @@ def _decode_tool_result(result: Any) -> Any:
             decoded_blocks.append(json.loads(text))
         except json.JSONDecodeError:
             if _looks_like_http_error_text(text):
-                raise PhoenixMCPError(text)
+                raise PhoenixMCPError(text) from None
             decoded_blocks.append(text)
 
     if len(decoded_blocks) == 1:

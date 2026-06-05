@@ -1,4 +1,7 @@
-from backend.agentgate.evals.phoenix_eval_runner import _evaluate_with_retry, _is_rate_limit_error
+from backend.agentgate.evals.phoenix_eval_runner import (
+    _evaluate_with_retry,
+    _is_rate_limit_error,
+)
 from backend.agentgate.release.evidence_backfill import backfill_span_attributes
 
 

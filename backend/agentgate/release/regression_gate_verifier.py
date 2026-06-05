@@ -14,9 +14,7 @@ ResolutionSource = Literal[
     "not_found",
 ]
 
-BUNDLED_REFERENCE_REGRESSION_GATES = Path(
-    "artifacts/release/reference-v2/regression_gates.json"
-)
+BUNDLED_REFERENCE_REGRESSION_GATES = Path("artifacts/release/reference-v2/regression_gates.json")
 
 # Heuristic gate_id -> metrics and pass rules for the reference demo workflow.
 _GATE_RULES: dict[str, dict[str, Any]] = {
@@ -264,10 +262,9 @@ def build_future_verification_decision_fields(
     status = control_verification.get("status")
     summary = control_verification.get("summary") or _empty_summary()
     control_resolution = control_verification.get("control_resolution") or {}
-    source_artifact = (
-        control_verification.get("source_release", {}).get("regression_gates_artifact")
-        or control_resolution.get("artifact_path")
-    )
+    source_artifact = control_verification.get("source_release", {}).get(
+        "regression_gates_artifact"
+    ) or control_resolution.get("artifact_path")
 
     if status == "not_applicable":
         fv_status = "not_applicable"
@@ -329,7 +326,9 @@ def inherited_control_blocker_reasons(
             continue
         status = result.get("verification_status")
         if status == "FAIL":
-            title = result.get("control_title") or result.get("gate_id") or "Inherited release control"
+            title = (
+                result.get("control_title") or result.get("gate_id") or "Inherited release control"
+            )
             reasons.append(
                 {
                     "reason": f"Inherited release control failed: {title}.",
@@ -339,7 +338,9 @@ def inherited_control_blocker_reasons(
                 }
             )
         elif status == "NOT_AVAILABLE" and control_verification.get("status") == "verified":
-            title = result.get("control_title") or result.get("gate_id") or "Inherited release control"
+            title = (
+                result.get("control_title") or result.get("gate_id") or "Inherited release control"
+            )
             reasons.append(
                 {
                     "reason": (
@@ -454,7 +455,10 @@ def _evaluate_gate(
     metric_by_name: dict[str, dict[str, Any]],
 ) -> tuple[VerificationStatus, str]:
     if not metric_ids:
-        return "NOT_AVAILABLE", "No metric mapping was available for this inherited release control."
+        return (
+            "NOT_AVAILABLE",
+            "No metric mapping was available for this inherited release control.",
+        )
 
     missing = [metric_id for metric_id in metric_ids if metric_id not in metric_by_name]
     if missing and rule.get("zero_rate_pass"):
@@ -482,7 +486,10 @@ def _evaluate_gate(
                 "FAIL",
                 f"Metric {metric_id} did not pass the release threshold ({metric.get('value')}).",
             )
-        return "PASS", "Candidate evidence satisfies the inherited routing or format control."
+        return (
+            "PASS",
+            "Candidate evidence satisfies the inherited routing or format control.",
+        )
 
     if rule.get("zero_rate_pass"):
         for metric_id in metric_ids:
@@ -503,9 +510,15 @@ def _evaluate_gate(
                     "FAIL",
                     f"Metric {metric_id} must be zero for this inherited control (observed {value}).",
                 )
-        return "PASS", "Candidate evidence contains no violations for the inherited control metrics."
+        return (
+            "PASS",
+            "Candidate evidence contains no violations for the inherited control metrics.",
+        )
 
-    return "NOT_AVAILABLE", "Verification rule for this inherited control is not defined."
+    return (
+        "NOT_AVAILABLE",
+        "Verification rule for this inherited control is not defined.",
+    )
 
 
 def _summarize_results(results: list[dict[str, Any]]) -> dict[str, int]:

@@ -6,6 +6,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel
 
 from backend.agentgate.core.agent_pack import (
+    DEFAULT_AGENT_PACK_PATH,
     LoadedAgentPack,
     load_agent_pack,
     resolve_agent_pack_path,
@@ -13,8 +14,6 @@ from backend.agentgate.core.agent_pack import (
 from backend.agentgate.schemas import AgentProfile, EvalSuite, ReleasePolicy
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
-
-from backend.agentgate.core.agent_pack import DEFAULT_AGENT_PACK_PATH
 
 # Deprecated paths — kept for backward-compatible CLI flags.
 DEFAULT_RELEASE_POLICY_PATH = DEFAULT_AGENT_PACK_PATH / "policy_custom.json"

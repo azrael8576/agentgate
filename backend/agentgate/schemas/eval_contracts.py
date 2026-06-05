@@ -210,7 +210,9 @@ class ExperimentRun(BaseModel):
     improvements: list[dict[str, Any]] = Field(default_factory=list)
 
 
-def decide_metric_statuses(metric_statuses: list[ReleaseGateMetricStatus]) -> ReleaseDecision:
+def decide_metric_statuses(
+    metric_statuses: list[ReleaseGateMetricStatus],
+) -> ReleaseDecision:
     blocking_reasons: list[dict[str, Any]] = []
     warning_reasons: list[dict[str, Any]] = []
     for metric in metric_statuses:

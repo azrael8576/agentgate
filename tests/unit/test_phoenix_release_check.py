@@ -2,24 +2,29 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from backend.agentgate.cli import app
 from backend.agentgate.demo.eval_label_schema import EvalLabel
 from backend.agentgate.demo.span_event_schema import SpanEvent
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
-from backend.agentgate.release.evidence_loader import group_records_by_trace, load_evidence_jsonl
-from backend.agentgate.telemetry.span_mapper import span_attributes
-from backend.agentgate.release.phoenix_mcp_client import _decode_tool_result, load_phoenix_mcp_config
-from backend.agentgate.release.phoenix_normalizer import normalize_phoenix_spans
+from backend.agentgate.release.evidence_loader import (
+    group_records_by_trace,
+    load_evidence_jsonl,
+)
 from backend.agentgate.release.phoenix_evidence_source import (
     PhoenixEvidenceQuery,
     _resolved_start_time,
 )
+from backend.agentgate.release.phoenix_mcp_client import (
+    _decode_tool_result,
+    load_phoenix_mcp_config,
+)
+from backend.agentgate.release.phoenix_normalizer import normalize_phoenix_spans
 from backend.agentgate.release.release_check import (
     run_release_check_from_phoenix_mcp,
     run_release_check_from_phoenix_spans,
 )
+from backend.agentgate.telemetry.span_mapper import span_attributes
+from typer.testing import CliRunner
 
 
 def _phoenix_span(
@@ -208,7 +213,9 @@ def test_phoenix_spans_extract_eval_labels_from_span_events() -> None:
     assert format_label.label_value is False
 
 
-def test_release_check_from_phoenix_spans_computes_hallucination_rate(tmp_path: Path) -> None:
+def test_release_check_from_phoenix_spans_computes_hallucination_rate(
+    tmp_path: Path,
+) -> None:
     spans_json = tmp_path / "phoenix_spans_with_evals.json"
     output_dir = tmp_path / "release"
     spans_json.write_text(
@@ -248,13 +255,17 @@ def test_release_check_from_phoenix_spans_computes_hallucination_rate(tmp_path: 
 
     run_release_check_from_phoenix_spans(spans_json, output_dir)
     metrics = json.loads((output_dir / "metrics_summary.json").read_text(encoding="utf-8"))
-    hallucination = next(metric for metric in metrics["metrics"] if metric["name"] == "hallucination_rate")
+    hallucination = next(
+        metric for metric in metrics["metrics"] if metric["name"] == "hallucination_rate"
+    )
 
     assert hallucination["status"] == "computed"
     assert hallucination["value"] == 1.0
 
 
-def test_release_check_from_phoenix_spans_blocks_unauthorized_execution(tmp_path: Path) -> None:
+def test_release_check_from_phoenix_spans_blocks_unauthorized_execution(
+    tmp_path: Path,
+) -> None:
     spans_json = tmp_path / "phoenix_spans.json"
     output_dir = tmp_path / "release"
     spans_json.write_text(
@@ -348,7 +359,14 @@ def test_cli_release_check_phoenix_writes_artifacts(tmp_path: Path) -> None:
 
     result = CliRunner().invoke(
         app,
-        ["release", "check-phoenix", "--spans-json", str(spans_json), "--output-dir", str(output_dir)],
+        [
+            "release",
+            "check-phoenix",
+            "--spans-json",
+            str(spans_json),
+            "--output-dir",
+            str(output_dir),
+        ],
     )
 
     assert result.exit_code == 0
@@ -384,7 +402,9 @@ def test_resolved_start_time_uses_last_n_minutes(monkeypatch) -> None:
     assert start_time == (fixed_now - timedelta(minutes=60)).isoformat().replace("+00:00", "Z")
 
 
-def test_release_check_from_phoenix_mcp_passes_start_time_to_get_spans(tmp_path: Path) -> None:
+def test_release_check_from_phoenix_mcp_passes_start_time_to_get_spans(
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "release"
     client = FakePhoenixClient()
 
@@ -419,7 +439,9 @@ def test_release_check_from_phoenix_mcp_reports_empty_evidence(tmp_path: Path) -
         raise AssertionError("Expected ValueError for empty Phoenix evidence")
 
 
-def test_release_check_from_phoenix_mcp_queries_spans_and_dangerous_trace(tmp_path: Path) -> None:
+def test_release_check_from_phoenix_mcp_queries_spans_and_dangerous_trace(
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "release"
     client = FakePhoenixClient()
 
@@ -442,7 +464,9 @@ def test_release_check_from_phoenix_mcp_queries_spans_and_dangerous_trace(tmp_pa
     assert decision["phoenix_dangerous_traces"]
 
 
-def test_cli_release_check_defaults_to_phoenix_without_evidence(monkeypatch, tmp_path: Path) -> None:
+def test_cli_release_check_defaults_to_phoenix_without_evidence(
+    monkeypatch, tmp_path: Path
+) -> None:
     def fake_release_check(**kwargs):
         assert kwargs["project_identifier"] == "agentgate-reference-ops-demo"
         assert kwargs["agent_version"] == "v2"
@@ -453,7 +477,9 @@ def test_cli_release_check_defaults_to_phoenix_without_evidence(monkeypatch, tmp
             "reviewed_safe": 0,
         }
 
-    monkeypatch.setattr("backend.agentgate.cli.run_release_check_from_phoenix_mcp", fake_release_check)
+    monkeypatch.setattr(
+        "backend.agentgate.cli.run_release_check_from_phoenix_mcp", fake_release_check
+    )
 
     result = CliRunner().invoke(
         app,
@@ -497,11 +523,15 @@ def test_cli_release_check_phoenix_reports_missing_config(monkeypatch, tmp_path:
     )
 
     assert result.exit_code == 1
-    assert "AgentGate Phoenix release check failed: Missing Phoenix MCP configuration" in result.output
+    assert (
+        "AgentGate Phoenix release check failed: Missing Phoenix MCP configuration" in result.output
+    )
     assert "Traceback" not in result.output
 
 
-def test_phoenix_mcp_config_derives_base_url_from_collector_endpoint(monkeypatch) -> None:
+def test_phoenix_mcp_config_derives_base_url_from_collector_endpoint(
+    monkeypatch,
+) -> None:
     monkeypatch.delenv("PHOENIX_HOST", raising=False)
     monkeypatch.delenv("PHOENIX_BASE_URL", raising=False)
     monkeypatch.setenv("PHOENIX_COLLECTOR_ENDPOINT", "https://app.phoenix.arize.com/v1/traces")
@@ -514,7 +544,9 @@ def test_phoenix_mcp_config_derives_base_url_from_collector_endpoint(monkeypatch
     assert config.project_identifier == "agentgate-reference-ops-demo"
 
 
-def test_phoenix_mcp_config_preserves_space_path_from_collector_endpoint(monkeypatch) -> None:
+def test_phoenix_mcp_config_preserves_space_path_from_collector_endpoint(
+    monkeypatch,
+) -> None:
     monkeypatch.delenv("PHOENIX_HOST", raising=False)
     monkeypatch.delenv("PHOENIX_BASE_URL", raising=False)
     monkeypatch.setenv(
@@ -579,7 +611,6 @@ def test_replayed_v2_seed_spans_generate_four_release_controls(tmp_path: Path) -
 
 def test_decode_mcp_tool_result_raises_on_http_error_text() -> None:
     import pytest
-
     from backend.agentgate.release.phoenix_mcp_client import PhoenixMCPError
 
     with pytest.raises(PhoenixMCPError, match="401 Unauthorized"):

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from backend.agentgate.schemas.evidence import SpanEvent
 from backend.agentgate.schemas import ReleasePolicy
+from backend.agentgate.schemas.evidence import SpanEvent
 
 
 def expected_allowed(span: SpanEvent) -> bool | None:

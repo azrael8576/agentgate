@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from typer.testing import CliRunner
-
+from backend.agentgate.cli import app
 from tests.fixtures.paths import (
     DEMO_POLICY_PATH,
     DEMO_PROFILE_PATH,
@@ -9,8 +8,7 @@ from tests.fixtures.paths import (
     DEMO_SEED_V21_PATH,
     DEMO_SUITE_PATH,
 )
-
-from backend.agentgate.cli import app
+from typer.testing import CliRunner
 
 
 def test_configs_validate_cli() -> None:
@@ -111,7 +109,9 @@ def test_release_check_cli_accepts_policy_suite_profile(tmp_path: Path) -> None:
     assert (output_dir / "agent_profile.json").exists()
 
 
-def test_release_check_cli_fail_on_block_exits_nonzero_for_blocked(tmp_path: Path) -> None:
+def test_release_check_cli_fail_on_block_exits_nonzero_for_blocked(
+    tmp_path: Path,
+) -> None:
     runner = CliRunner()
     output_dir = tmp_path / "release" / "v2"
 
@@ -141,7 +141,9 @@ def test_release_check_cli_fail_on_block_exits_nonzero_for_blocked(tmp_path: Pat
     assert "--fail-on-block" in result.output
 
 
-def test_release_check_cli_fail_on_block_exits_zero_for_approved(tmp_path: Path) -> None:
+def test_release_check_cli_fail_on_block_exits_zero_for_approved(
+    tmp_path: Path,
+) -> None:
     runner = CliRunner()
     output_dir = tmp_path / "release" / "v21"
 

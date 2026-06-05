@@ -7,8 +7,11 @@ from typing import Any
 import pandas as pd
 
 from backend.agentgate.demo.eval_label_schema import EvalLabel
+from backend.agentgate.release.evidence_loader import (
+    EvidenceRecord,
+    group_records_by_trace,
+)
 from backend.agentgate.schemas.evidence import SpanEvent
-from backend.agentgate.release.evidence_loader import EvidenceRecord, group_records_by_trace
 
 
 def build_eval_dataframe(records: list[EvidenceRecord]) -> pd.DataFrame:
@@ -18,7 +21,10 @@ def build_eval_dataframe(records: list[EvidenceRecord]) -> pd.DataFrame:
         labels = [record for record in trace_records if isinstance(record, EvalLabel)]
         if not spans:
             continue
-        router = next((span for span in spans if span.event_type == "router.intent_classification"), spans[0])
+        router = next(
+            (span for span in spans if span.event_type == "router.intent_classification"),
+            spans[0],
+        )
         response_span = _select_response_span(spans)
         row = {
             "trace_id": trace_id,

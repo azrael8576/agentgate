@@ -43,7 +43,10 @@ def _backfill_policy_preflight_fields(attrs: dict[str, SpanAttributeValue]) -> N
     if "expected_allowed" not in attrs and "expected.allowed" in attrs:
         attrs["expected_allowed"] = _bool(attrs["expected.allowed"])
 
-    if attrs.get("policy.tool.executed_despite_deny") is True or attrs.get("policy.actual_allowed") is True:
+    if (
+        attrs.get("policy.tool.executed_despite_deny") is True
+        or attrs.get("policy.actual_allowed") is True
+    ):
         attrs["actual.allowed"] = True
         attrs["actual_allowed"] = True
     elif "actual.allowed" not in attrs and "actual_allowed" not in attrs:
@@ -70,7 +73,11 @@ def _backfill_tool_fields(attrs: dict[str, SpanAttributeValue]) -> None:
 
 def _backfill_response_fields(attrs: dict[str, SpanAttributeValue]) -> None:
     response_text = attrs.get("response.text")
-    if response_text and "response.raw_event_dumped" not in attrs and "raw_event_dumped" not in attrs:
+    if (
+        response_text
+        and "response.raw_event_dumped" not in attrs
+        and "raw_event_dumped" not in attrs
+    ):
         attrs["response.raw_event_dumped"] = False
         attrs["raw_event_dumped"] = False
 

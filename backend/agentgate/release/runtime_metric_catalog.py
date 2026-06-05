@@ -96,8 +96,7 @@ SPAN_AGGREGATE_METRICS = frozenset(
 class RuntimeMetricCatalog:
     def __init__(self, effective_metrics: tuple[MetricDefinitionEntry, ...] | None = None) -> None:
         self._configured_aggregator_keys = {
-            entry.metric_id: entry.aggregator_key
-            for entry in effective_metrics or ()
+            entry.metric_id: entry.aggregator_key for entry in effective_metrics or ()
         }
 
     def threshold_metric_names(self, threshold_keys: list[str] | tuple[str, ...]) -> set[str]:

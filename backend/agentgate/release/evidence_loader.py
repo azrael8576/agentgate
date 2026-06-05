@@ -22,11 +22,15 @@ def load_evidence_jsonl(path: Path) -> list[EvidenceRecord]:
             elif record_type == "eval_label":
                 records.append(EvalLabel.model_validate(payload))
             else:
-                raise ValueError(f"Unsupported evidence record_type at line {line_number}: {record_type}")
+                raise ValueError(
+                    f"Unsupported evidence record_type at line {line_number}: {record_type}"
+                )
     return records
 
 
-def group_records_by_trace(records: list[EvidenceRecord]) -> dict[str, list[EvidenceRecord]]:
+def group_records_by_trace(
+    records: list[EvidenceRecord],
+) -> dict[str, list[EvidenceRecord]]:
     grouped: dict[str, list[EvidenceRecord]] = defaultdict(list)
     for record in records:
         grouped[record.trace_id].append(record)
@@ -42,7 +46,9 @@ def evidence_identity(records: list[EvidenceRecord]) -> dict[str, Any]:
     if len(agent_ids) != 1:
         raise ValueError(f"Evidence file must contain one agent_id, got: {sorted(agent_ids)}")
     if len(agent_versions) != 1:
-        raise ValueError(f"Evidence file must contain one agent_version, got: {sorted(agent_versions)}")
+        raise ValueError(
+            f"Evidence file must contain one agent_version, got: {sorted(agent_versions)}"
+        )
 
     return {
         "agent_id": next(iter(agent_ids)),
@@ -50,4 +56,3 @@ def evidence_identity(records: list[EvidenceRecord]) -> dict[str, Any]:
         "total_records": len(records),
         "trace_count": len({record.trace_id for record in records}),
     }
-

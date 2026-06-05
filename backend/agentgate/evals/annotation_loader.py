@@ -8,9 +8,15 @@ from pathlib import Path
 from typing import Any
 
 from backend.agentgate.demo.eval_label_schema import EvalLabel
-from backend.agentgate.evals.annotation_parser import eval_labels_from_annotations, eval_labels_from_span_payloads
+from backend.agentgate.evals.annotation_parser import (
+    eval_labels_from_annotations,
+    eval_labels_from_span_payloads,
+)
 from backend.agentgate.evals.phoenix_client_config import load_phoenix_client
-from backend.agentgate.release.phoenix_span_identity import resolve_otel_span_id, resolve_otel_trace_id
+from backend.agentgate.release.phoenix_span_identity import (
+    resolve_otel_span_id,
+    resolve_otel_trace_id,
+)
 from backend.agentgate.settings import eval_local_summary_fallback_enabled
 
 logger = logging.getLogger(__name__)
@@ -73,11 +79,15 @@ def _prepare_spans_dataframe_for_annotations(spans_df: Any) -> Any:
     if "context" in df.columns:
         if "context.span_id" not in df.columns:
             df["context.span_id"] = df["context"].map(
-                lambda value: resolve_otel_span_id({"context": value}) if isinstance(value, dict) else None
+                lambda value: (
+                    resolve_otel_span_id({"context": value}) if isinstance(value, dict) else None
+                )
             )
         if "context.trace_id" not in df.columns:
             df["context.trace_id"] = df["context"].map(
-                lambda value: resolve_otel_trace_id({"context": value}) if isinstance(value, dict) else None
+                lambda value: (
+                    resolve_otel_trace_id({"context": value}) if isinstance(value, dict) else None
+                )
             )
 
     if "context.span_id" not in df.columns:

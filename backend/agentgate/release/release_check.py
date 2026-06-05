@@ -1,20 +1,22 @@
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from backend.agentgate.core.product_config import ReleaseCheckConfig
-from backend.agentgate.release.artifact_writer import write_release_artifacts
-from backend.agentgate.release.audit_session_report import build_audit_session_report
-from backend.agentgate.release.dangerous_evidence_classifier import prioritize_trace_ids_for_pull
-from backend.agentgate.release.decision_engine import decide_release
-from backend.agentgate.release.regression_gate_verifier import (
-    build_future_verification_decision_fields,
-    run_future_verification,
-)
 from backend.agentgate.evals.annotation_loader import load_eval_labels_from_phoenix
 from backend.agentgate.evals.coverage_report import build_coverage_report
 from backend.agentgate.evals.phoenix_client_config import load_phoenix_client
 from backend.agentgate.evals.phoenix_eval_runner import run_phoenix_eval_job
-from backend.agentgate.release.evidence_loader import EvidenceRecord, evidence_identity, load_evidence_jsonl
+from backend.agentgate.release.artifact_writer import write_release_artifacts
+from backend.agentgate.release.audit_session_report import build_audit_session_report
+from backend.agentgate.release.dangerous_evidence_classifier import (
+    prioritize_trace_ids_for_pull,
+)
+from backend.agentgate.release.decision_engine import decide_release
+from backend.agentgate.release.evidence_loader import (
+    EvidenceRecord,
+    evidence_identity,
+    load_evidence_jsonl,
+)
 from backend.agentgate.release.gemini_diagnoser import (
     DiagnosisMode,
     build_diagnosis_payload,
@@ -27,10 +29,22 @@ from backend.agentgate.release.phoenix_evidence_source import (
     pull_phoenix_traces,
     query_phoenix_spans,
 )
-from backend.agentgate.release.phoenix_mcp_client import PhoenixMCPClient, load_phoenix_mcp_config
-from backend.agentgate.release.phoenix_normalizer import load_phoenix_spans_json
-from backend.agentgate.release.phoenix_normalizer import normalize_phoenix_spans
-from backend.agentgate.release.report_export import export_release_report_html, sync_decision_artifact_paths
+from backend.agentgate.release.phoenix_mcp_client import (
+    PhoenixMCPClient,
+    load_phoenix_mcp_config,
+)
+from backend.agentgate.release.phoenix_normalizer import (
+    load_phoenix_spans_json,
+    normalize_phoenix_spans,
+)
+from backend.agentgate.release.regression_gate_verifier import (
+    build_future_verification_decision_fields,
+    run_future_verification,
+)
+from backend.agentgate.release.report_export import (
+    export_release_report_html,
+    sync_decision_artifact_paths,
+)
 from backend.agentgate.release.runtime_metric_catalog import EVAL_DEPENDENT_METRICS
 from backend.agentgate.settings import get_pull_reviewed_safe_traces
 
@@ -155,7 +169,9 @@ def _run_release_check_from_phoenix_client(
         supported_span_names=pack.supported_span_names(),
     )
     phoenix_client = load_phoenix_client()
-    extra_labels = load_eval_labels_from_phoenix(query, spans_payload["spans"], client=phoenix_client)
+    extra_labels = load_eval_labels_from_phoenix(
+        query, spans_payload["spans"], client=phoenix_client
+    )
     records = normalize_phoenix_spans(
         {"spans": spans_payload["spans"]},
         extra_labels=extra_labels,

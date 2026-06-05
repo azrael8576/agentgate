@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
-from backend.agentgate.core.agent_pack import LoadedAgentPack, get_default_agent_pack, load_agent_pack
+from backend.agentgate.core.agent_pack import (
+    LoadedAgentPack,
+    get_default_agent_pack,
+)
 from backend.agentgate.schemas import DemoCase
 
 

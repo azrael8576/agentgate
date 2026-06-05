@@ -1,0 +1,40 @@
+name: CI / Dev Tooling
+description: Improve pytest, ruff, uv, GitHub Actions, or contributor workflow
+title: "[DevEx]: "
+labels: ["ci", "triage"]
+body:
+  - type: checkboxes
+    attributes:
+      label: Preliminary checks
+      options:
+        - label: I searched existing issues and did not find a duplicate
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - GitHub Actions / CI
+        - Linting / formatting (ruff)
+        - Type checking (mypy)
+        - Testing (pytest)
+        - uv / packaging
+        - Sandcastle autonomous loop
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or limitation
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed improvement
+    validations:
+      required: true

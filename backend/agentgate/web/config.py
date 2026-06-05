@@ -8,7 +8,6 @@ from backend.agentgate.core.product_config import ReleaseCheckConfig
 from backend.agentgate.release.gemini_diagnoser import DiagnosisMode
 from backend.agentgate.settings import get_adk_model_name
 
-
 DEFAULT_LATEST_ARTIFACT_DIR = Path("artifacts/release/latest")
 
 
@@ -37,7 +36,9 @@ def load_dashboard_settings() -> DashboardSettings:
     seed_path = pack.seed_path(default_version)
     default_local_evidence = seed_path
     return DashboardSettings(
-        latest_artifact_dir=Path(os.getenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(DEFAULT_LATEST_ARTIFACT_DIR))),
+        latest_artifact_dir=Path(
+            os.getenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(DEFAULT_LATEST_ARTIFACT_DIR))
+        ),
         project_identifier=project_identifier,
         agent_version=os.getenv("AGENTGATE_CANDIDATE_VERSION", default_version),
         candidate_versions=candidate_versions,

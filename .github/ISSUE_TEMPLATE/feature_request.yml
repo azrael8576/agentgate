@@ -1,0 +1,50 @@
+name: Feature Request
+description: Propose a release-authority capability, metric, policy gate, or integrator workflow
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AgentGate is the **release authority** layer — not a production agent runtime.
+        Features should strengthen evidence → metrics → deterministic gate → audit bundle.
+
+  - type: checkboxes
+    attributes:
+      label: Preliminary checks
+      options:
+        - label: I searched existing issues and did not find a duplicate
+          required: true
+        - label: This stays within AgentGate boundaries (no chat bot, RAG, or target-agent tool execution in core)
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or gap
+      description: What release risk, audit gap, or integrator pain does this address?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How should evidence, policy, metrics, or artifacts change?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: AgentPack paths, Phoenix project names, screenshots, or doc links.
+    validations:
+      required: false

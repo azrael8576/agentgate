@@ -3,16 +3,15 @@ import shutil
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
-
 from backend.agentgate.cli import app
 from backend.agentgate.core.config import load_demo_release_policy
-from backend.agentgate.core.product_config import ReleaseCheckConfig, load_eval_suite
+from backend.agentgate.core.product_config import load_eval_suite
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
 from backend.agentgate.release.decision_engine import decide_release
 from backend.agentgate.release.release_check import run_release_check
 from backend.agentgate.web.report_renderer import build_report_context
 from tests.fixtures.paths import DEMO_SUITE_PATH
+from typer.testing import CliRunner
 
 EXAMPLES_REFERENCE_V2 = (
     Path(__file__).resolve().parents[2]
@@ -163,7 +162,9 @@ def test_cli_release_controls_missing_file_is_not_blocking(tmp_path: Path) -> No
     assert decision["future_verification"]["decision_impact"] == "not_blocking"
 
 
-def test_report_context_future_verification_section_not_applicable(tmp_path: Path) -> None:
+def test_report_context_future_verification_section_not_applicable(
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "release" / "v2"
     run_release_check(_seed("v2", tmp_path), output_dir)
 
@@ -175,7 +176,9 @@ def test_report_context_future_verification_section_not_applicable(tmp_path: Pat
     assert section["show_table"] is False
 
 
-def test_report_context_future_verification_section_verified_rows(tmp_path: Path) -> None:
+def test_report_context_future_verification_section_verified_rows(
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "release" / "v21"
     run_release_check(
         _seed("v2.1", tmp_path),
@@ -243,4 +246,7 @@ def test_inherited_blocking_control_fail_blocks_release() -> None:
     )
 
     assert decision["decision"] == "BLOCKED"
-    assert any("Inherited release control failed" in reason["reason"] for reason in decision["decision_reasons"])
+    assert any(
+        "Inherited release control failed" in reason["reason"]
+        for reason in decision["decision_reasons"]
+    )

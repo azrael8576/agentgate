@@ -1,0 +1,22 @@
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    groups:
+      dev-dependencies:
+        patterns:
+          - pytest*
+          - ruff*
+          - mypy*
+          - httpx*
+    open-pull-requests-limit: 10

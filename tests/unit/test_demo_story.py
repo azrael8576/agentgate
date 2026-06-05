@@ -1,5 +1,8 @@
 from backend.agentgate.web.demo_story import load_reference_demo_story
-from backend.agentgate.web.landing_presenter import blocked_cards_from_findings, primary_blocker_label
+from backend.agentgate.web.landing_presenter import (
+    blocked_cards_from_findings,
+    primary_blocker_label,
+)
 
 
 def test_reference_demo_story_loads_config() -> None:
@@ -50,7 +53,10 @@ def test_primary_blocker_prefers_blocking_driver_on_latest_blocked() -> None:
         "release_decision": {"decision": "BLOCKED"},
         "why_blocked": {
             "blocking_drivers": [
-                {"control_id": "AG-RG-004", "display_name": "Unauthorized dangerous tool attempts"}
+                {
+                    "control_id": "AG-RG-004",
+                    "display_name": "Unauthorized dangerous tool attempts",
+                }
             ]
         },
     }

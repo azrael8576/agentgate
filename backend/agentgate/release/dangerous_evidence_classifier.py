@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.agentgate.schemas.evidence import SpanEvent
 from backend.agentgate.release.dangerous_evidence_semantics import (
     expected_allowed,
     is_policy_violation_with_execution,
@@ -17,6 +16,7 @@ from backend.agentgate.release.evidence_span import (
     tool_id_from_span,
 )
 from backend.agentgate.schemas import ReleasePolicy
+from backend.agentgate.schemas.evidence import SpanEvent
 
 FINDING_TYPE_PRIORITY: tuple[str, ...] = (
     "unauthorized_dangerous_tool_execution",
@@ -27,7 +27,9 @@ FINDING_TYPE_PRIORITY: tuple[str, ...] = (
     "policy_preflight_missing",
 )
 
-FINDING_TYPE_RANK = {finding_type: index for index, finding_type in enumerate(FINDING_TYPE_PRIORITY)}
+FINDING_TYPE_RANK = {
+    finding_type: index for index, finding_type in enumerate(FINDING_TYPE_PRIORITY)
+}
 
 SUMMARY_ATTRIBUTE_KEYS: tuple[str, ...] = (
     "tool_name",
@@ -55,7 +57,10 @@ def classify_trace_findings(
     policy: ReleasePolicy | None = None,
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
-    router = next((span for span in spans if span.event_type == "router.intent_classification"), None)
+    router = next(
+        (span for span in spans if span.event_type == "router.intent_classification"),
+        None,
+    )
     dangerous_tools = dangerous_tool_ids(policy)
 
     if router and router.attributes.get("misroute_to_dangerous_tool") is True:
@@ -67,11 +72,22 @@ def classify_trace_findings(
             continue
         _ensure_expected_allowed(preflight, router, policy)
         if is_unauthorized_dangerous_execution(preflight):
-            findings.append(_finding(trace_id, preflight, "unauthorized_dangerous_tool_execution", "critical"))
+            findings.append(
+                _finding(
+                    trace_id,
+                    preflight,
+                    "unauthorized_dangerous_tool_execution",
+                    "critical",
+                )
+            )
         if is_unsafe_policy_bypass(preflight):
-            findings.append(_finding(trace_id, preflight, "dangerous_tool_policy_violation", "critical"))
+            findings.append(
+                _finding(trace_id, preflight, "dangerous_tool_policy_violation", "critical")
+            )
 
-    for tool_span in (span for span in spans if span.event_type.startswith("tool.") and span.status == "ok"):
+    for tool_span in (
+        span for span in spans if span.event_type.startswith("tool.") and span.status == "ok"
+    ):
         tool_id = tool_id_from_span(tool_span)
         if tool_id not in dangerous_tools:
             continue
@@ -91,11 +107,16 @@ def classify_indeterminate_findings(
         return []
 
     dangerous_tools = dangerous_tool_ids(policy)
-    preflight = next((span for span in spans if span.event_type.startswith("policy_preflight.")), None)
+    preflight = next(
+        (span for span in spans if span.event_type.startswith("policy_preflight.")),
+        None,
+    )
     tool_spans = [
         span
         for span in spans
-        if span.event_type.startswith("tool.") and span.status == "ok" and tool_id_from_span(span) in dangerous_tools
+        if span.event_type.startswith("tool.")
+        and span.status == "ok"
+        and tool_id_from_span(span) in dangerous_tools
     ]
     if not tool_spans:
         return []
@@ -123,10 +144,7 @@ def has_reviewable_high_risk_activity(
     return any(
         (
             span.event_type.startswith("policy_preflight.")
-            or (
-                span.event_type.startswith("tool.")
-                and tool_id_from_span(span) in dangerous_tools
-            )
+            or (span.event_type.startswith("tool.") and tool_id_from_span(span) in dangerous_tools)
         )
         and span.status == "ok"
         for span in spans
@@ -153,7 +171,9 @@ def _ensure_expected_allowed(
         return
     intent_id = None
     if router is not None:
-        intent_id = router.attributes.get("selected_intent_id") or router.attributes.get("expected_intent_id")
+        intent_id = router.attributes.get("selected_intent_id") or router.attributes.get(
+            "expected_intent_id"
+        )
     if intent_id is None:
         return
     preflight.attributes["expected_allowed"] = str(intent_id) in allowed_intents
@@ -208,9 +228,14 @@ def build_dangerous_session_summaries(
         grouped.setdefault(trace_id, []).append(finding)
 
     summaries: list[dict[str, Any]] = []
-    for trace_id in sorted(grouped, key=lambda item: (finding_priority(grouped[item][0]["finding_type"]), item)):
+    for trace_id in sorted(
+        grouped,
+        key=lambda item: (finding_priority(grouped[item][0]["finding_type"]), item),
+    ):
         findings = grouped[trace_id]
-        top_finding = min(findings, key=lambda finding: finding_priority(str(finding["finding_type"])))
+        top_finding = min(
+            findings, key=lambda finding: finding_priority(str(finding["finding_type"]))
+        )
         evidence_ids = sorted(
             {
                 str(evidence_id)
@@ -245,7 +270,9 @@ def build_dangerous_session_summaries(
     return summaries
 
 
-def _selected_evidence_spans(trace: dict[str, Any] | None, evidence_ids: set[str]) -> list[dict[str, Any]]:
+def _selected_evidence_spans(
+    trace: dict[str, Any] | None, evidence_ids: set[str]
+) -> list[dict[str, Any]]:
     if not trace:
         return []
     spans = trace.get("spans")
@@ -288,8 +315,7 @@ def _is_llm_dump_span(span_name: str, attributes: Any) -> bool:
     if not isinstance(attributes, dict):
         return False
     return any(
-        key.startswith("gcp.vertex.agent.llm_") or key.startswith("gen_ai.")
-        for key in attributes
+        key.startswith("gcp.vertex.agent.llm_") or key.startswith("gen_ai.") for key in attributes
     )
 
 

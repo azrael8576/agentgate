@@ -1,22 +1,18 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 import typer
 
-from backend.agentgate.core.config import validate_demo_configs
 from backend.agentgate.core.agent_pack import (
     DEFAULT_AGENT_PACK_PATH,
     get_default_agent_pack,
     validate_agent_pack,
 )
+from backend.agentgate.core.config import validate_demo_configs
 from backend.agentgate.core.product_config import (
-    DEFAULT_AGENT_PROFILE_PATH,
-    DEFAULT_EVAL_SUITE_PATH,
-    DEFAULT_RELEASE_POLICY_PATH,
     ReleaseCheckConfig,
     load_agent_profile,
     load_eval_suite,
-    load_json_model,
 )
 from backend.agentgate.settings import configure_vertex_environment
 
@@ -28,16 +24,15 @@ from backend.agentgate.evals.dataset_sync import sync_release_eval_dataset
 from backend.agentgate.evals.phoenix_eval_runner import run_phoenix_eval_job
 from backend.agentgate.release.evidence_loader import load_evidence_jsonl
 from backend.agentgate.release.gate_binding import validate_suite_required_metrics
+from backend.agentgate.release.gemini_diagnoser import DiagnosisMode
+from backend.agentgate.release.phoenix_mcp_client import PhoenixMCPError
 from backend.agentgate.release.release_check import (
     run_release_check,
     run_release_check_from_phoenix_mcp,
     run_release_check_from_phoenix_spans,
 )
-from backend.agentgate.release.gemini_diagnoser import DiagnosisMode
-from backend.agentgate.release.phoenix_mcp_client import PhoenixMCPError
 from backend.agentgate.telemetry.phoenix_setup import PhoenixConfigError
 from backend.agentgate.telemetry.replay import replay_evidence_to_phoenix
-from backend.agentgate.schemas import ReleasePolicy
 
 app = typer.Typer(help="AgentGate release evidence agent CLI.")
 configs_app = typer.Typer(help="Validate and inspect AgentGate configs.")
@@ -144,7 +139,9 @@ def gate_check(
         raise typer.Exit(code=1)
 
     mapped = sum(1 for check in validation["checks"] if check["status"] == "mapped")
-    not_implemented = sum(1 for check in validation["checks"] if check["status"] == "not_implemented")
+    not_implemented = sum(
+        1 for check in validation["checks"] if check["status"] == "not_implemented"
+    )
     typer.echo(
         f"AgentGate gate contract check complete. suite_id={eval_suite.suite_id} "
         f"agent_version={agent_version} mode={eval_suite.evaluation_mode} "
@@ -271,7 +268,10 @@ def release_check(
     resolved_source = source or ("local" if evidence else "phoenix")
     if resolved_source == "local":
         if evidence is None:
-            typer.echo("AgentGate release check failed: --evidence is required when --source local.", err=True)
+            typer.echo(
+                "AgentGate release check failed: --evidence is required when --source local.",
+                err=True,
+            )
             raise typer.Exit(code=1)
         payload = run_release_check(
             evidence,
@@ -298,7 +298,10 @@ def release_check(
             typer.echo(f"AgentGate Phoenix release check failed: {error}", err=True)
             raise typer.Exit(code=1) from error
     else:
-        typer.echo(f"AgentGate release check failed: unsupported --source {resolved_source}", err=True)
+        typer.echo(
+            f"AgentGate release check failed: unsupported --source {resolved_source}",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
     typer.echo(
@@ -310,7 +313,10 @@ def release_check(
         f"source={resolved_source} output_dir={output_dir}"
     )
     if fail_on_block and payload["decision"] == "BLOCKED":
-        typer.echo("AgentGate release check failed: decision=BLOCKED (--fail-on-block).", err=True)
+        typer.echo(
+            "AgentGate release check failed: decision=BLOCKED (--fail-on-block).",
+            err=True,
+        )
         raise typer.Exit(code=1)
 
 
@@ -369,7 +375,9 @@ def eval_run(
     project_identifier: str | None = typer.Option(None, help="Phoenix project name or ID."),
     last_n_minutes: int | None = typer.Option(24 * 60, help="Lookback window for Phoenix spans."),
     output_dir: Path | None = typer.Option(None, help="Directory for eval_run_summary.json."),
-    dry_run: bool = typer.Option(False, help="Compute eval annotations without writing to Phoenix."),
+    dry_run: bool = typer.Option(
+        False, help="Compute eval annotations without writing to Phoenix."
+    ),
 ) -> None:
     resolved_output_dir = output_dir or Path("artifacts/eval") / agent_version
 
@@ -392,8 +400,7 @@ def eval_run(
     typer.echo(
         f"AgentGate eval run complete. agent_version={payload['agent_version']} "
         f"rows={payload['eval_rows']} annotations={payload['annotations_written']} "
-        f"dry_run={payload['dry_run']}"
-        + (f" summary={summary_path}" if summary_path else "")
+        f"dry_run={payload['dry_run']}" + (f" summary={summary_path}" if summary_path else "")
     )
 
 

@@ -1,0 +1,57 @@
+name: Agent Integration Help
+description: Get help connecting a production agent via AgentPack and Phoenix spans
+title: "[Integration]: "
+labels: ["integration", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when wiring **your** production agent to AgentGate.
+        See [`docs/integration/CONNECT_YOUR_AGENT.md`](../../docs/integration/CONNECT_YOUR_AGENT.md).
+
+  - type: checkboxes
+    attributes:
+      label: Preliminary checks
+      options:
+        - label: I read CONNECT_YOUR_AGENT.md and copied `configs/agents/_template`
+          required: true
+        - label: My agent emits the required span contract (`router.intent_classification`, `policy_preflight.<tool>`, `tool.<tool>`, etc.)
+          required: false
+
+  - type: input
+    id: agent-pack
+    attributes:
+      label: AgentPack path
+      placeholder: configs/agents/my_agent
+    validations:
+      required: true
+
+  - type: dropdown
+    id: evidence-source
+    attributes:
+      label: Evidence source
+      options:
+        - Phoenix (production traces)
+        - Local JSONL seed / fixture
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: blocker
+    attributes:
+      label: What is blocked?
+      description: Config validation errors, missing spans, wrong metrics, release check failures, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands run and output
+      render: shell
+      placeholder: |
+        uv run agentgate configs validate --agent-pack configs/agents/my_agent
+        uv run agentgate release check --source phoenix --agent-version ...
+    validations:
+      required: false

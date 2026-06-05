@@ -1,6 +1,7 @@
 import pandas as pd
-
-from backend.agentgate.evals.annotation_loader import _prepare_spans_dataframe_for_annotations
+from backend.agentgate.evals.annotation_loader import (
+    _prepare_spans_dataframe_for_annotations,
+)
 from backend.agentgate.release.phoenix_normalizer import normalize_phoenix_spans
 from backend.agentgate.release.phoenix_span_identity import resolve_otel_span_id
 

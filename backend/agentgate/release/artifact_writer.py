@@ -1,5 +1,5 @@
-import json
 import hashlib
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -168,7 +168,9 @@ def _refresh_audit_manifest_hashes(output_dir: Path) -> None:
         if not path.exists():
             continue
         artifact["sha256"] = _sha256_file(path)
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _sha256_file(path: Path) -> str:

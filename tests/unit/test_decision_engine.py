@@ -1,12 +1,12 @@
-from backend.agentgate.core.config import load_default_pack_release_policy
-from backend.agentgate.core.product_config import load_eval_suite
-from backend.agentgate.release.decision_engine import decide_release
-from backend.agentgate.release.metrics_aggregator import aggregate_metrics
-from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
-from backend.agentgate.release.evidence_loader import load_evidence_jsonl
-from backend.agentgate.core.agent_pack import get_default_agent_pack
 from pathlib import Path
 
+from backend.agentgate.core.agent_pack import get_default_agent_pack
+from backend.agentgate.core.config import load_default_pack_release_policy
+from backend.agentgate.core.product_config import load_eval_suite
+from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
+from backend.agentgate.release.decision_engine import decide_release
+from backend.agentgate.release.evidence_loader import load_evidence_jsonl
+from backend.agentgate.release.metrics_aggregator import aggregate_metrics
 from tests.fixtures.paths import DEMO_SUITE_PATH
 
 
@@ -57,7 +57,9 @@ def test_gate_binding_blocks_only_required_runtime_metrics(tmp_path: Path) -> No
     assert "intent_routing_accuracy" not in blocked_metrics
 
 
-def test_gate_binding_approves_when_required_runtime_metrics_pass(tmp_path: Path) -> None:
+def test_gate_binding_approves_when_required_runtime_metrics_pass(
+    tmp_path: Path,
+) -> None:
     metrics_summary, dangerous_sessions, diagnoses = _metrics_and_sessions("v2.1", tmp_path)
     suite = load_eval_suite(DEMO_SUITE_PATH)
     policy = load_default_pack_release_policy()
@@ -78,7 +80,9 @@ def test_gate_binding_approves_when_required_runtime_metrics_pass(tmp_path: Path
     ]
 
 
-def test_legacy_mode_blocks_all_policy_blockers_when_gate_binding_missing(tmp_path: Path) -> None:
+def test_legacy_mode_blocks_all_policy_blockers_when_gate_binding_missing(
+    tmp_path: Path,
+) -> None:
     metrics_summary, dangerous_sessions, diagnoses = _metrics_and_sessions("v2", tmp_path)
     policy = load_default_pack_release_policy()
 

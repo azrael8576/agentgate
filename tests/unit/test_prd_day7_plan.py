@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
 TECHNICAL_PRD_PATH = DOCS_DIR / "PRD.md"
 PRODUCT_PRD_PATH = DOCS_DIR / "PRD_PRODUCT.md"

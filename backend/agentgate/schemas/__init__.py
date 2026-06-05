@@ -1,5 +1,4 @@
 from backend.agentgate.schemas.agent_profile import AgentProfile
-from backend.agentgate.schemas.evidence import SpanAttributeValue, SpanEvent
 from backend.agentgate.schemas.demo_case import DemoCase
 from backend.agentgate.schemas.eval_contracts import (
     EvalSuite,
@@ -13,6 +12,7 @@ from backend.agentgate.schemas.eval_contracts import (
     Transcript,
     Trial,
 )
+from backend.agentgate.schemas.evidence import SpanAttributeValue, SpanEvent
 from backend.agentgate.schemas.intent_manifest import IntentDefinition, IntentManifest
 from backend.agentgate.schemas.release_policy import ReleasePolicy
 

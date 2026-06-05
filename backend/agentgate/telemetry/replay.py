@@ -2,8 +2,11 @@ from pathlib import Path
 from typing import Any
 
 from backend.agentgate.demo.eval_label_schema import EvalLabel
+from backend.agentgate.release.evidence_loader import (
+    evidence_identity,
+    load_evidence_jsonl,
+)
 from backend.agentgate.schemas.evidence import SpanEvent
-from backend.agentgate.release.evidence_loader import evidence_identity, load_evidence_jsonl
 from backend.agentgate.telemetry.phoenix_setup import register_phoenix_tracer
 from backend.agentgate.telemetry.span_mapper import SpanReplayPlan, build_replay_plan
 
@@ -18,7 +21,9 @@ def replay_evidence_to_phoenix(
         identity = evidence_identity(records)
         resolved_service_name = str(identity.get("agent_id") or "unknown")
     tracer, config = register_phoenix_tracer(resolved_service_name)
-    return replay_evidence(evidence_path=evidence_path, tracer=tracer, project_name=config.project_name)
+    return replay_evidence(
+        evidence_path=evidence_path, tracer=tracer, project_name=config.project_name
+    )
 
 
 def replay_evidence(evidence_path: Path, tracer: Any, project_name: str) -> dict[str, Any]:

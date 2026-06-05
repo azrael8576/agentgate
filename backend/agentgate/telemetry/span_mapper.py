@@ -2,8 +2,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from backend.agentgate.demo.eval_label_schema import EvalLabel
-from backend.agentgate.schemas.evidence import SpanEvent, SpanAttributeValue
-from backend.agentgate.release.evidence_loader import EvidenceRecord, group_records_by_trace
+from backend.agentgate.release.evidence_loader import (
+    EvidenceRecord,
+    group_records_by_trace,
+)
+from backend.agentgate.schemas.evidence import SpanAttributeValue, SpanEvent
 
 AttributeValue = str | int | float | bool
 
@@ -78,7 +81,9 @@ def _build_span_tree(spans: list[SpanEvent]) -> list[SpanReplayPlan]:
     return roots
 
 
-def _original_attributes(attributes: dict[str, SpanAttributeValue]) -> dict[str, AttributeValue]:
+def _original_attributes(
+    attributes: dict[str, SpanAttributeValue],
+) -> dict[str, AttributeValue]:
     return {
         f"evidence.attribute.{key}": value
         for key, value in attributes.items()
@@ -128,7 +133,9 @@ def _normalized_event_attributes(span: SpanEvent) -> dict[str, AttributeValue]:
             "span.kind": "TOOL",
             "tool.name": raw.get("tool_name"),
             "tool.risk_level": raw.get("risk_level", "high"),
-            "tool.query_backend": "bigquery" if "sql_safety.classification" in raw else "local_descriptor",
+            "tool.query_backend": "bigquery"
+            if "sql_safety.classification" in raw
+            else "local_descriptor",
             "tool.limit": raw.get("sql_safety.row_limit"),
             "sql.query.type": raw.get("sql_safety.classification"),
             "sql.has_limit": raw.get("sql_safety.row_limit") is not None,
@@ -139,11 +146,7 @@ def _normalized_event_attributes(span: SpanEvent) -> dict[str, AttributeValue]:
     else:
         attrs = {}
 
-    return {
-        key: value
-        for key, value in attrs.items()
-        if _is_supported_attribute_value(value)
-    }
+    return {key: value for key, value in attrs.items() if _is_supported_attribute_value(value)}
 
 
 def _eval_events(labels: list[EvalLabel]) -> list[EvalEventPlan]:

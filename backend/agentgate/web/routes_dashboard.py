@@ -9,8 +9,10 @@ from pydantic import BaseModel, Field
 from backend.agentgate.core.product_config import ReleaseCheckConfig
 from backend.agentgate.release import release_check as release_check_module
 from backend.agentgate.release.gemini_diagnoser import DiagnosisMode
-from backend.agentgate.release.regression_gate_verifier import future_verification_api_summary
 from backend.agentgate.release.phoenix_mcp_client import PhoenixMCPError
+from backend.agentgate.release.regression_gate_verifier import (
+    future_verification_api_summary,
+)
 from backend.agentgate.web.config import load_dashboard_settings
 from backend.agentgate.web.demo_story import load_reference_demo_story
 from backend.agentgate.web.landing_presenter import build_landing_story
@@ -56,7 +58,12 @@ def landing(request: Request) -> HTMLResponse:
 
     approved_dir = _resolve_artifact_dir(latest_dir.parent, reference_subdirs.get("approved", ()))
     approved_context = build_report_context(approved_dir) if approved_dir else None
-    if approved_context is None and latest and latest.get("decision") == "APPROVED" and latest_context:
+    if (
+        approved_context is None
+        and latest
+        and latest.get("decision") == "APPROVED"
+        and latest_context
+    ):
         approved_context = latest_context
 
     return templates.TemplateResponse(
@@ -107,7 +114,9 @@ def run_dashboard(request: Request) -> HTMLResponse:
 
 
 @router.post("/api/agentgate/release-check")
-def run_release_check(request_payload: ReleaseCheckRequest | None = None) -> JSONResponse:
+def run_release_check(
+    request_payload: ReleaseCheckRequest | None = None,
+) -> JSONResponse:
     settings = load_dashboard_settings()
     payload = request_payload or ReleaseCheckRequest()
     output_dir = payload.output_dir or settings.latest_artifact_dir

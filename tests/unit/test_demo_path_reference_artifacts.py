@@ -6,8 +6,6 @@ import json
 import re
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
 from backend.agentgate.main import app
 from backend.agentgate.web.report_renderer import (
     CORE_ARTIFACT_FILENAMES,
@@ -15,6 +13,7 @@ from backend.agentgate.web.report_renderer import (
     build_report_context,
     latest_artifacts_exist,
 )
+from fastapi.testclient import TestClient
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES_ROOT = REPO_ROOT / "examples" / "artifacts"
@@ -72,10 +71,14 @@ def test_reference_v2_blocked_with_generated_release_controls() -> None:
     assert "Copy debug prompt" not in html
     assert '<details class="evidence-disclosure remediation-disclosure" open' not in html
     assert html.count('<article class="remediation-entry">') <= 4
-    assert html.index('id="audit-artifacts"') < html.index('class="evidence-disclosure remediation-disclosure"')
+    assert html.index('id="audit-artifacts"') < html.index(
+        'class="evidence-disclosure remediation-disclosure"'
+    )
     if build_report_context(REFERENCE_BLOCKED)["developer_remediation"]["truncated"]:
         assert "Showing top 4 remediation contexts" in html
-    remediation_chunk = html.split('class="evidence-disclosure remediation-disclosure"', 1)[1].split("</details>", 1)[0]
+    remediation_chunk = html.split('class="evidence-disclosure remediation-disclosure"', 1)[
+        1
+    ].split("</details>", 1)[0]
     assert "<dt>Summary</dt>" not in remediation_chunk
     assert 'class="button copy-button copy-button-secondary"' in remediation_chunk
     visible_remediation = re.sub(r'data-copy="[^"]*"', "", remediation_chunk, flags=re.DOTALL)
@@ -140,7 +143,9 @@ def test_landing_uses_bundled_reference_intervention_proof(monkeypatch) -> None:
     assert "Ship (APPROVED)" in run_page.text
 
 
-def test_latest_report_reflects_reference_blocked_and_approved_bundles(monkeypatch) -> None:
+def test_latest_report_reflects_reference_blocked_and_approved_bundles(
+    monkeypatch,
+) -> None:
     client = TestClient(app)
 
     monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(REFERENCE_BLOCKED))
@@ -148,8 +153,9 @@ def test_latest_report_reflects_reference_blocked_and_approved_bundles(monkeypat
     assert blocked_report.status_code == 200
     assert "Why blocked" in blocked_report.text
     assert "Release controls generated from this blocked failure" in blocked_report.text
-    assert "regression_gates.json is the technical artifact backing generated release controls." in (
-        blocked_report.text
+    assert (
+        "regression_gates.json is the technical artifact backing generated release controls."
+        in (blocked_report.text)
     )
 
     monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(REFERENCE_APPROVED))

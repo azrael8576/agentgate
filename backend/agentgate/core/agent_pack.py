@@ -4,14 +4,19 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from backend.agentgate.schemas import AgentProfile, EvalSuite, IntentManifest, ReleasePolicy
+from backend.agentgate.schemas import (
+    AgentProfile,
+    EvalSuite,
+    IntentManifest,
+    ReleasePolicy,
+)
 
 DEFAULT_AGENT_PACK_PATH = Path("configs/agents/stability_ops")
 DEFAULT_PHOENIX_BASE_PATH = Path("configs/phoenix")
@@ -179,7 +184,9 @@ class LoadedAgentPack:
         if isinstance(filters_raw, dict):
             for metric_name, finding_types in filters_raw.items():
                 if isinstance(finding_types, list):
-                    metric_trace_filters[str(metric_name)] = tuple(str(item) for item in finding_types)
+                    metric_trace_filters[str(metric_name)] = tuple(
+                        str(item) for item in finding_types
+                    )
 
         return RegressionGateCatalog(
             findings=findings,
@@ -392,7 +399,9 @@ def _parse_metric_entries(payload: dict[str, Any]) -> tuple[MetricDefinitionEntr
     return tuple(entries)
 
 
-def load_phoenix_base(phoenix_base_dir: Path | None = None) -> tuple[tuple[MetricDefinitionEntry, ...], dict[str, Any]]:
+def load_phoenix_base(
+    phoenix_base_dir: Path | None = None,
+) -> tuple[tuple[MetricDefinitionEntry, ...], dict[str, Any]]:
     base_dir = phoenix_base_dir or DEFAULT_PHOENIX_BASE_PATH
     metrics_payload = _load_json(base_dir / "metrics.json")
     policy_payload = _load_json(base_dir / "policy.json")

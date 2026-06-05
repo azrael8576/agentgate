@@ -64,10 +64,7 @@ def _normalize_annotation_record(annotation: dict[str, Any]) -> dict[str, Any]:
 
 def _annotation_to_eval_label(annotation: dict[str, Any]) -> EvalLabel | None:
     name = str(
-        annotation.get("annotation_name")
-        or annotation.get("name")
-        or annotation.get("label")
-        or ""
+        annotation.get("annotation_name") or annotation.get("name") or annotation.get("label") or ""
     ).strip()
     if not name:
         return None

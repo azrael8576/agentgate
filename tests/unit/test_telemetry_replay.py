@@ -1,14 +1,19 @@
 import json
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from backend.agentgate.cli import app
-from backend.agentgate.demo.trace_seed_generator import generate_seed_records, write_seed_evidence
+from backend.agentgate.demo.trace_seed_generator import (
+    generate_seed_records,
+    write_seed_evidence,
+)
 from backend.agentgate.release.evidence_loader import load_evidence_jsonl
-from backend.agentgate.telemetry.phoenix_setup import PhoenixConfigError, load_phoenix_config
+from backend.agentgate.telemetry.phoenix_setup import (
+    PhoenixConfigError,
+    load_phoenix_config,
+)
 from backend.agentgate.telemetry.replay import replay_evidence
 from backend.agentgate.telemetry.span_mapper import build_replay_plan, span_attributes
+from typer.testing import CliRunner
 
 
 class FakeSpan:
@@ -115,8 +120,7 @@ def test_replay_evidence_uses_tracer_and_returns_summary(tmp_path: Path) -> None
     assert summary["eval_labels"] > 0
     assert any(span["name"] == "router.intent_classification" for span in tracer.spans)
     assert any(
-        span["attributes"].get("agent.version") == "v2.1"
-        and span["attributes"].get("user.role")
+        span["attributes"].get("agent.version") == "v2.1" and span["attributes"].get("user.role")
         for span in tracer.spans
     )
 
@@ -136,7 +140,14 @@ def test_cli_telemetry_replay_uses_registered_tracer(monkeypatch, tmp_path: Path
 
     result = CliRunner().invoke(
         app,
-        ["telemetry", "replay", "--evidence", str(evidence), "--service-name", "stability_ops_ai"],
+        [
+            "telemetry",
+            "replay",
+            "--evidence",
+            str(evidence),
+            "--service-name",
+            "stability_ops_ai",
+        ],
     )
 
     assert result.exit_code == 0

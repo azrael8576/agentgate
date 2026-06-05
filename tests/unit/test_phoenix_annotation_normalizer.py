@@ -12,7 +12,11 @@ def test_eval_labels_from_phoenix_annotations() -> None:
                 "trace_id": "trace_001",
                 "span_id": "span_001",
                 "annotator_kind": "LLM",
-                "result": {"label": "fail", "score": 0.0, "explanation": "unsupported RCA"},
+                "result": {
+                    "label": "fail",
+                    "score": 0.0,
+                    "explanation": "unsupported RCA",
+                },
             }
         ]
     )

@@ -50,5 +50,7 @@ def test_sensitive_output_semantics_respect_policy_toggle() -> None:
 
     assert is_sensitive_output_violation(tool_span, policy)
 
-    relaxed_policy = policy.model_copy(update={"dangerous_tool_policy": {"forbid_raw_event_dump": False}})
+    relaxed_policy = policy.model_copy(
+        update={"dangerous_tool_policy": {"forbid_raw_event_dump": False}}
+    )
     assert not is_sensitive_output_violation(tool_span, relaxed_policy)

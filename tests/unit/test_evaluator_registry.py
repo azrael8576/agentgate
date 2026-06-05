@@ -1,11 +1,12 @@
+from unittest.mock import patch
+
+from backend.agentgate.core.agent_pack import DEFAULT_AGENT_PACK_PATH, load_agent_pack
 from backend.agentgate.evals.evaluator_registry import (
     EVAL_DEPENDENT_METRICS,
     SPAN_AGGREGATE_METRICS,
     build_eval_llm,
     build_llm_evaluators,
 )
-from backend.agentgate.core.agent_pack import load_agent_pack, DEFAULT_AGENT_PACK_PATH
-from unittest.mock import patch
 
 
 def test_eval_dependent_metrics_set() -> None:
@@ -29,7 +30,10 @@ def test_build_llm_evaluators_uses_agent_pack_classifier_specs() -> None:
         return kwargs["name"]
 
     with (
-        patch("backend.agentgate.evals.evaluator_registry.build_eval_llm", return_value="llm"),
+        patch(
+            "backend.agentgate.evals.evaluator_registry.build_eval_llm",
+            return_value="llm",
+        ),
         patch("phoenix.evals.metrics.FaithfulnessEvaluator", return_value="faithfulness"),
         patch("phoenix.evals.create_classifier", side_effect=fake_create_classifier),
     ):
@@ -38,4 +42,7 @@ def test_build_llm_evaluators_uses_agent_pack_classifier_specs() -> None:
     assert evaluators["groundedness"] == "faithfulness"
     assert evaluators["response_format_ok"] == "response_format_ok"
     assert "RCA summary" in str(created["response_format_ok"]["prompt_template"])
-    assert created["response_format_ok"]["choices"] == {"compliant": 1.0, "non_compliant": 0.0}
+    assert created["response_format_ok"]["choices"] == {
+        "compliant": 1.0,
+        "non_compliant": 0.0,
+    }

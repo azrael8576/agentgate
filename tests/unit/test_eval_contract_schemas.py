@@ -1,11 +1,12 @@
 import pytest
-from pydantic import ValidationError
-
-from tests.fixtures.paths import DEMO_PROFILE_PATH, DEMO_SUITE_PATH
-
 from backend.agentgate.core.product_config import load_agent_profile, load_eval_suite
 from backend.agentgate.schemas import AgentProfile, EvalSuite, MetricDefinition
-from backend.agentgate.schemas.eval_contracts import ReleaseGateMetricStatus, decide_metric_statuses
+from backend.agentgate.schemas.eval_contracts import (
+    ReleaseGateMetricStatus,
+    decide_metric_statuses,
+)
+from pydantic import ValidationError
+from tests.fixtures.paths import DEMO_PROFILE_PATH, DEMO_SUITE_PATH
 
 
 def test_generic_agent_profile_validates_without_stability_ops_fields() -> None:

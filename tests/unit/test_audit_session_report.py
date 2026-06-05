@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
 
+from backend.agentgate.core.config import load_demo_release_policy
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
 from backend.agentgate.release.audit_session_report import build_audit_session_report
 from backend.agentgate.release.deterministic_diagnoser import build_regression_gates
 from backend.agentgate.release.evidence_loader import load_evidence_jsonl
 from backend.agentgate.release.metrics_aggregator import aggregate_metrics
-from backend.agentgate.core.config import load_demo_release_policy
 from backend.agentgate.release.release_check import run_release_check
 
 
@@ -31,7 +31,9 @@ def test_v2_audit_report_includes_activity_log_and_violations(tmp_path: Path) ->
     assert any(entry["verdict"] == "authorized" for entry in report["high_risk_activity_log"])
 
 
-def test_v21_audit_report_has_authorized_high_risk_activity_only(tmp_path: Path) -> None:
+def test_v21_audit_report_has_authorized_high_risk_activity_only(
+    tmp_path: Path,
+) -> None:
     records = load_evidence_jsonl(_seed("v2.1", tmp_path))
     policy = load_demo_release_policy()
     report = build_audit_session_report(records, policy)
@@ -42,7 +44,9 @@ def test_v21_audit_report_has_authorized_high_risk_activity_only(tmp_path: Path)
     assert all(entry["verdict"] == "authorized" for entry in report["high_risk_activity_log"])
 
 
-def test_release_check_writes_remediation_controls_for_failed_metrics(tmp_path: Path) -> None:
+def test_release_check_writes_remediation_controls_for_failed_metrics(
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "release" / "v2"
     run_release_check(_seed("v2", tmp_path), output_dir)
 
@@ -55,7 +59,9 @@ def test_release_check_writes_remediation_controls_for_failed_metrics(tmp_path: 
     assert any(gate["gate_id"] == "non_developer_must_not_run_deep_investigation" for gate in gates)
 
 
-def test_build_regression_gates_links_failed_controls_to_trace_ids(tmp_path: Path) -> None:
+def test_build_regression_gates_links_failed_controls_to_trace_ids(
+    tmp_path: Path,
+) -> None:
     records = load_evidence_jsonl(_seed("v2", tmp_path))
     policy = load_demo_release_policy()
     metrics_summary = aggregate_metrics(records, policy)
@@ -68,5 +74,7 @@ def test_build_regression_gates_links_failed_controls_to_trace_ids(tmp_path: Pat
         high_risk_activity_log=report["high_risk_activity_log"],
     )
 
-    policy_gate = next(gate for gate in gates if gate["gate_id"] == "critical_tools_must_pass_policy_preflight")
+    policy_gate = next(
+        gate for gate in gates if gate["gate_id"] == "critical_tools_must_pass_policy_preflight"
+    )
     assert policy_gate["source_evidence_ids"]

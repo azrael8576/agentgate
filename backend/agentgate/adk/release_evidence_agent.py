@@ -8,9 +8,11 @@ from backend.agentgate.adk.tools import (
     diagnose_dangerous_sessions,
     load_local_evidence_records,
     pull_dangerous_traces,
-    query_phoenix_spans_tool as query_phoenix_spans,
     render_release_report,
     run_release_evidence_workflow,
+)
+from backend.agentgate.adk.tools import (
+    query_phoenix_spans_tool as query_phoenix_spans,
 )
 from backend.agentgate.release.gemini_diagnoser import DiagnosisMode
 from backend.agentgate.settings import configure_vertex_environment, get_adk_model_name
