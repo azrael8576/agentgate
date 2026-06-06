@@ -34,6 +34,7 @@ NO_ACTION_AGENT_REVIEW_SUMMARY = "No action from agent review."
 NO_ACTION_PATTERN_FINDER_SUMMARY = "No action from Pattern Finder."
 NO_ACTION_DATASET_PLANNER_SUMMARY = "No action from Dataset Planner in this slice."
 DATASET_PLANNER_SUMMARY = "Dataset Planner proposed 1 human-review candidate."
+WARNING_ONLY_PATTERN_FINDER_SUMMARY = "Pattern Finder found warning observations only."
 PARTIAL_FAILURE_AGENT_REVIEW_SUMMARY = (
     "Agent review had partial failures; deterministic release decision still used metrics and policy."
 )
@@ -78,7 +79,11 @@ def build_agent_review_artifacts(
     indeterminate_findings = dangerous_sessions.get("indeterminate_findings", [])
     reviewed_safe = dangerous_sessions.get("reviewed_safe", [])
     high_risk_activity = dangerous_sessions.get("high_risk_activity_log", [])
-    trace_evidence = _build_trace_evidence(records, evidence_source, critical_findings)
+    trace_evidence = _build_trace_evidence(
+        records,
+        evidence_source,
+        [*critical_findings, *indeterminate_findings],
+    )
     trace_pull = _trace_pull_status(evidence_source)
 
     pattern_status = (
@@ -131,6 +136,7 @@ def build_agent_review_artifacts(
         builder=lambda: _pattern_finder_results(
             base=base,
             critical_findings=critical_findings,
+            indeterminate_findings=indeterminate_findings,
             trace_evidence=trace_evidence,
         ),
         validator=lambda results: validate_pattern_finder_results(
@@ -183,15 +189,59 @@ def build_agentic_review_status(enabled: bool, status: str | None = None) -> dic
 def validate_pattern_finder_results(
     results: dict[str, Any], agent_review_input: dict[str, Any]
 ) -> dict[str, Any]:
-    return _validate_review_results(
-        results=results,
-        agent_review_input=agent_review_input,
-        items_key="failure_patterns",
-        validator=_pattern_validation_errors,
-        default_summary=NO_ACTION_PATTERN_FINDER_SUMMARY,
-        invalid_summary="Pattern Finder failed validation and was not trusted.",
-        validated_count_key="validated_failure_patterns",
-    )
+    trace_ids, evidence_ids = _review_reference_ids(agent_review_input)
+    validated_patterns: list[dict[str, Any]] = []
+    validated_warnings: list[dict[str, Any]] = []
+    errors: list[str] = []
+
+    for pattern in results.get("failure_patterns", []):
+        pattern_errors = _pattern_validation_errors(
+            pattern,
+            trace_ids,
+            evidence_ids,
+            id_field="pattern_id",
+        )
+        if pattern_errors:
+            errors.extend(pattern_errors)
+            continue
+        validated_patterns.append(pattern)
+
+    for warning in results.get("warning_observations", []):
+        warning_errors = _pattern_validation_errors(
+            warning,
+            trace_ids,
+            evidence_ids,
+            id_field="observation_id",
+        )
+        if warning_errors:
+            errors.extend(warning_errors)
+            continue
+        validated_warnings.append(warning)
+
+    trusted = not errors
+    status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
+    summary = results.get("summary", NO_ACTION_PATTERN_FINDER_SUMMARY)
+    if not trusted:
+        status = AGENT_REVIEW_STATUS_INVALID
+        summary = "Pattern Finder failed validation and was not trusted."
+        validated_patterns = []
+        validated_warnings = []
+    reference_errors, schema_errors = _split_validation_errors(errors)
+    return {
+        **results,
+        "status": status,
+        "summary": summary,
+        "failure_patterns": validated_patterns,
+        "warning_observations": validated_warnings,
+        "validation": {
+            "trusted": trusted,
+            "validated_failure_patterns": len(validated_patterns),
+            "validated_warning_observations": len(validated_warnings),
+            "errors": errors,
+            "reference_errors": reference_errors,
+            "schema_errors": schema_errors,
+        },
+    }
 
 
 def validate_dataset_planner_results(
@@ -389,11 +439,15 @@ def _review_reference_ids(agent_review_input: dict[str, Any]) -> tuple[set[str],
 
 
 def _pattern_validation_errors(
-    pattern: dict[str, Any], trace_ids: set[str], evidence_ids: set[str]
+    pattern: dict[str, Any],
+    trace_ids: set[str],
+    evidence_ids: set[str],
+    *,
+    id_field: str,
 ) -> list[str]:
     errors: list[str] = []
     required_text_fields = (
-        "pattern_id",
+        id_field,
         "title",
         "severity",
         "problem_summary",
@@ -429,50 +483,38 @@ def _pattern_finder_results(
     *,
     base: dict[str, Any],
     critical_findings: list[dict[str, Any]],
+    indeterminate_findings: list[dict[str, Any]],
     trace_evidence: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    selected_findings = _selected_findings_by_type(critical_findings, trace_evidence)
-    if selected_findings is None:
-        return _no_action_review_results(
-            base=base,
-            agent="pattern_finder",
-            summary=NO_ACTION_PATTERN_FINDER_SUMMARY,
-            items_key="failure_patterns",
-        )
-
-    finding_type, findings = selected_findings
-    supporting_trace_ids = sorted({str(finding["trace_id"]) for finding in findings})
-    supporting_evidence_ids = sorted(
-        {
-            str(evidence_id)
-            for finding in findings
-            for evidence_id in finding.get("evidence_ids", [])
-        }
+    failure_patterns = _build_review_observations(
+        findings=critical_findings,
+        trace_evidence=trace_evidence,
+        id_prefix="pattern",
+        severity="critical",
     )
-    examples = [
-        _example_trace(trace)
-        for trace in trace_evidence
-        if str(trace.get("trace_id")) in supporting_trace_ids
-    ][:3]
-    title = _PATTERN_TITLES.get(finding_type, finding_type.replace("_", " ").title())
+    warning_observations = _build_review_observations(
+        findings=indeterminate_findings,
+        trace_evidence=trace_evidence,
+        id_prefix="warning",
+        severity="warning",
+    )
+    if failure_patterns:
+        summary = _pattern_summary(len(failure_patterns))
+        status = AGENT_REVIEW_STATUS_PATTERNS_FOUND
+    elif warning_observations:
+        summary = WARNING_ONLY_PATTERN_FINDER_SUMMARY
+        status = AGENT_REVIEW_STATUS_NO_ACTION
+    else:
+        summary = NO_ACTION_PATTERN_FINDER_SUMMARY
+        status = AGENT_REVIEW_STATUS_NO_ACTION
+
     return {
         **base,
         "agent": "pattern_finder",
-        "status": AGENT_REVIEW_STATUS_PATTERNS_FOUND,
-        "summary": PATTERN_FINDER_SUMMARY,
-        "failure_patterns": [
-            {
-                "pattern_id": f"pattern.{finding_type}",
-                "title": title,
-                "severity": "critical",
-                "problem_summary": _problem_summary(finding_type, findings, examples),
-                "why_it_matters": _why_it_matters(finding_type),
-                "policy_runtime_mismatch": _policy_runtime_mismatch(finding_type, findings),
-                "supporting_trace_ids": supporting_trace_ids,
-                "supporting_evidence_ids": supporting_evidence_ids,
-                "example_traces": examples,
-            }
-        ],
+        "status": status,
+        "summary": summary,
+        "failure_patterns": failure_patterns,
+        "warning_observations": warning_observations,
     }
 
 
@@ -757,9 +799,11 @@ def _pattern_focus_areas(
         return []
     first = critical_findings[0]
     role = first.get("user_role") or "unknown role"
+    repeated_types = sorted({str(finding.get("finding_type") or "") for finding in critical_findings})
     return [
         "Confirm the trace story matches the cited blocker evidence.",
         f"Check whether role {role} reached a dangerous path that policy should have blocked.",
+        f"Look for repeated blocker families: {', '.join(repeated_types)}.",
     ]
 
 
@@ -859,18 +903,77 @@ def _trace_context(
     }
 
 
-def _selected_findings_by_type(
-    critical_findings: list[dict[str, Any]],
+def _group_findings_by_type(
+    findings: list[dict[str, Any]],
     trace_evidence: list[dict[str, Any]],
-) -> tuple[str, list[dict[str, Any]]] | None:
-    if not critical_findings or not trace_evidence:
-        return None
+) -> list[tuple[str, list[dict[str, Any]]]]:
+    if not findings or not trace_evidence:
+        return []
 
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for finding in critical_findings:
+    valid_trace_ids = {str(trace.get("trace_id") or "") for trace in trace_evidence}
+    for finding in findings:
+        if str(finding.get("trace_id") or "") not in valid_trace_ids:
+            continue
         grouped[str(finding.get("finding_type") or "unknown")].append(finding)
-    finding_type = min(grouped, key=finding_priority)
-    return finding_type, grouped[finding_type]
+    return sorted(grouped.items(), key=lambda item: (finding_priority(item[0]), item[0]))
+
+
+def _selected_findings_by_type(
+    findings: list[dict[str, Any]],
+    trace_evidence: list[dict[str, Any]],
+) -> tuple[str, list[dict[str, Any]]] | None:
+    grouped = _group_findings_by_type(findings, trace_evidence)
+    return grouped[0] if grouped else None
+
+
+def _build_review_observations(
+    *,
+    findings: list[dict[str, Any]],
+    trace_evidence: list[dict[str, Any]],
+    id_prefix: str,
+    severity: str,
+) -> list[dict[str, Any]]:
+    observations: list[dict[str, Any]] = []
+    for finding_type, grouped_findings in _group_findings_by_type(findings, trace_evidence):
+        supporting_trace_ids = sorted({str(finding["trace_id"]) for finding in grouped_findings})
+        supporting_evidence_ids = sorted(
+            {
+                str(evidence_id)
+                for finding in grouped_findings
+                for evidence_id in finding.get("evidence_ids", [])
+            }
+        )
+        examples = [
+            _example_trace(trace)
+            for trace in trace_evidence
+            if str(trace.get("trace_id")) in supporting_trace_ids
+        ][:3]
+        title = _PATTERN_TITLES.get(finding_type, finding_type.replace("_", " ").title())
+        observations.append(
+            {
+                f"{'pattern' if id_prefix == 'pattern' else 'observation'}_id": (
+                    f"{id_prefix}.{finding_type}"
+                ),
+                "title": title,
+                "severity": severity,
+                "problem_summary": _problem_summary(finding_type, grouped_findings, examples),
+                "why_it_matters": _why_it_matters(finding_type),
+                "policy_runtime_mismatch": _policy_runtime_mismatch(
+                    finding_type,
+                    grouped_findings,
+                ),
+                "supporting_trace_ids": supporting_trace_ids,
+                "supporting_evidence_ids": supporting_evidence_ids,
+                "example_traces": examples,
+            }
+        )
+    return observations
+
+
+def _pattern_summary(pattern_count: int) -> str:
+    label = "pattern" if pattern_count == 1 else "patterns"
+    return f"Pattern Finder found {pattern_count} release-safety {label}."
 
 
 def _dataset_candidate_id(finding_type: str, index: int) -> str:

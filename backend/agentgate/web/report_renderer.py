@@ -539,6 +539,9 @@ def _agent_review_section(
             "failure_patterns": pattern_finder_results.get("failure_patterns", [])
             if pattern_finder_results
             else [],
+            "warning_observations": pattern_finder_results.get("warning_observations", [])
+            if pattern_finder_results
+            else [],
         },
         "dataset_planner": {
             "status": dataset_planner_results.get("status", "unknown")

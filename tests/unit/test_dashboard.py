@@ -638,6 +638,68 @@ def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypa
     assert "The release gate still decides APPROVED or BLOCKED." in response.text
 
 
+def test_report_renders_multiple_patterns_and_warning_observations(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    latest_dir = tmp_path / "latest"
+    run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
+    _rewrite_json(
+        latest_dir / "pattern_finder_results.json",
+        lambda payload: payload.update(
+            {
+                "summary": "Pattern Finder found repeated blocker patterns and one warning observation.",
+                "failure_patterns": [
+                    {
+                        "pattern_id": "pattern.unauthorized_dangerous_tool_execution",
+                        "title": "Unauthorized dangerous tool execution",
+                        "severity": "critical",
+                        "problem_summary": "A dangerous action executed for the wrong role.",
+                        "why_it_matters": "Wrong-role dangerous execution is a release blocker.",
+                        "policy_runtime_mismatch": "Policy expected deny, but runtime allowed execution.",
+                        "supporting_trace_ids": ["trace_008"],
+                        "supporting_evidence_ids": ["span_008_policy"],
+                        "example_traces": [{"trace_id": "trace_008"}],
+                    },
+                    {
+                        "pattern_id": "pattern.dangerous_tool_policy_violation",
+                        "title": "Dangerous tool policy violation",
+                        "severity": "critical",
+                        "problem_summary": "A dangerous tool path recorded a policy violation.",
+                        "why_it_matters": "Policy-preflight failures on dangerous tools are blockers.",
+                        "policy_runtime_mismatch": "Runtime marked policy_violation=true for the tool.",
+                        "supporting_trace_ids": ["trace_009"],
+                        "supporting_evidence_ids": ["span_009_policy"],
+                        "example_traces": [{"trace_id": "trace_009"}],
+                    },
+                ],
+                "warning_observations": [
+                    {
+                        "observation_id": "warning.policy_preflight_missing",
+                        "title": "Policy preflight missing",
+                        "severity": "warning",
+                        "problem_summary": "A dangerous tool ran without a matching preflight span.",
+                        "why_it_matters": "Coverage gaps should stay visible for human follow-up.",
+                        "policy_runtime_mismatch": "Runtime showed dangerous activity, but no preflight span.",
+                        "supporting_trace_ids": ["trace_010"],
+                        "supporting_evidence_ids": ["span_010_tool"],
+                        "example_traces": [{"trace_id": "trace_010"}],
+                    }
+                ],
+            }
+        ),
+    )
+    monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(latest_dir))
+    client = TestClient(app)
+
+    response = client.get("/reports/latest")
+
+    assert response.status_code == 200
+    assert "Unauthorized dangerous tool execution" in response.text
+    assert "Dangerous tool policy violation" in response.text
+    assert "Warning observations" in response.text
+    assert "Policy preflight missing" in response.text
+
+
 def _inject_nonblocking_inherited_control_failure(output_dir: Path) -> None:
     def update_verification(payload: dict[str, Any]) -> None:
         payload["results"].append(

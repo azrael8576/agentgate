@@ -257,11 +257,25 @@
       </div>
       <h3>{{ agent_review.pattern_finder.status | replace("_", " ") | title }}</h3>
       <p class="gate-reason">{{ agent_review.pattern_finder.summary }}</p>
+      {% if agent_review.pattern_finder.focus_areas %}
+        <p class="section-note"><strong>Focus areas</strong></p>
+        {% for focus_area in agent_review.pattern_finder.focus_areas %}
+          <p class="section-note">{{ focus_area }}</p>
+        {% endfor %}
+      {% endif %}
       {% if agent_review.pattern_finder.failure_patterns %}
         {% for pattern in agent_review.pattern_finder.failure_patterns %}
           <p class="gate-reason"><strong>{{ pattern.title }}</strong></p>
           <p class="section-note">{{ pattern.problem_summary }}</p>
           <p class="section-note">{{ pattern.policy_runtime_mismatch }}</p>
+        {% endfor %}
+      {% endif %}
+      {% if agent_review.pattern_finder.warning_observations %}
+        <p class="gate-reason"><strong>Warning observations</strong></p>
+        {% for warning in agent_review.pattern_finder.warning_observations %}
+          <p class="gate-reason"><strong>{{ warning.title }}</strong></p>
+          <p class="section-note">{{ warning.problem_summary }}</p>
+          <p class="section-note">{{ warning.policy_runtime_mismatch }}</p>
         {% endfor %}
       {% endif %}
     </article>

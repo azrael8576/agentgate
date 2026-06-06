@@ -218,13 +218,17 @@ def test_local_release_check_writes_pattern_finder_artifacts_for_blocked_evidenc
     assert pattern_plan["focus_areas"]
     assert pattern_results["status"] == "patterns_found"
     assert pattern_results["validation"]["trusted"] is True
-    assert len(pattern_results["failure_patterns"]) == 1
-    assert (
-        pattern_results["failure_patterns"][0]["pattern_id"]
-        == "pattern.unauthorized_dangerous_tool_execution"
+    assert len(pattern_results["failure_patterns"]) >= 2
+    assert {
+        pattern["pattern_id"] for pattern in pattern_results["failure_patterns"]
+    } >= {
+        "pattern.unauthorized_dangerous_tool_execution",
+        "pattern.dangerous_tool_policy_violation",
+    }
+    assert all(pattern["supporting_trace_ids"] for pattern in pattern_results["failure_patterns"])
+    assert all(
+        pattern["supporting_evidence_ids"] for pattern in pattern_results["failure_patterns"]
     )
-    assert pattern_results["failure_patterns"][0]["supporting_trace_ids"]
-    assert pattern_results["failure_patterns"][0]["supporting_evidence_ids"]
     assert dataset_results["status"] == "candidates_found"
     assert dataset_results["validation"]["trusted"] is True
     assert len(dataset_results["dataset_candidates"]) == 1
@@ -266,6 +270,71 @@ def test_pattern_finder_validation_rejects_invented_references() -> None:
     assert validated["failure_patterns"] == []
     assert validated["validation"]["trusted"] is False
     assert validated["validation"]["errors"]
+    assert validated["validation"]["reference_errors"]
+    assert validated["validation"]["schema_errors"]
+
+
+def test_pattern_finder_validation_supports_multiple_patterns_and_warning_observations() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_001",
+                "spans": [{"span_id": "span_real_001"}],
+            },
+            {
+                "trace_id": "trace_real_002",
+                "spans": [{"span_id": "span_real_002"}],
+            },
+        ]
+    }
+    results = {
+        "status": "patterns_found",
+        "summary": "Pattern Finder found repeated blocker patterns and one warning observation.",
+        "failure_patterns": [
+            {
+                "pattern_id": "pattern.unauthorized_dangerous_tool_execution",
+                "title": "Unauthorized dangerous tool execution",
+                "severity": "critical",
+                "problem_summary": "A dangerous action executed for the wrong role.",
+                "why_it_matters": "Wrong-role dangerous execution is a release blocker.",
+                "policy_runtime_mismatch": "Policy expected deny, but runtime allowed execution.",
+                "supporting_trace_ids": ["trace_real_001"],
+                "supporting_evidence_ids": ["span_real_001"],
+                "example_traces": [{"trace_id": "trace_real_001"}],
+            },
+            {
+                "pattern_id": "pattern.dangerous_tool_policy_violation",
+                "title": "Dangerous tool policy violation",
+                "severity": "critical",
+                "problem_summary": "A dangerous tool path recorded a policy violation.",
+                "why_it_matters": "Policy-preflight failures on dangerous tools are blockers.",
+                "policy_runtime_mismatch": "Runtime marked policy_violation=true for the tool.",
+                "supporting_trace_ids": ["trace_real_002"],
+                "supporting_evidence_ids": ["span_real_002"],
+                "example_traces": [{"trace_id": "trace_real_002"}],
+            },
+        ],
+        "warning_observations": [
+            {
+                "observation_id": "warning.policy_preflight_missing",
+                "title": "Policy preflight missing",
+                "severity": "warning",
+                "problem_summary": "A dangerous tool ran without a matching preflight span.",
+                "why_it_matters": "Coverage gaps should stay visible for human follow-up.",
+                "policy_runtime_mismatch": "Runtime showed dangerous activity, but no preflight span.",
+                "supporting_trace_ids": ["trace_real_002"],
+                "supporting_evidence_ids": ["span_real_002"],
+                "example_traces": [{"trace_id": "trace_real_002"}],
+            }
+        ],
+    }
+
+    validated = validate_pattern_finder_results(results, agent_review_input)
+
+    assert validated["status"] == "patterns_found"
+    assert validated["validation"]["trusted"] is True
+    assert len(validated["failure_patterns"]) == 2
+    assert len(validated["warning_observations"]) == 1
 
 
 def test_dataset_planner_validation_rejects_invented_references() -> None:
@@ -301,6 +370,8 @@ def test_dataset_planner_validation_rejects_invented_references() -> None:
     assert validated["dataset_candidates"] == []
     assert validated["validation"]["trusted"] is False
     assert validated["validation"]["errors"]
+    assert validated["validation"]["reference_errors"]
+    assert validated["validation"]["schema_errors"] == []
 
 
 def test_dataset_planner_validation_rejects_nondeterministic_candidate_ids() -> None:
@@ -408,6 +479,126 @@ def test_pattern_finder_validation_rejects_missing_example_traces() -> None:
     assert validated["failure_patterns"] == []
     assert validated["validation"]["trusted"] is False
     assert "missing example_traces" in validated["validation"]["errors"]
+    assert validated["validation"]["schema_errors"] == ["missing example_traces"]
+    assert validated["validation"]["reference_errors"] == []
+
+
+def test_pattern_finder_validation_rejects_warning_missing_rationale() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_001",
+                "spans": [{"span_id": "span_real_001"}],
+            }
+        ]
+    }
+    results = {
+        "status": "no_action",
+        "summary": "Only warning observations were returned.",
+        "failure_patterns": [],
+        "warning_observations": [
+            {
+                "observation_id": "warning.policy_preflight_missing",
+                "title": "Policy preflight missing",
+                "severity": "warning",
+                "problem_summary": "A dangerous tool ran without a matching preflight span.",
+                "why_it_matters": "",
+                "policy_runtime_mismatch": "Runtime showed dangerous activity, but no preflight span.",
+                "supporting_trace_ids": ["trace_real_001"],
+                "supporting_evidence_ids": ["span_real_001"],
+                "example_traces": [{"trace_id": "trace_real_001"}],
+            }
+        ],
+    }
+
+    validated = validate_pattern_finder_results(results, agent_review_input)
+
+    assert validated["status"] == "invalid"
+    assert validated["warning_observations"] == []
+    assert validated["validation"]["trusted"] is False
+    assert "missing why_it_matters" in validated["validation"]["errors"]
+
+
+def test_release_check_keeps_deterministic_verdict_when_pattern_finder_output_is_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    evidence = _seed("v2", tmp_path)
+    output_dir = tmp_path / "release" / "v2"
+
+    def invalid_pattern_results(**_: object) -> dict[str, object]:
+        return {
+            "agent": "pattern_finder",
+            "status": "patterns_found",
+            "summary": "Broken output",
+            "failure_patterns": [
+                {
+                    "pattern_id": "pattern.unauthorized_dangerous_tool_execution",
+                    "supporting_trace_ids": ["trace_fake_999"],
+                    "supporting_evidence_ids": ["span_fake_999"],
+                    "example_traces": [{"trace_id": "trace_fake_999"}],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        "backend.agentgate.release.agentic_review._pattern_finder_results",
+        invalid_pattern_results,
+    )
+
+    result = run_release_check(evidence, output_dir, agentic_review_enabled=True)
+    decision = _read_json(output_dir / "release_decision.json")
+    pattern_results = _read_json(output_dir / "pattern_finder_results.json")
+    dataset_results = _read_json(output_dir / "dataset_planner_results.json")
+    html = (output_dir / "release_report.html").read_text(encoding="utf-8")
+
+    assert result["decision"] == "BLOCKED"
+    assert decision["decision"] == "BLOCKED"
+    assert decision["agentic_review"]["status"] == "partial_failure"
+    assert all(
+        "agentic review" not in str(reason).lower() for reason in decision["decision_reasons"]
+    )
+    assert pattern_results["status"] == "invalid"
+    assert pattern_results["validation"]["trusted"] is False
+    assert pattern_results["validation"]["reference_errors"]
+    assert dataset_results["status"] == "candidates_found"
+    assert dataset_results["validation"]["trusted"] is True
+    assert "Pattern Finder failed validation and was not trusted." in html
+
+
+def test_release_check_records_partial_agent_failure_without_corrupting_other_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    evidence = _seed("v2", tmp_path)
+    output_dir = tmp_path / "release" / "v2"
+
+    def fail_dataset_planner(**_: object) -> dict[str, object]:
+        raise RuntimeError("dataset planner schema parse failed")
+
+    monkeypatch.setattr(
+        "backend.agentgate.release.agentic_review._dataset_planner_results",
+        fail_dataset_planner,
+    )
+
+    result = run_release_check(evidence, output_dir, agentic_review_enabled=True)
+    decision = _read_json(output_dir / "release_decision.json")
+    pattern_results = _read_json(output_dir / "pattern_finder_results.json")
+    dataset_results = _read_json(output_dir / "dataset_planner_results.json")
+    html = (output_dir / "release_report.html").read_text(encoding="utf-8")
+
+    assert result["decision"] == "BLOCKED"
+    assert decision["decision"] == "BLOCKED"
+    assert decision["agentic_review"]["status"] == "partial_failure"
+    assert pattern_results["status"] == "patterns_found"
+    assert pattern_results["validation"]["trusted"] is True
+    assert dataset_results["status"] == "failed"
+    assert dataset_results["failure"]["failure_mode"] == "agent_execution_failed"
+    assert "dataset planner schema parse failed" in dataset_results["failure"]["message"]
+    assert dataset_results["validation"]["trusted"] is False
+    assert "Dataset Planner failed; deterministic release decision still used metrics and policy."
+    assert (
+        "Dataset Planner failed; deterministic release decision still used metrics and policy."
+        in html
+    )
 
 
 def test_agent_review_input_sanitizes_non_evidence_raw_fields(tmp_path: Path) -> None:
