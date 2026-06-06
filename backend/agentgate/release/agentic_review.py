@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from backend.agentgate.core.agent_pack import LoadedAgentPack
 from backend.agentgate.release.dangerous_evidence_classifier import finding_priority
 from backend.agentgate.release.evidence_loader import (
     EvidenceRecord,
@@ -14,6 +15,7 @@ AGENT_REVIEW_STATUS_DISABLED = "disabled"
 AGENT_REVIEW_STATUS_INVALID = "invalid"
 AGENT_REVIEW_STATUS_NO_ACTION = "no_action"
 AGENT_REVIEW_STATUS_PATTERNS_FOUND = "patterns_found"
+AGENT_REVIEW_STATUS_CANDIDATES_FOUND = "candidates_found"
 AGENT_REVIEW_ARTIFACT_NAMES = [
     "agent_review_input",
     "pattern_finder_plan",
@@ -27,6 +29,7 @@ PATTERN_FINDER_SUMMARY = "Pattern Finder found 1 release-safety pattern."
 NO_ACTION_AGENT_REVIEW_SUMMARY = "No action from agent review."
 NO_ACTION_PATTERN_FINDER_SUMMARY = "No action from Pattern Finder."
 NO_ACTION_DATASET_PLANNER_SUMMARY = "No action from Dataset Planner in this slice."
+DATASET_PLANNER_SUMMARY = "Dataset Planner proposed 1 human-review candidate."
 
 _PATTERN_TITLES = {
     "unauthorized_dangerous_tool_execution": "Unauthorized dangerous tool execution",
@@ -41,9 +44,12 @@ _PATTERN_TITLES = {
 def build_agent_review_artifacts(
     *,
     base: dict[str, Any],
+    pack: LoadedAgentPack,
     records: list[EvidenceRecord],
     evidence_source: dict[str, Any],
     dangerous_sessions: dict[str, Any],
+    metrics_summary: dict[str, Any],
+    gate_binding: dict[str, Any] | None,
 ) -> dict[str, dict[str, Any]]:
     critical_findings = dangerous_sessions.get("critical_findings", [])
     indeterminate_findings = dangerous_sessions.get("indeterminate_findings", [])
@@ -59,10 +65,16 @@ def build_agent_review_artifacts(
     shared_status = _shared_agent_review_status(pattern_status)
     agent_review_input = {
         **base,
+        "packet_audit_id": (
+            f"agent_review_packet:{base['agent_id']}:{base['agent_version']}"
+        ),
         "agent_review": {
             "enabled": True,
             **shared_status,
         },
+        "agent_context": _build_agent_context(pack),
+        "policy_context": _build_policy_context(pack, gate_binding),
+        "metric_context": _build_metric_context(pack, metrics_summary),
         "release_evidence_summary": {
             "evidence_source_type": evidence_source.get("type"),
             "critical_findings": len(critical_findings),
@@ -70,6 +82,7 @@ def build_agent_review_artifacts(
             "reviewed_safe": len(reviewed_safe),
             "high_risk_activity": len(high_risk_activity),
             "dangerous_trace_ids": evidence_source.get("dangerous_trace_ids", []),
+            "coverage_summary": _coverage_summary(evidence_source.get("coverage")),
         },
         "trace_evidence": trace_evidence,
     }
@@ -92,13 +105,14 @@ def build_agent_review_artifacts(
         ),
         agent_review_input,
     )
-    dataset_planner_results = {
-        **base,
-        "agent": "dataset_planner",
-        "status": AGENT_REVIEW_STATUS_NO_ACTION,
-        "summary": NO_ACTION_DATASET_PLANNER_SUMMARY,
-        "dataset_candidates": [],
-    }
+    dataset_planner_results = validate_dataset_planner_results(
+        _dataset_planner_results(
+            base=base,
+            critical_findings=critical_findings,
+            trace_evidence=trace_evidence,
+        ),
+        agent_review_input,
+    )
     agent_review_input["agent_review"]["status"] = pattern_finder_results["status"]
     agent_review_input["agent_review"]["summary"] = pattern_finder_results["summary"]
     pattern_finder_plan["status"] = pattern_finder_results["status"]
@@ -158,6 +172,49 @@ def validate_pattern_finder_results(
         "validation": {
             "trusted": trusted,
             "validated_failure_patterns": len(validated_patterns),
+            "errors": errors,
+        },
+    }
+
+
+def validate_dataset_planner_results(
+    results: dict[str, Any], agent_review_input: dict[str, Any]
+) -> dict[str, Any]:
+    trace_ids = {
+        str(trace.get("trace_id"))
+        for trace in agent_review_input.get("trace_evidence", [])
+        if trace.get("trace_id")
+    }
+    evidence_ids = {
+        str(span.get("span_id"))
+        for trace in agent_review_input.get("trace_evidence", [])
+        for span in trace.get("spans", [])
+        if span.get("span_id")
+    }
+    validated_candidates: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for candidate in results.get("dataset_candidates", []):
+        candidate_errors = _dataset_candidate_validation_errors(candidate, trace_ids, evidence_ids)
+        if candidate_errors:
+            errors.extend(candidate_errors)
+            continue
+        validated_candidates.append(candidate)
+
+    trusted = not errors
+    status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
+    summary = results.get("summary", NO_ACTION_DATASET_PLANNER_SUMMARY)
+    if not trusted:
+        status = AGENT_REVIEW_STATUS_INVALID
+        summary = "Dataset Planner output failed validation and was not trusted."
+        validated_candidates = []
+    return {
+        **results,
+        "status": status,
+        "summary": summary,
+        "dataset_candidates": validated_candidates,
+        "validation": {
+            "trusted": trusted,
+            "validated_dataset_candidates": len(validated_candidates),
             "errors": errors,
         },
     }
@@ -255,6 +312,98 @@ def _pattern_finder_results(
     }
 
 
+def _dataset_candidate_validation_errors(
+    candidate: dict[str, Any], trace_ids: set[str], evidence_ids: set[str]
+) -> list[str]:
+    errors: list[str] = []
+    required_text_fields = (
+        "candidate_id",
+        "rationale",
+        "review_instructions",
+        "conversion_guidance",
+        "review_status",
+    )
+    for field in required_text_fields:
+        if not str(candidate.get(field) or "").strip():
+            errors.append(f"missing {field}")
+    source_trace_ids = [str(item) for item in candidate.get("source_trace_ids", [])]
+    source_evidence_ids = [str(item) for item in candidate.get("source_evidence_ids", [])]
+    source_finding_types = [str(item) for item in candidate.get("source_finding_types", [])]
+    if not source_trace_ids:
+        errors.append("missing source_trace_ids")
+    if not source_evidence_ids:
+        errors.append("missing source_evidence_ids")
+    if not source_finding_types:
+        errors.append("missing source_finding_types")
+    if candidate.get("requires_human_review") is not True:
+        errors.append("requires_human_review must be true")
+    for trace_id in source_trace_ids:
+        if trace_id not in trace_ids:
+            errors.append(f"unknown trace_id {trace_id}")
+    for evidence_id in source_evidence_ids:
+        if evidence_id not in evidence_ids:
+            errors.append(f"unknown evidence_id {evidence_id}")
+    return errors
+
+
+def _dataset_planner_results(
+    *,
+    base: dict[str, Any],
+    critical_findings: list[dict[str, Any]],
+    trace_evidence: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not critical_findings or not trace_evidence:
+        return {
+            **base,
+            "agent": "dataset_planner",
+            "status": AGENT_REVIEW_STATUS_NO_ACTION,
+            "summary": NO_ACTION_DATASET_PLANNER_SUMMARY,
+            "dataset_candidates": [],
+        }
+
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for finding in critical_findings:
+        grouped[str(finding.get("finding_type") or "unknown")].append(finding)
+    finding_type = min(grouped, key=finding_priority)
+    findings = grouped[finding_type]
+    source_trace_ids = sorted({str(finding["trace_id"]) for finding in findings})
+    source_evidence_ids = sorted(
+        {
+            str(evidence_id)
+            for finding in findings
+            for evidence_id in finding.get("evidence_ids", [])
+        }
+    )
+    return {
+        **base,
+        "agent": "dataset_planner",
+        "status": AGENT_REVIEW_STATUS_CANDIDATES_FOUND,
+        "summary": DATASET_PLANNER_SUMMARY,
+        "dataset_candidates": [
+            {
+                "candidate_id": f"dataset_candidate.{finding_type}.01",
+                "source_trace_ids": source_trace_ids,
+                "source_evidence_ids": source_evidence_ids,
+                "source_finding_types": [finding_type],
+                "rationale": (
+                    "This blocker evidence should become a human-reviewed dataset candidate "
+                    "for future release coverage."
+                ),
+                "review_instructions": (
+                    "Confirm the cited traces are representative before converting them into "
+                    "a controlled eval or release-control candidate."
+                ),
+                "conversion_guidance": (
+                    "Turn this candidate into a future eval case or release control after "
+                    "human review."
+                ),
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+    }
+
+
 def _build_trace_evidence(
     records: list[EvidenceRecord],
     evidence_source: dict[str, Any],
@@ -268,17 +417,24 @@ def _build_trace_evidence(
 
     dangerous_traces = evidence_source.get("dangerous_traces")
     if isinstance(dangerous_traces, list) and dangerous_traces:
+        grouped_records = group_records_by_trace(records)
         traces: list[dict[str, Any]] = []
         for trace in dangerous_traces:
             trace_id = str(trace.get("trace_id") or trace.get("id") or "")
             if trace_id not in findings_by_trace:
                 continue
             findings = findings_by_trace[trace_id]
+            record_spans = [
+                _normalize_record_span(record)
+                for record in grouped_records.get(trace_id, [])
+                if isinstance(record, SpanEvent)
+            ]
             spans = [
                 _normalize_trace_span(span)
                 for span in trace.get("spans", [])
                 if isinstance(span, dict)
             ]
+            spans = _merge_trace_spans(spans, record_spans)
             traces.append(
                 _trace_evidence_entry(
                     trace_id=trace_id,
@@ -323,9 +479,40 @@ def _trace_evidence_entry(
     spans: list[dict[str, Any]],
 ) -> dict[str, Any]:
     first_finding = findings[0]
+    attributes = first_finding.get("attributes", {})
+    expected_intent_id = _first_nonempty_value(
+        attributes.get("expected_intent_id"),
+        *[span.get("attributes", {}).get("expected_intent_id") for span in spans],
+    )
+    selected_intent_id = _first_nonempty_value(
+        attributes.get("selected_intent_id"),
+        *[span.get("attributes", {}).get("selected_intent_id") for span in spans],
+    )
+    tool_name = _first_nonempty_value(
+        attributes.get("tool_name"),
+        *[span.get("attributes", {}).get("tool_name") for span in spans],
+    )
+    expected_allowed = _first_nonempty_value(
+        attributes.get("expected_allowed"),
+        *[span.get("attributes", {}).get("expected_allowed") for span in spans],
+    )
+    actual_allowed = _first_nonempty_value(
+        attributes.get("actual_allowed"),
+        *[span.get("attributes", {}).get("actual_allowed") for span in spans],
+    )
+    span_path = " -> ".join(span["span_name"] for span in spans if span.get("span_name"))
+    runtime_behavior = _runtime_behavior(tool_name, actual_allowed, spans)
     return {
+        "trace_audit_id": f"trace:{trace_id}",
         "trace_id": trace_id,
         "trace_story": _trace_story(findings, spans),
+        "user_request": first_finding.get("input_text"),
+        "expected_intent_id": expected_intent_id,
+        "selected_intent_id": selected_intent_id,
+        "policy_expectation": _policy_expectation(tool_name, expected_allowed),
+        "runtime_behavior": runtime_behavior,
+        "span_path": span_path,
+        "risk_summary": _risk_summary(findings),
         "spans": spans,
         "supporting_evidence_ids": sorted(
             {
@@ -353,20 +540,33 @@ def _normalize_trace_span(span: dict[str, Any]) -> dict[str, Any]:
         flattened = dict(attributes)
     else:
         flattened = {}
+    span_id = str(span.get("id") or span.get("span_id") or "")
+    span_name = str(span.get("name") or span.get("span_name") or "")
+    sanitized_attributes = _sanitize_span_attributes(flattened)
     return {
-        "span_id": str(span.get("id") or span.get("span_id") or ""),
-        "span_name": str(span.get("name") or span.get("span_name") or ""),
+        "span_audit_id": f"span:{span_id}" if span_id else "",
+        "span_id": span_id,
+        "parent_span_id": str(span.get("parent_span_id") or span.get("parentId") or ""),
+        "span_name": span_name,
+        "event_type": span_name,
         "status": span.get("status"),
-        "attributes": flattened,
+        "attributes": sanitized_attributes,
+        "plain_language_summary": _span_plain_language_summary(span_name, sanitized_attributes),
     }
 
 
 def _normalize_record_span(span: SpanEvent) -> dict[str, Any]:
     return {
+        "span_audit_id": f"span:{span.span_id}",
         "span_id": span.span_id,
+        "parent_span_id": span.parent_span_id or "",
         "span_name": span.span_name,
+        "event_type": span.event_type,
         "status": span.status,
-        "attributes": span.attributes,
+        "attributes": _sanitize_span_attributes(span.attributes),
+        "plain_language_summary": _span_plain_language_summary(
+            span.span_name, _sanitize_span_attributes(span.attributes)
+        ),
     }
 
 
@@ -375,11 +575,43 @@ def _trace_story(findings: list[dict[str, Any]], spans: list[dict[str, Any]]) ->
     role = first.get("user_role") or "unknown role"
     request = first.get("input_text") or "unknown request"
     finding_types = ", ".join(sorted({finding["finding_type"] for finding in findings}))
+    attributes = first.get("attributes", {})
+    expected_intent_id = _first_nonempty_value(
+        attributes.get("expected_intent_id"),
+        *[span.get("attributes", {}).get("expected_intent_id") for span in spans],
+    ) or "unknown intent"
+    selected_intent_id = _first_nonempty_value(
+        attributes.get("selected_intent_id"),
+        *[span.get("attributes", {}).get("selected_intent_id") for span in spans],
+    ) or "unknown intent"
+    tool_name = _first_nonempty_value(
+        attributes.get("tool_name"),
+        *[span.get("attributes", {}).get("tool_name") for span in spans],
+    ) or "the high-risk tool path"
+    expected_allowed = _first_nonempty_value(
+        attributes.get("expected_allowed"),
+        *[span.get("attributes", {}).get("expected_allowed") for span in spans],
+    )
+    actual_allowed = _first_nonempty_value(
+        attributes.get("actual_allowed"),
+        *[span.get("attributes", {}).get("actual_allowed") for span in spans],
+    )
+    supporting_evidence_ids = sorted(
+        {
+            str(evidence_id)
+            for finding in findings
+            for evidence_id in finding.get("evidence_ids", [])
+        }
+    )
     span_path = " -> ".join(span["span_name"] for span in spans if span.get("span_name"))
     return (
         f"Role {role} asked: {request}. "
+        f"Expected intent: {expected_intent_id}. Selected intent: {selected_intent_id}. "
+        f"Policy expectation for {tool_name}: {expected_allowed}. "
+        f"Runtime behavior: {actual_allowed}. "
         f"AgentGate marked this trace for {finding_types}. "
-        f"Observed span path: {span_path}."
+        f"Observed span path: {span_path}. "
+        f"Supporting evidence IDs: {', '.join(supporting_evidence_ids)}."
     )
 
 
@@ -452,3 +684,238 @@ def _example_trace(trace: dict[str, Any]) -> dict[str, Any]:
         "input_text": trace.get("input_text"),
         "trace_story": trace.get("trace_story"),
     }
+
+
+def _first_nonempty_value(*values: Any) -> Any:
+    for value in values:
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        return value
+    return None
+
+
+def _build_agent_context(pack: LoadedAgentPack) -> dict[str, Any]:
+    return {
+        "agent_audit_id": f"agent:{pack.agent_id}",
+        "agent_id": pack.agent_id,
+        "display_name": pack.profile.display_name,
+        "domain": pack.profile.domain,
+        "description": pack.profile.description,
+        "current_runtime": pack.profile.current_runtime,
+        "risk_summary": pack.profile.risk_summary,
+    }
+
+
+def _build_policy_context(
+    pack: LoadedAgentPack, gate_binding: dict[str, Any] | None
+) -> dict[str, Any]:
+    intents_by_id = {
+        intent.intent_id: intent
+        for intent in (pack.intents.intents if pack.intents is not None else [])
+    }
+    tool_risk_catalog = []
+    for tool in pack.profile.tool_manifest:
+        matched_intents = [
+            intent
+            for intent in intents_by_id.values()
+            if getattr(intent, "tool_name", None) == tool.tool_id
+        ]
+        tool_risk_catalog.append(
+            {
+                "tool_audit_id": f"tool:{tool.tool_id}",
+                "tool_id": tool.tool_id,
+                "risk_level": tool.risk_level,
+                "side_effect_type": tool.side_effect_type,
+                "intent_ids": [intent.intent_id for intent in matched_intents],
+                "intent_descriptions": [intent.description for intent in matched_intents],
+            }
+        )
+
+    role_policy_summary = []
+    for role, allowed_intents in sorted(pack.release_policy.role_policy.items()):
+        dangerous_tools = sorted(
+            {
+                intent.tool_name
+                for intent_id in allowed_intents
+                for intent in [intents_by_id.get(intent_id)]
+                if intent is not None
+                and getattr(intent, "tool_name", None) in pack.release_policy.dangerous_tools
+            }
+        )
+        role_policy_summary.append(
+            {
+                "role": role,
+                "allowed_intents": list(allowed_intents),
+                "allowed_high_risk_tools": dangerous_tools,
+                "summary": (
+                    f"Role {role} may use intents {', '.join(allowed_intents)}"
+                    + (
+                        f" and high-risk tools {', '.join(dangerous_tools)}."
+                        if dangerous_tools
+                        else " and no dangerous tools."
+                    )
+                ),
+            }
+        )
+
+    return {
+        "policy_audit_id": f"policy:{pack.release_policy.policy_id}",
+        "policy_id": pack.release_policy.policy_id,
+        "policy_version": pack.release_policy.policy_version,
+        "authority_boundary": AUTHORITY_BOUNDARY,
+        "dangerous_tools": list(pack.release_policy.dangerous_tools),
+        "tool_risk_catalog": tool_risk_catalog,
+        "role_policy_summary": role_policy_summary,
+        "failed_control_meaning": (
+            "Agent review can explain evidence and plan follow-up work, but only the "
+            "deterministic gate binding decides APPROVED or BLOCKED."
+        ),
+        "gate_binding": gate_binding or {},
+    }
+
+
+def _build_metric_context(
+    pack: LoadedAgentPack, metrics_summary: dict[str, Any]
+) -> dict[str, Any]:
+    control_definitions = pack.control_definitions()
+    metrics = []
+    for metric in metrics_summary.get("metrics", []):
+        metric_id = str(metric.get("name") or metric.get("metric_id") or "")
+        control = control_definitions.get(metric_id, {})
+        metrics.append(
+            {
+                "metric_audit_id": f"metric:{metric_id}",
+                "metric_id": metric_id,
+                "display_name": control.get("name", metric_id),
+                "definition": control.get("definition", ""),
+                "formula": control.get("formula", ""),
+                "decision_impact": metric.get("decision_impact"),
+                "threshold_key": metric.get("threshold_key"),
+                "threshold": metric.get("threshold"),
+                "value": metric.get("value"),
+                "status": metric.get("status"),
+                "passes_threshold": metric.get("passes_threshold"),
+            }
+        )
+    return {"metrics": metrics}
+
+
+def _coverage_summary(coverage: Any) -> dict[str, Any]:
+    if not isinstance(coverage, dict):
+        return {}
+    return {
+        "missing_required_attributes": coverage.get("missing_required_attributes", 0),
+        "missing_eval_labels": coverage.get("missing_eval_labels", 0),
+        "span_count": coverage.get("span_count", 0),
+    }
+
+
+def _policy_expectation(tool_name: Any, expected_allowed: Any) -> str:
+    target = str(tool_name or "the high-risk path")
+    if expected_allowed is True:
+        return f"Policy expected ALLOW for {target}."
+    if expected_allowed is False:
+        return f"Policy expected DENY for {target}."
+    return f"Policy expectation for {target} was not fully recorded."
+
+
+def _runtime_behavior(tool_name: Any, actual_allowed: Any, spans: list[dict[str, Any]]) -> str:
+    target = str(tool_name or "the high-risk path")
+    tool_executed = any(span.get("span_name", "").startswith("tool.") for span in spans)
+    if actual_allowed is True:
+        return f"Runtime allowed {target}" + (" and executed it." if tool_executed else ".")
+    if actual_allowed is False:
+        return f"Runtime denied {target}."
+    if tool_executed:
+        return f"Runtime executed {target}, but the policy decision was unclear."
+    return f"Runtime evidence for {target} was incomplete."
+
+
+def _risk_summary(findings: list[dict[str, Any]]) -> str:
+    finding_types = ", ".join(sorted({str(finding.get("finding_type")) for finding in findings}))
+    return f"Trace is relevant because AgentGate classified it as {finding_types}."
+
+
+def _sanitize_span_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+    sanitized: dict[str, Any] = {}
+    for key, value in attributes.items():
+        normalized_key = str(key)
+        if _is_non_evidence_attribute(normalized_key, value):
+            continue
+        sanitized[normalized_key] = value
+    return sanitized
+
+
+def _is_non_evidence_attribute(key: str, value: Any) -> bool:
+    if isinstance(value, (dict, list)):
+        return True
+    if key in {
+        "tool.args",
+        "input.value",
+        "output.value",
+        "llm.input_messages",
+        "llm.output_messages",
+        "llm.prompt",
+        "llm.completion",
+        "openinference.input",
+        "openinference.output",
+    }:
+        return True
+    lowered = key.lower()
+    return lowered.startswith(("llm.", "openinference.", "gen_ai.")) or lowered.endswith(
+        (".prompt", ".completion", ".messages")
+    )
+
+
+def _span_plain_language_summary(span_name: str, attributes: dict[str, Any]) -> str:
+    tool_name = attributes.get("tool_name")
+    if span_name.startswith("router."):
+        return (
+            "Router selected "
+            f"{attributes.get('selected_intent_id', 'an intent')} for this request."
+        )
+    if span_name.startswith("policy_preflight."):
+        return (
+            f"Policy preflight checked {tool_name or 'the tool'} and recorded "
+            f"expected_allowed={attributes.get('expected_allowed')} and "
+            f"actual_allowed={attributes.get('actual_allowed')}."
+        )
+    if span_name.startswith("tool."):
+        return f"Tool execution span for {tool_name or span_name} finished with status evidence."
+    return f"Observed span {span_name} in the trace."
+
+
+def _merge_trace_spans(
+    pulled_trace_spans: list[dict[str, Any]], record_spans: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    record_by_span_id = {
+        span["span_id"]: span for span in record_spans if span.get("span_id")
+    }
+    merged: list[dict[str, Any]] = []
+    seen_span_ids: set[str] = set()
+    for span in pulled_trace_spans:
+        span_id = str(span.get("span_id") or "")
+        record_span = record_by_span_id.get(span_id)
+        if record_span is None:
+            merged.append(span)
+        else:
+            merged.append(
+                {
+                    **record_span,
+                    **span,
+                    "attributes": {
+                        **record_span.get("attributes", {}),
+                        **span.get("attributes", {}),
+                    },
+                    "plain_language_summary": span.get("plain_language_summary")
+                    or record_span.get("plain_language_summary", ""),
+                }
+            )
+        if span_id:
+            seen_span_ids.add(span_id)
+    merged.extend(
+        span for span in record_spans if span.get("span_id") not in seen_span_ids
+    )
+    return merged

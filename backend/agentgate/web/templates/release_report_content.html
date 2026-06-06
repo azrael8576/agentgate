@@ -271,6 +271,12 @@
       </div>
       <h3>{{ agent_review.dataset_planner.status | replace("_", " ") | title }}</h3>
       <p class="gate-reason">{{ agent_review.dataset_planner.summary }}</p>
+      {% if agent_review.dataset_planner.dataset_candidates %}
+        {% for candidate in agent_review.dataset_planner.dataset_candidates %}
+          <p class="gate-reason"><strong>{{ candidate.candidate_id }}</strong></p>
+          <p class="section-note">{{ candidate.review_status }}</p>
+        {% endfor %}
+      {% endif %}
     </article>
   </div>
 </section>

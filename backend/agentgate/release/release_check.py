@@ -327,9 +327,12 @@ def run_release_check_from_records(
                 "agent_id": identity["agent_id"],
                 "agent_version": identity["agent_version"],
             },
+            pack=pack,
             records=records,
             evidence_source={**evidence_source, "coverage": coverage},
             dangerous_sessions=dangerous_sessions,
+            metrics_summary=metrics_summary,
+            gate_binding=gate_binding,
         )
     review_status = (
         build_agentic_review_status(

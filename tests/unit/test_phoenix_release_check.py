@@ -465,10 +465,23 @@ def test_release_check_from_phoenix_mcp_queries_spans_and_dangerous_trace(
 
     agent_review_input = json.loads((output_dir / "agent_review_input.json").read_text("utf-8"))
     pattern_results = json.loads((output_dir / "pattern_finder_results.json").read_text("utf-8"))
+    dataset_results = json.loads((output_dir / "dataset_planner_results.json").read_text("utf-8"))
     assert agent_review_input["trace_evidence"][0]["trace_id"] == "trace_phoenix_unauth_deep_001"
+    assert agent_review_input["trace_evidence"][0]["trace_audit_id"] == "trace:trace_phoenix_unauth_deep_001"
+    assert agent_review_input["agent_context"]["display_name"] == "Reference Ops AI"
+    assert agent_review_input["policy_context"]["tool_risk_catalog"]
+    assert agent_review_input["metric_context"]["metrics"]
+    assert "expected_intent_id" in agent_review_input["trace_evidence"][0]
+    assert "selected_intent_id" in agent_review_input["trace_evidence"][0]
+    assert "Expected intent:" in agent_review_input["trace_evidence"][0]["trace_story"]
+    assert agent_review_input["trace_evidence"][0]["spans"][0]["plain_language_summary"]
     assert agent_review_input["trace_evidence"][0]["spans"][0]["span_id"] == "span_policy"
     assert pattern_results["status"] == "patterns_found"
     assert pattern_results["failure_patterns"][0]["supporting_trace_ids"] == [
+        "trace_phoenix_unauth_deep_001"
+    ]
+    assert dataset_results["status"] == "candidates_found"
+    assert dataset_results["dataset_candidates"][0]["source_trace_ids"] == [
         "trace_phoenix_unauth_deep_001"
     ]
 

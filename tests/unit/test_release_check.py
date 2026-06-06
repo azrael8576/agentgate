@@ -3,10 +3,16 @@ from pathlib import Path
 
 import pytest
 from backend.agentgate.cli import app
+from backend.agentgate.core.product_config import ReleaseCheckConfig
 from backend.agentgate.core.config import load_demo_release_policy
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
-from backend.agentgate.release.agentic_review import validate_pattern_finder_results
+from backend.agentgate.release.agentic_review import (
+    build_agent_review_artifacts,
+    validate_dataset_planner_results,
+    validate_pattern_finder_results,
+)
 from backend.agentgate.release.release_check import run_release_check
+from backend.agentgate.release.evidence_loader import load_evidence_jsonl
 from typer.testing import CliRunner
 
 
@@ -180,9 +186,34 @@ def test_local_release_check_writes_pattern_finder_artifacts_for_blocked_evidenc
     ]
     assert manifest["artifacts"]["agent_review_input"]["required_for_offline_audit"] is False
     assert agent_review_input["agent_review"]["status"] == "patterns_found"
+    assert agent_review_input["packet_audit_id"] == "agent_review_packet:stability_ops_ai:v2"
+    assert agent_review_input["agent_context"]["display_name"] == "Reference Ops AI"
+    assert agent_review_input["policy_context"]["policy_id"] == "reference_ops_release_policy_v1"
+    assert agent_review_input["policy_context"]["tool_risk_catalog"]
+    assert agent_review_input["policy_context"]["role_policy_summary"]
+    assert agent_review_input["metric_context"]["metrics"]
+    assert (
+        agent_review_input["metric_context"]["metrics"][0]["metric_audit_id"].startswith("metric:")
+    )
     assert agent_review_input["trace_evidence"]
+    assert agent_review_input["trace_evidence"][0]["trace_audit_id"].startswith("trace:")
     assert agent_review_input["trace_evidence"][0]["trace_story"]
+    assert (
+        agent_review_input["trace_evidence"][0]["expected_intent_id"]
+        == "ops.alert_deep_investigation"
+    )
+    assert (
+        agent_review_input["trace_evidence"][0]["selected_intent_id"]
+        == "ops.alert_deep_investigation"
+    )
+    assert "Expected intent:" in agent_review_input["trace_evidence"][0]["trace_story"]
+    assert "Supporting evidence IDs:" in agent_review_input["trace_evidence"][0]["trace_story"]
+    assert agent_review_input["trace_evidence"][0]["policy_expectation"]
+    assert agent_review_input["trace_evidence"][0]["runtime_behavior"]
+    assert agent_review_input["trace_evidence"][0]["risk_summary"]
     assert agent_review_input["trace_evidence"][0]["spans"]
+    assert agent_review_input["trace_evidence"][0]["spans"][0]["span_audit_id"].startswith("span:")
+    assert agent_review_input["trace_evidence"][0]["spans"][0]["plain_language_summary"]
     assert pattern_plan["status"] == "patterns_found"
     assert pattern_plan["focus_areas"]
     assert pattern_results["status"] == "patterns_found"
@@ -194,8 +225,18 @@ def test_local_release_check_writes_pattern_finder_artifacts_for_blocked_evidenc
     )
     assert pattern_results["failure_patterns"][0]["supporting_trace_ids"]
     assert pattern_results["failure_patterns"][0]["supporting_evidence_ids"]
-    assert dataset_results["status"] == "no_action"
-    assert dataset_results["dataset_candidates"] == []
+    assert dataset_results["status"] == "candidates_found"
+    assert dataset_results["validation"]["trusted"] is True
+    assert len(dataset_results["dataset_candidates"]) == 1
+    candidate = dataset_results["dataset_candidates"][0]
+    assert candidate["candidate_id"] == "dataset_candidate.unauthorized_dangerous_tool_execution.01"
+    assert candidate["source_trace_ids"]
+    assert candidate["source_evidence_ids"]
+    assert candidate["source_finding_types"] == ["unauthorized_dangerous_tool_execution"]
+    assert candidate["requires_human_review"] is True
+    assert candidate["review_status"] == "pending_review"
+    assert candidate["review_instructions"]
+    assert candidate["conversion_guidance"]
 
 
 def test_pattern_finder_validation_rejects_invented_references() -> None:
@@ -223,6 +264,41 @@ def test_pattern_finder_validation_rejects_invented_references() -> None:
 
     assert validated["status"] == "invalid"
     assert validated["failure_patterns"] == []
+    assert validated["validation"]["trusted"] is False
+    assert validated["validation"]["errors"]
+
+
+def test_dataset_planner_validation_rejects_invented_references() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_001",
+                "finding_types": ["unauthorized_dangerous_tool_execution"],
+                "spans": [{"span_id": "span_real_001"}],
+            }
+        ]
+    }
+    results = {
+        "status": "candidates_found",
+        "dataset_candidates": [
+            {
+                "candidate_id": "dataset_candidate.unauthorized_dangerous_tool_execution.01",
+                "source_trace_ids": ["trace_fake_999"],
+                "source_evidence_ids": ["span_fake_999"],
+                "source_finding_types": ["unauthorized_dangerous_tool_execution"],
+                "rationale": "Use this blocker trace as a future release-eval case.",
+                "review_instructions": "Confirm the trace is representative before adding coverage.",
+                "conversion_guidance": "Convert into a future release control or eval case.",
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+    }
+
+    validated = validate_dataset_planner_results(results, agent_review_input)
+
+    assert validated["status"] == "invalid"
+    assert validated["dataset_candidates"] == []
     assert validated["validation"]["trusted"] is False
     assert validated["validation"]["errors"]
 
@@ -259,6 +335,82 @@ def test_pattern_finder_validation_rejects_missing_example_traces() -> None:
     assert validated["failure_patterns"] == []
     assert validated["validation"]["trusted"] is False
     assert "missing example_traces" in validated["validation"]["errors"]
+
+
+def test_agent_review_input_sanitizes_non_evidence_raw_fields(tmp_path: Path) -> None:
+    config = ReleaseCheckConfig()
+    pack = config.load_pack()
+    records = load_evidence_jsonl(_seed("v2", tmp_path))
+    dangerous_sessions = {
+        "critical_findings": [
+            {
+                "trace_id": "trace_001",
+                "case_id": "case_001",
+                "user_role": "ops_viewer",
+                "input_text": "Investigate the issue.",
+                "finding_type": "unauthorized_dangerous_tool_execution",
+                "severity": "critical",
+                "evidence_ids": ["span_policy"],
+                "attributes": {
+                    "tool_name": "deep_investigate_alert",
+                    "expected_allowed": False,
+                    "actual_allowed": True,
+                    "expected_intent_id": "ops.incident_recent_logs",
+                    "selected_intent_id": "ops.alert_deep_investigation",
+                },
+            }
+        ],
+        "indeterminate_findings": [],
+        "reviewed_safe": [],
+        "high_risk_activity_log": [],
+    }
+    artifacts = build_agent_review_artifacts(
+        base={
+            "schema_version": "day4.metrics.v1",
+            "agent_id": "stability_ops_ai",
+            "agent_version": "v2",
+        },
+        pack=pack,
+        records=records,
+        evidence_source={
+            "type": "phoenix_mcp",
+            "dangerous_trace_ids": ["trace_001"],
+            "dangerous_traces": [
+                {
+                    "trace_id": "trace_001",
+                    "spans": [
+                        {
+                            "id": "span_policy",
+                            "name": "policy_preflight.deep_investigate_alert",
+                            "status": "ok",
+                            "attributes": {
+                                "tool_name": "deep_investigate_alert",
+                                "expected_allowed": False,
+                                "actual_allowed": True,
+                                "selected_intent_id": "ops.alert_deep_investigation",
+                                "expected_intent_id": "ops.incident_recent_logs",
+                                "tool.args": "{\"raw\": true}",
+                                "llm.prompt": "very long prompt",
+                                "openinference.input": "raw provider payload",
+                            },
+                        }
+                    ],
+                }
+            ],
+            "coverage": {"span_count": 1},
+        },
+        dangerous_sessions=dangerous_sessions,
+        metrics_summary={"metrics": []},
+        gate_binding=pack.load_gate_binding(),
+    )
+
+    span = artifacts["agent_review_input"]["trace_evidence"][0]["spans"][0]
+
+    assert "tool.args" not in span["attributes"]
+    assert "llm.prompt" not in span["attributes"]
+    assert "openinference.input" not in span["attributes"]
+    assert span["attributes"]["tool_name"] == "deep_investigate_alert"
+    assert span["attributes"]["actual_allowed"] is True
 
 
 def test_cli_local_release_check_defaults_agent_review_off(tmp_path: Path) -> None:
