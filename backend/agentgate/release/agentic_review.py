@@ -37,6 +37,19 @@ DATASET_PLANNER_SUMMARY = "Dataset Planner proposed 1 human-review candidate."
 PARTIAL_FAILURE_AGENT_REVIEW_SUMMARY = (
     "Agent review had partial failures; deterministic release decision still used metrics and policy."
 )
+_REFERENCE_ERROR_PREFIXES = (
+    "unknown trace_id ",
+    "unknown evidence_id ",
+    "unknown example trace_id ",
+)
+_REVIEW_AGENT_LABELS = {
+    "pattern_finder": "Pattern Finder",
+    "dataset_planner": "Dataset Planner",
+}
+_VALIDATED_COUNT_KEYS = {
+    "failure_patterns": "validated_failure_patterns",
+    "dataset_candidates": "validated_dataset_candidates",
+}
 
 _PATTERN_TITLES = {
     "unauthorized_dangerous_tool_execution": "Unauthorized dangerous tool execution",
@@ -111,8 +124,10 @@ def build_agent_review_artifacts(
     }
     pattern_finder_results = _safe_review_agent_result(
         agent="pattern_finder",
+        agent_label=_REVIEW_AGENT_LABELS["pattern_finder"],
         base=base,
         items_key="failure_patterns",
+        validated_count_key=_VALIDATED_COUNT_KEYS["failure_patterns"],
         builder=lambda: _pattern_finder_results(
             base=base,
             critical_findings=critical_findings,
@@ -125,8 +140,10 @@ def build_agent_review_artifacts(
     )
     dataset_planner_results = _safe_review_agent_result(
         agent="dataset_planner",
+        agent_label=_REVIEW_AGENT_LABELS["dataset_planner"],
         base=base,
         items_key="dataset_candidates",
+        validated_count_key=_VALIDATED_COUNT_KEYS["dataset_candidates"],
         builder=lambda: _dataset_planner_results(
             base=base,
             critical_findings=critical_findings,
@@ -235,13 +252,8 @@ def _validate_review_results(
 
 
 def _split_validation_errors(errors: list[str]) -> tuple[list[str], list[str]]:
-    reference_prefixes = (
-        "unknown trace_id ",
-        "unknown evidence_id ",
-        "unknown example trace_id ",
-    )
     reference_errors = [
-        error for error in errors if any(error.startswith(prefix) for prefix in reference_prefixes)
+        error for error in errors if any(error.startswith(prefix) for prefix in _REFERENCE_ERROR_PREFIXES)
     ]
     schema_errors = [error for error in errors if error not in reference_errors]
     return reference_errors, schema_errors
@@ -250,8 +262,10 @@ def _split_validation_errors(errors: list[str]) -> tuple[list[str], list[str]]:
 def _safe_review_agent_result(
     *,
     agent: str,
+    agent_label: str,
     base: dict[str, Any],
     items_key: str,
+    validated_count_key: str,
     builder: Callable[[], dict[str, Any]],
     validator: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> dict[str, Any]:
@@ -261,7 +275,9 @@ def _safe_review_agent_result(
         return _failed_review_results(
             base=base,
             agent=agent,
+            agent_label=agent_label,
             items_key=items_key,
+            validated_count_key=validated_count_key,
             message=str(exc),
         )
 
@@ -270,15 +286,11 @@ def _failed_review_results(
     *,
     base: dict[str, Any],
     agent: str,
+    agent_label: str,
     items_key: str,
+    validated_count_key: str,
     message: str,
 ) -> dict[str, Any]:
-    agent_label = "Pattern Finder" if agent == "pattern_finder" else "Dataset Planner"
-    validated_count_key = (
-        "validated_failure_patterns"
-        if items_key == "failure_patterns"
-        else "validated_dataset_candidates"
-    )
     return {
         **base,
         "agent": agent,

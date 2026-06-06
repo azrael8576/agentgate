@@ -53,13 +53,11 @@ def pull_phoenix_traces(
     include_annotations: bool = True,
 ) -> list[dict[str, Any]]:
     return [
-        client.call_tool(
-            "get-trace",
-            {
-                "project_identifier": project_identifier,
-                "trace_id": trace_id,
-                "include_annotations": include_annotations,
-            },
+        _get_trace(
+            client,
+            project_identifier=project_identifier,
+            trace_id=trace_id,
+            include_annotations=include_annotations,
         )
         for trace_id in trace_ids
     ]
@@ -79,13 +77,11 @@ def pull_phoenix_traces_with_failures(
     for trace_id in trace_ids:
         try:
             traces.append(
-                client.call_tool(
-                    "get-trace",
-                    {
-                        "project_identifier": project_identifier,
-                        "trace_id": trace_id,
-                        "include_annotations": include_annotations,
-                    },
+                _get_trace(
+                    client,
+                    project_identifier=project_identifier,
+                    trace_id=trace_id,
+                    include_annotations=include_annotations,
                 )
             )
         except Exception as exc:
@@ -106,6 +102,23 @@ def pull_phoenix_traces_with_failures(
         "failures": failures,
         "pulled_trace_count": len(traces),
     }
+
+
+def _get_trace(
+    client: PhoenixToolClient,
+    *,
+    project_identifier: str,
+    trace_id: str,
+    include_annotations: bool,
+) -> dict[str, Any]:
+    return client.call_tool(
+        "get-trace",
+        {
+            "project_identifier": project_identifier,
+            "trace_id": trace_id,
+            "include_annotations": include_annotations,
+        },
+    )
 
 
 def query_phoenix_evidence(

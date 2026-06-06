@@ -233,13 +233,7 @@ def _run_release_check_from_phoenix_client(
             "query": spans_payload.get("query", {}),
             "dangerous_trace_ids": dangerous_trace_ids,
             "dangerous_traces": dangerous_traces,
-            "trace_pull": {
-                "status": trace_pull["status"],
-                "requested_trace_ids": trace_pull["requested_trace_ids"],
-                "missing_trace_ids": trace_pull["missing_trace_ids"],
-                "failures": trace_pull["failures"],
-                "pulled_trace_count": trace_pull["pulled_trace_count"],
-            },
+            "trace_pull": _trace_pull_metadata(trace_pull),
             "trace_selection_strategy": "critical_findings_priority",
             "eval_label_count": len(extra_labels),
         },
@@ -248,6 +242,16 @@ def _run_release_check_from_phoenix_client(
         release_config=config,
         agentic_review_enabled=agentic_review_enabled,
     )
+
+
+def _trace_pull_metadata(trace_pull: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": trace_pull["status"],
+        "requested_trace_ids": trace_pull["requested_trace_ids"],
+        "missing_trace_ids": trace_pull["missing_trace_ids"],
+        "failures": trace_pull["failures"],
+        "pulled_trace_count": trace_pull["pulled_trace_count"],
+    }
 
 
 def run_release_check_from_records(
