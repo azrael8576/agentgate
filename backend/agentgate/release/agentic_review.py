@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
+from typing import Any, Callable
 
 from backend.agentgate.core.agent_pack import LoadedAgentPack
 from backend.agentgate.release.dangerous_evidence_classifier import finding_priority
@@ -137,87 +137,85 @@ def build_agentic_review_status(enabled: bool, status: str | None = None) -> dic
 def validate_pattern_finder_results(
     results: dict[str, Any], agent_review_input: dict[str, Any]
 ) -> dict[str, Any]:
-    trace_ids = {
-        str(trace.get("trace_id"))
-        for trace in agent_review_input.get("trace_evidence", [])
-        if trace.get("trace_id")
-    }
-    evidence_ids = {
-        str(span.get("span_id"))
-        for trace in agent_review_input.get("trace_evidence", [])
-        for span in trace.get("spans", [])
-        if span.get("span_id")
-    }
-    validated_patterns: list[dict[str, Any]] = []
-    errors: list[str] = []
-    for pattern in results.get("failure_patterns", []):
-        pattern_errors = _pattern_validation_errors(pattern, trace_ids, evidence_ids)
-        if pattern_errors:
-            errors.extend(pattern_errors)
-            continue
-        validated_patterns.append(pattern)
-
-    trusted = not errors
-    status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
-    summary = results.get("summary", NO_ACTION_PATTERN_FINDER_SUMMARY)
-    if not trusted:
-        status = AGENT_REVIEW_STATUS_INVALID
-        summary = "Pattern Finder output failed validation and was not trusted."
-        validated_patterns = []
-    return {
-        **results,
-        "status": status,
-        "summary": summary,
-        "failure_patterns": validated_patterns,
-        "validation": {
-            "trusted": trusted,
-            "validated_failure_patterns": len(validated_patterns),
-            "errors": errors,
-        },
-    }
+    return _validate_review_results(
+        results=results,
+        agent_review_input=agent_review_input,
+        items_key="failure_patterns",
+        validator=_pattern_validation_errors,
+        default_summary=NO_ACTION_PATTERN_FINDER_SUMMARY,
+        invalid_summary="Pattern Finder output failed validation and was not trusted.",
+        validated_count_key="validated_failure_patterns",
+    )
 
 
 def validate_dataset_planner_results(
     results: dict[str, Any], agent_review_input: dict[str, Any]
 ) -> dict[str, Any]:
-    trace_ids = {
-        str(trace.get("trace_id"))
-        for trace in agent_review_input.get("trace_evidence", [])
-        if trace.get("trace_id")
-    }
-    evidence_ids = {
-        str(span.get("span_id"))
-        for trace in agent_review_input.get("trace_evidence", [])
-        for span in trace.get("spans", [])
-        if span.get("span_id")
-    }
-    validated_candidates: list[dict[str, Any]] = []
+    return _validate_review_results(
+        results=results,
+        agent_review_input=agent_review_input,
+        items_key="dataset_candidates",
+        validator=_dataset_candidate_validation_errors,
+        default_summary=NO_ACTION_DATASET_PLANNER_SUMMARY,
+        invalid_summary="Dataset Planner output failed validation and was not trusted.",
+        validated_count_key="validated_dataset_candidates",
+    )
+
+
+def _validate_review_results(
+    *,
+    results: dict[str, Any],
+    agent_review_input: dict[str, Any],
+    items_key: str,
+    validator: Callable[[dict[str, Any], set[str], set[str]], list[str]],
+    default_summary: str,
+    invalid_summary: str,
+    validated_count_key: str,
+) -> dict[str, Any]:
+    trace_ids, evidence_ids = _review_reference_ids(agent_review_input)
+    validated_items: list[dict[str, Any]] = []
     errors: list[str] = []
-    for candidate in results.get("dataset_candidates", []):
-        candidate_errors = _dataset_candidate_validation_errors(candidate, trace_ids, evidence_ids)
-        if candidate_errors:
-            errors.extend(candidate_errors)
+    for item in results.get(items_key, []):
+        item_errors = validator(item, trace_ids, evidence_ids)
+        if item_errors:
+            errors.extend(item_errors)
             continue
-        validated_candidates.append(candidate)
+        validated_items.append(item)
 
     trusted = not errors
     status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
-    summary = results.get("summary", NO_ACTION_DATASET_PLANNER_SUMMARY)
+    summary = results.get("summary", default_summary)
     if not trusted:
         status = AGENT_REVIEW_STATUS_INVALID
-        summary = "Dataset Planner output failed validation and was not trusted."
-        validated_candidates = []
+        summary = invalid_summary
+        validated_items = []
     return {
         **results,
         "status": status,
         "summary": summary,
-        "dataset_candidates": validated_candidates,
+        items_key: validated_items,
         "validation": {
             "trusted": trusted,
-            "validated_dataset_candidates": len(validated_candidates),
+            validated_count_key: len(validated_items),
             "errors": errors,
         },
     }
+
+
+def _review_reference_ids(agent_review_input: dict[str, Any]) -> tuple[set[str], set[str]]:
+    trace_evidence = agent_review_input.get("trace_evidence", [])
+    trace_ids = {
+        str(trace.get("trace_id"))
+        for trace in trace_evidence
+        if trace.get("trace_id")
+    }
+    evidence_ids = {
+        str(span.get("span_id"))
+        for trace in trace_evidence
+        for span in trace.get("spans", [])
+        if span.get("span_id")
+    }
+    return trace_ids, evidence_ids
 
 
 def _pattern_validation_errors(
@@ -263,20 +261,16 @@ def _pattern_finder_results(
     critical_findings: list[dict[str, Any]],
     trace_evidence: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    if not critical_findings or not trace_evidence:
-        return {
-            **base,
-            "agent": "pattern_finder",
-            "status": AGENT_REVIEW_STATUS_NO_ACTION,
-            "summary": NO_ACTION_PATTERN_FINDER_SUMMARY,
-            "failure_patterns": [],
-        }
+    selected_findings = _selected_findings_by_type(critical_findings, trace_evidence)
+    if selected_findings is None:
+        return _no_action_review_results(
+            base=base,
+            agent="pattern_finder",
+            summary=NO_ACTION_PATTERN_FINDER_SUMMARY,
+            items_key="failure_patterns",
+        )
 
-    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for finding in critical_findings:
-        grouped[str(finding.get("finding_type") or "unknown")].append(finding)
-    finding_type = min(grouped, key=finding_priority)
-    findings = grouped[finding_type]
+    finding_type, findings = selected_findings
     supporting_trace_ids = sorted({str(finding["trace_id"]) for finding in findings})
     supporting_evidence_ids = sorted(
         {
@@ -352,20 +346,16 @@ def _dataset_planner_results(
     critical_findings: list[dict[str, Any]],
     trace_evidence: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    if not critical_findings or not trace_evidence:
-        return {
-            **base,
-            "agent": "dataset_planner",
-            "status": AGENT_REVIEW_STATUS_NO_ACTION,
-            "summary": NO_ACTION_DATASET_PLANNER_SUMMARY,
-            "dataset_candidates": [],
-        }
+    selected_findings = _selected_findings_by_type(critical_findings, trace_evidence)
+    if selected_findings is None:
+        return _no_action_review_results(
+            base=base,
+            agent="dataset_planner",
+            summary=NO_ACTION_DATASET_PLANNER_SUMMARY,
+            items_key="dataset_candidates",
+        )
 
-    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for finding in critical_findings:
-        grouped[str(finding.get("finding_type") or "unknown")].append(finding)
-    finding_type = min(grouped, key=finding_priority)
-    findings = grouped[finding_type]
+    finding_type, findings = selected_findings
     source_trace_ids = sorted({str(finding["trace_id"]) for finding in findings})
     source_evidence_ids = sorted(
         {
@@ -479,38 +469,24 @@ def _trace_evidence_entry(
     spans: list[dict[str, Any]],
 ) -> dict[str, Any]:
     first_finding = findings[0]
-    attributes = first_finding.get("attributes", {})
-    expected_intent_id = _first_nonempty_value(
-        attributes.get("expected_intent_id"),
-        *[span.get("attributes", {}).get("expected_intent_id") for span in spans],
-    )
-    selected_intent_id = _first_nonempty_value(
-        attributes.get("selected_intent_id"),
-        *[span.get("attributes", {}).get("selected_intent_id") for span in spans],
-    )
-    tool_name = _first_nonempty_value(
-        attributes.get("tool_name"),
-        *[span.get("attributes", {}).get("tool_name") for span in spans],
-    )
-    expected_allowed = _first_nonempty_value(
-        attributes.get("expected_allowed"),
-        *[span.get("attributes", {}).get("expected_allowed") for span in spans],
-    )
-    actual_allowed = _first_nonempty_value(
-        attributes.get("actual_allowed"),
-        *[span.get("attributes", {}).get("actual_allowed") for span in spans],
-    )
+    trace_context = _trace_context(first_finding, spans)
     span_path = " -> ".join(span["span_name"] for span in spans if span.get("span_name"))
-    runtime_behavior = _runtime_behavior(tool_name, actual_allowed, spans)
     return {
         "trace_audit_id": f"trace:{trace_id}",
         "trace_id": trace_id,
         "trace_story": _trace_story(findings, spans),
         "user_request": first_finding.get("input_text"),
-        "expected_intent_id": expected_intent_id,
-        "selected_intent_id": selected_intent_id,
-        "policy_expectation": _policy_expectation(tool_name, expected_allowed),
-        "runtime_behavior": runtime_behavior,
+        "expected_intent_id": trace_context["expected_intent_id"],
+        "selected_intent_id": trace_context["selected_intent_id"],
+        "policy_expectation": _policy_expectation(
+            trace_context["tool_name"],
+            trace_context["expected_allowed"],
+        ),
+        "runtime_behavior": _runtime_behavior(
+            trace_context["tool_name"],
+            trace_context["actual_allowed"],
+            spans,
+        ),
         "span_path": span_path,
         "risk_summary": _risk_summary(findings),
         "spans": spans,
@@ -556,6 +532,7 @@ def _normalize_trace_span(span: dict[str, Any]) -> dict[str, Any]:
 
 
 def _normalize_record_span(span: SpanEvent) -> dict[str, Any]:
+    sanitized_attributes = _sanitize_span_attributes(span.attributes)
     return {
         "span_audit_id": f"span:{span.span_id}",
         "span_id": span.span_id,
@@ -563,9 +540,9 @@ def _normalize_record_span(span: SpanEvent) -> dict[str, Any]:
         "span_name": span.span_name,
         "event_type": span.event_type,
         "status": span.status,
-        "attributes": _sanitize_span_attributes(span.attributes),
+        "attributes": sanitized_attributes,
         "plain_language_summary": _span_plain_language_summary(
-            span.span_name, _sanitize_span_attributes(span.attributes)
+            span.span_name, sanitized_attributes
         ),
     }
 
@@ -575,27 +552,7 @@ def _trace_story(findings: list[dict[str, Any]], spans: list[dict[str, Any]]) ->
     role = first.get("user_role") or "unknown role"
     request = first.get("input_text") or "unknown request"
     finding_types = ", ".join(sorted({finding["finding_type"] for finding in findings}))
-    attributes = first.get("attributes", {})
-    expected_intent_id = _first_nonempty_value(
-        attributes.get("expected_intent_id"),
-        *[span.get("attributes", {}).get("expected_intent_id") for span in spans],
-    ) or "unknown intent"
-    selected_intent_id = _first_nonempty_value(
-        attributes.get("selected_intent_id"),
-        *[span.get("attributes", {}).get("selected_intent_id") for span in spans],
-    ) or "unknown intent"
-    tool_name = _first_nonempty_value(
-        attributes.get("tool_name"),
-        *[span.get("attributes", {}).get("tool_name") for span in spans],
-    ) or "the high-risk tool path"
-    expected_allowed = _first_nonempty_value(
-        attributes.get("expected_allowed"),
-        *[span.get("attributes", {}).get("expected_allowed") for span in spans],
-    )
-    actual_allowed = _first_nonempty_value(
-        attributes.get("actual_allowed"),
-        *[span.get("attributes", {}).get("actual_allowed") for span in spans],
-    )
+    trace_context = _trace_context(first, spans)
     supporting_evidence_ids = sorted(
         {
             str(evidence_id)
@@ -606,9 +563,11 @@ def _trace_story(findings: list[dict[str, Any]], spans: list[dict[str, Any]]) ->
     span_path = " -> ".join(span["span_name"] for span in spans if span.get("span_name"))
     return (
         f"Role {role} asked: {request}. "
-        f"Expected intent: {expected_intent_id}. Selected intent: {selected_intent_id}. "
-        f"Policy expectation for {tool_name}: {expected_allowed}. "
-        f"Runtime behavior: {actual_allowed}. "
+        f"Expected intent: {trace_context['expected_intent_id'] or 'unknown intent'}. "
+        f"Selected intent: {trace_context['selected_intent_id'] or 'unknown intent'}. "
+        f"Policy expectation for {trace_context['tool_name'] or 'the high-risk tool path'}: "
+        f"{trace_context['expected_allowed']}. "
+        f"Runtime behavior: {trace_context['actual_allowed']}. "
         f"AgentGate marked this trace for {finding_types}. "
         f"Observed span path: {span_path}. "
         f"Supporting evidence IDs: {', '.join(supporting_evidence_ids)}."
@@ -694,6 +653,64 @@ def _first_nonempty_value(*values: Any) -> Any:
             continue
         return value
     return None
+
+
+def _trace_context(
+    finding: dict[str, Any], spans: list[dict[str, Any]]
+) -> dict[str, Any]:
+    attributes = finding.get("attributes", {})
+    return {
+        "expected_intent_id": _first_nonempty_value(
+            attributes.get("expected_intent_id"),
+            *[span.get("attributes", {}).get("expected_intent_id") for span in spans],
+        ),
+        "selected_intent_id": _first_nonempty_value(
+            attributes.get("selected_intent_id"),
+            *[span.get("attributes", {}).get("selected_intent_id") for span in spans],
+        ),
+        "tool_name": _first_nonempty_value(
+            attributes.get("tool_name"),
+            *[span.get("attributes", {}).get("tool_name") for span in spans],
+        ),
+        "expected_allowed": _first_nonempty_value(
+            attributes.get("expected_allowed"),
+            *[span.get("attributes", {}).get("expected_allowed") for span in spans],
+        ),
+        "actual_allowed": _first_nonempty_value(
+            attributes.get("actual_allowed"),
+            *[span.get("attributes", {}).get("actual_allowed") for span in spans],
+        ),
+    }
+
+
+def _selected_findings_by_type(
+    critical_findings: list[dict[str, Any]],
+    trace_evidence: list[dict[str, Any]],
+) -> tuple[str, list[dict[str, Any]]] | None:
+    if not critical_findings or not trace_evidence:
+        return None
+
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for finding in critical_findings:
+        grouped[str(finding.get("finding_type") or "unknown")].append(finding)
+    finding_type = min(grouped, key=finding_priority)
+    return finding_type, grouped[finding_type]
+
+
+def _no_action_review_results(
+    *,
+    base: dict[str, Any],
+    agent: str,
+    summary: str,
+    items_key: str,
+) -> dict[str, Any]:
+    return {
+        **base,
+        "agent": agent,
+        "status": AGENT_REVIEW_STATUS_NO_ACTION,
+        "summary": summary,
+        items_key: [],
+    }
 
 
 def _build_agent_context(pack: LoadedAgentPack) -> dict[str, Any]:
