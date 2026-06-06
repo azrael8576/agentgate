@@ -81,6 +81,16 @@ _DATASET_PLANNER_ITEM_KEYS = (
     "future_control_candidates",
     "duplicate_or_noise",
 )
+_WARNING_FINDING_ATTRIBUTE_KEYS = (
+    "tool_name",
+    "expected_allowed",
+    "actual_allowed",
+    "selected_intent_id",
+    "expected_intent_id",
+    "tool.error_code",
+    "tool.output_schema_valid",
+    "tool.success",
+)
 
 
 def build_agent_review_artifacts(
@@ -682,99 +692,14 @@ def _dataset_planner_results(
     warning_findings: list[dict[str, Any]],
     trace_evidence: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    grouped_findings = _group_findings_by_type(critical_findings, trace_evidence)
-    if grouped_findings:
-        primary_finding_type, primary_findings = grouped_findings[0]
-        source_trace_ids = _planner_source_trace_ids(primary_findings)
-        source_evidence_ids = _planner_source_evidence_ids(primary_findings)
-        tool_name = _dataset_candidate_tool_name(trace_evidence, source_trace_ids)
-        annotation_findings_type, annotation_findings = grouped_findings[min(1, len(grouped_findings) - 1)]
-        annotation_trace_ids = _planner_source_trace_ids(annotation_findings)
-        annotation_evidence_ids = _planner_source_evidence_ids(annotation_findings)
-        return {
-            **base,
-            "agent": "dataset_planner",
-            "status": AGENT_REVIEW_STATUS_CANDIDATES_FOUND,
-            "summary": _dataset_planner_summary(grouped_findings),
-            "dataset_candidates": [
-                {
-                    "candidate_id": _planner_item_id("dataset_candidate", primary_finding_type, 1),
-                    "source_trace_ids": source_trace_ids,
-                    "source_evidence_ids": source_evidence_ids,
-                    "source_finding_types": [primary_finding_type],
-                    "rationale": (
-                        f"Use the repeated {primary_finding_type.replace('_', ' ')} evidence around "
-                        f"{tool_name} as a human-reviewed dataset candidate for future release "
-                        "coverage."
-                    ),
-                    "review_instructions": (
-                        "Confirm the cited traces are representative before converting them into "
-                        "a controlled eval or release-control candidate. Check the trace story, "
-                        "span path, and supporting evidence IDs against the pulled Phoenix trace."
-                    ),
-                    "conversion_guidance": (
-                        f"After human review, convert the cited {tool_name} failure into a future "
-                        "eval case or release control candidate. Do not add it directly to a "
-                        "golden dataset."
-                    ),
-                    "requires_human_review": True,
-                    "review_status": "pending_review",
-                }
-            ],
-            "annotation_recommendations": [
-                {
-                    "recommendation_id": _planner_item_id(
-                        "annotation_recommendation", annotation_findings_type, 1
-                    ),
-                    "source_trace_ids": annotation_trace_ids,
-                    "source_evidence_ids": annotation_evidence_ids,
-                    "source_finding_types": [annotation_findings_type],
-                    "rationale": (
-                        "Add human-review annotation guidance so similar evidence is labeled "
-                        "consistently before future dataset work."
-                    ),
-                    "review_instructions": (
-                        "Review whether the cited traces represent one stable failure family or "
-                        "multiple distinct cases before adding annotation guidance."
-                    ),
-                    "requires_human_review": True,
-                    "review_status": "pending_review",
-                }
-            ],
-            "future_control_candidates": [
-                {
-                    "candidate_id": _planner_item_id(
-                        "future_control_candidate", primary_finding_type, 1
-                    ),
-                    "source_trace_ids": source_trace_ids,
-                    "source_evidence_ids": source_evidence_ids,
-                    "source_finding_types": [primary_finding_type],
-                    "rationale": (
-                        "The blocker evidence is strong enough to review as a possible future "
-                        "release control after humans confirm scope and recurrence."
-                    ),
-                    "review_instructions": (
-                        "Confirm the blocker pattern is stable across traces before turning it into "
-                        "a future control candidate."
-                    ),
-                    "requires_human_review": True,
-                    "review_status": "pending_review",
-                }
-            ],
-            "duplicate_or_noise": [
-                {
-                    "group_id": _planner_item_id("duplicate_or_noise", annotation_findings_type, 1),
-                    "source_trace_ids": annotation_trace_ids,
-                    "source_evidence_ids": annotation_evidence_ids,
-                    "rationale": (
-                        "These traces should be merged or triaged for noise before creating extra "
-                        "planning work."
-                    ),
-                    "recommended_action": "merge_similar_examples",
-                    "requires_human_review": False,
-                }
-            ],
-        }
+    critical_grouped_findings = _group_findings_by_type(critical_findings, trace_evidence)
+    if critical_grouped_findings:
+        return _dataset_planner_candidate_results(
+            base=base,
+            grouped_findings=critical_grouped_findings,
+            trace_evidence=trace_evidence,
+            warning_only=False,
+        )
 
     warning_grouped_findings = _group_findings_by_type(warning_findings, trace_evidence)
     if not warning_grouped_findings:
@@ -785,40 +710,110 @@ def _dataset_planner_results(
             items_keys=_DATASET_PLANNER_ITEM_KEYS,
         )
 
-    primary_finding_type, primary_findings = warning_grouped_findings[0]
+    return _dataset_planner_candidate_results(
+        base=base,
+        grouped_findings=warning_grouped_findings,
+        trace_evidence=trace_evidence,
+        warning_only=True,
+    )
+
+
+def _dataset_planner_candidate_results(
+    *,
+    base: dict[str, Any],
+    grouped_findings: list[tuple[str, list[dict[str, Any]]]],
+    trace_evidence: list[dict[str, Any]],
+    warning_only: bool,
+) -> dict[str, Any]:
+    primary_finding_type, primary_findings, annotation_findings_type, annotation_findings = (
+        _planner_result_findings(grouped_findings)
+    )
     source_trace_ids = _planner_source_trace_ids(primary_findings)
     source_evidence_ids = _planner_source_evidence_ids(primary_findings)
     tool_name = _dataset_candidate_tool_name(trace_evidence, source_trace_ids)
-    annotation_findings_type, annotation_findings = warning_grouped_findings[
-        min(1, len(warning_grouped_findings) - 1)
-    ]
     annotation_trace_ids = _planner_source_trace_ids(annotation_findings)
     annotation_evidence_ids = _planner_source_evidence_ids(annotation_findings)
+
+    if warning_only:
+        dataset_rationale = (
+            f"Use the repeated {primary_finding_type.replace('_', ' ')} evidence around "
+            f"{tool_name} as a human-reviewed dataset candidate for warning-level follow-up."
+        )
+        review_instructions = (
+            "Confirm the cited traces are representative before converting them into "
+            "a controlled eval, reviewer checklist, or warning-only follow-up. Check "
+            "the trace story, span path, and supporting evidence IDs against the trace."
+        )
+        conversion_guidance = (
+            f"After human review, convert the cited {tool_name} warning into a future "
+            "eval case or reviewer aid. Do not promote warning-only evidence into a "
+            "blocker control without new critical evidence."
+        )
+        future_control_candidates: list[dict[str, Any]] = []
+        duplicate_or_noise: list[dict[str, Any]] = []
+    else:
+        dataset_rationale = (
+            f"Use the repeated {primary_finding_type.replace('_', ' ')} evidence around "
+            f"{tool_name} as a human-reviewed dataset candidate for future release coverage."
+        )
+        review_instructions = (
+            "Confirm the cited traces are representative before converting them into "
+            "a controlled eval or release-control candidate. Check the trace story, "
+            "span path, and supporting evidence IDs against the pulled Phoenix trace."
+        )
+        conversion_guidance = (
+            f"After human review, convert the cited {tool_name} failure into a future "
+            "eval case or release control candidate. Do not add it directly to a "
+            "golden dataset."
+        )
+        future_control_candidates = [
+            {
+                "candidate_id": _planner_item_id(
+                    "future_control_candidate", primary_finding_type, 1
+                ),
+                "source_trace_ids": source_trace_ids,
+                "source_evidence_ids": source_evidence_ids,
+                "source_finding_types": [primary_finding_type],
+                "rationale": (
+                    "The blocker evidence is strong enough to review as a possible future "
+                    "release control after humans confirm scope and recurrence."
+                ),
+                "review_instructions": (
+                    "Confirm the blocker pattern is stable across traces before turning it into "
+                    "a future control candidate."
+                ),
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ]
+        duplicate_or_noise = [
+            {
+                "group_id": _planner_item_id("duplicate_or_noise", annotation_findings_type, 1),
+                "source_trace_ids": annotation_trace_ids,
+                "source_evidence_ids": annotation_evidence_ids,
+                "rationale": (
+                    "These traces should be merged or triaged for noise before creating extra "
+                    "planning work."
+                ),
+                "recommended_action": "merge_similar_examples",
+                "requires_human_review": False,
+            }
+        ]
+
     return {
         **base,
         "agent": "dataset_planner",
         "status": AGENT_REVIEW_STATUS_CANDIDATES_FOUND,
-        "summary": _dataset_planner_summary(warning_grouped_findings),
+        "summary": _dataset_planner_summary(grouped_findings),
         "dataset_candidates": [
             {
                 "candidate_id": _planner_item_id("dataset_candidate", primary_finding_type, 1),
                 "source_trace_ids": source_trace_ids,
                 "source_evidence_ids": source_evidence_ids,
                 "source_finding_types": [primary_finding_type],
-                "rationale": (
-                    f"Use the repeated {primary_finding_type.replace('_', ' ')} evidence around "
-                    f"{tool_name} as a human-reviewed dataset candidate for warning-level follow-up."
-                ),
-                "review_instructions": (
-                    "Confirm the cited traces are representative before converting them into "
-                    "a controlled eval, reviewer checklist, or warning-only follow-up. Check "
-                    "the trace story, span path, and supporting evidence IDs against the trace."
-                ),
-                "conversion_guidance": (
-                    f"After human review, convert the cited {tool_name} warning into a future "
-                    "eval case or reviewer aid. Do not promote warning-only evidence into a "
-                    "blocker control without new critical evidence."
-                ),
+                "rationale": dataset_rationale,
+                "review_instructions": review_instructions,
+                "conversion_guidance": conversion_guidance,
                 "requires_human_review": True,
                 "review_status": "pending_review",
             }
@@ -843,8 +838,8 @@ def _dataset_planner_results(
                 "review_status": "pending_review",
             }
         ],
-        "future_control_candidates": [],
-        "duplicate_or_noise": [],
+        "future_control_candidates": future_control_candidates,
+        "duplicate_or_noise": duplicate_or_noise,
     }
 
 
@@ -860,20 +855,26 @@ def _warning_metric_findings(
         and str(metric.get("decision_impact") or "") == "warning"
     }
     findings: list[dict[str, Any]] = []
-    if "crash_analysis_format_compliance" in warning_metrics:
+    warning_specs = (
+        (
+            "crash_analysis_format_compliance",
+            "response_format_warning",
+            lambda span: span.attributes.get("tool.output_schema_valid") is False,
+        ),
+        (
+            "technical_tool_success_rate",
+            "technical_tool_failure_warning",
+            lambda span: span.attributes.get("tool.success") is False,
+        ),
+    )
+    for metric_name, finding_type, predicate in warning_specs:
+        if metric_name not in warning_metrics:
+            continue
         findings.extend(
             _warning_findings_from_spans(
                 grouped_records,
-                finding_type="response_format_warning",
-                predicate=lambda span: span.attributes.get("tool.output_schema_valid") is False,
-            )
-        )
-    if "technical_tool_success_rate" in warning_metrics:
-        findings.extend(
-            _warning_findings_from_spans(
-                grouped_records,
-                finding_type="technical_tool_failure_warning",
-                predicate=lambda span: span.attributes.get("tool.success") is False,
+                finding_type=finding_type,
+                predicate=predicate,
             )
         )
     return findings
@@ -910,16 +911,7 @@ def _warning_findings_from_spans(
                 "evidence_ids": [matching_span.span_id],
                 "attributes": {
                     key: matching_span.attributes.get(key)
-                    for key in (
-                        "tool_name",
-                        "expected_allowed",
-                        "actual_allowed",
-                        "selected_intent_id",
-                        "expected_intent_id",
-                        "tool.error_code",
-                        "tool.output_schema_valid",
-                        "tool.success",
-                    )
+                    for key in _WARNING_FINDING_ATTRIBUTE_KEYS
                     if key in matching_span.attributes
                 },
             }
@@ -1386,6 +1378,21 @@ def _planner_source_evidence_ids(findings: list[dict[str, Any]]) -> list[str]:
             for finding in findings
             for evidence_id in finding.get("evidence_ids", [])
         }
+    )
+
+
+def _planner_result_findings(
+    grouped_findings: list[tuple[str, list[dict[str, Any]]]]
+) -> tuple[str, list[dict[str, Any]], str, list[dict[str, Any]]]:
+    primary_finding_type, primary_findings = grouped_findings[0]
+    annotation_finding_type, annotation_findings = grouped_findings[
+        min(1, len(grouped_findings) - 1)
+    ]
+    return (
+        primary_finding_type,
+        primary_findings,
+        annotation_finding_type,
+        annotation_findings,
     )
 
 
