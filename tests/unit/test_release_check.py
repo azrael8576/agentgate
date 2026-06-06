@@ -13,7 +13,10 @@ from backend.agentgate.release.agentic_review import (
 )
 from backend.agentgate.release.release_check import run_release_check
 from backend.agentgate.release.evidence_loader import load_evidence_jsonl
-from backend.agentgate.web.report_renderer import render_standalone_release_report_html
+from backend.agentgate.web.report_renderer import (
+    build_report_context,
+    render_standalone_release_report_html,
+)
 from typer.testing import CliRunner
 
 
@@ -283,8 +286,9 @@ def test_local_release_check_writes_warning_only_agent_review_artifacts_for_appr
     assert dataset_results["dataset_candidates"]
     assert dataset_results["annotation_recommendations"]
     assert dataset_results["future_control_candidates"] == []
-    assert "Pattern Finder found warning observations only." in html
-    assert "Dataset Planner proposed 1 human-review candidate." in html
+    assert "Review queue" in html
+    assert "Review output:" in html
+    assert "agent-detail-panel" in html
 
 
 def test_pattern_finder_validation_rejects_invented_references() -> None:
@@ -916,7 +920,7 @@ def test_cli_local_release_check_defaults_agent_review_off(tmp_path: Path) -> No
     assert not (output_dir / "agent_review_input.json").exists()
 
 
-def test_release_report_includes_dataset_planner_candidate_details(tmp_path: Path) -> None:
+def test_release_report_includes_bounded_dataset_planner_queue_cards(tmp_path: Path) -> None:
     evidence = _seed("v2", tmp_path)
     output_dir = tmp_path / "release" / "v2"
 
@@ -964,13 +968,18 @@ def test_release_report_includes_dataset_planner_candidate_details(tmp_path: Pat
     )
     render_standalone_release_report_html(output_dir)
     html = (output_dir / "release_report.html").read_text(encoding="utf-8")
+    context = build_report_context(output_dir)
+    visible_cards = context["agent_review"]["dataset_planner"]["visible_candidate_cards"]
+    agent_review_chunk = html.split('id="agent-review"', 1)[1].split('id="evidence-summary"', 1)[0]
 
-    assert "dataset_candidate.unauthorized_dangerous_tool_execution.01" in html
-    assert "Confirm the cited traces are representative before converting them" in html
-    assert "Do not add it directly to a golden dataset." in html
-    assert "annotation_recommendation.policy_preflight_missing.01" in html
-    assert "future_control_candidate.unauthorized_dangerous_tool_execution.01" in html
-    assert "duplicate_or_noise.policy_preflight_missing.01" in html
+    assert len(visible_cards) == 3
+    assert agent_review_chunk.count("agent-review-planner-card") == 3
+    assert visible_cards[0]["candidate_type"] == "Future control candidate"
+    assert "Approve / reject candidate" in html
+    assert "Review candidate" in html
+    assert ">Details</summary>" in html
+    assert "dataset_planner_results.json" in html
+    assert "duplicate_or_noise.policy_preflight_missing.01" not in html
 
 
 def test_release_check_writes_release_authority_audit_manifest(tmp_path: Path) -> None:

@@ -2,7 +2,7 @@
   "schema_version": "day4.metrics.v1",
   "agent_id": "stability_ops_ai",
   "agent_version": "v2.1",
-  "generated_at": "2026-06-04T07:26:34.143354+00:00",
+  "generated_at": "2026-06-06T10:13:34.869934+00:00",
   "decision": "APPROVED",
   "confidence": null,
   "confidence_label": "rule_reproducible",
@@ -38,8 +38,8 @@
   },
   "future_verification": {
     "status": "verified",
-    "source_artifact": "artifacts/release/reference-v2/regression_gates.json",
-    "resolution_source": "cli_argument",
+    "source_artifact": "/Users/xuan-wei/Hack/agentgate/examples/artifacts/reference-v2/regression_gates.json",
+    "resolution_source": "bundled_reference_fallback",
     "total_controls": 4,
     "passed": 4,
     "failed": 0,
@@ -530,15 +530,19 @@
     }
   ],
   "artifact_paths": {
-    "metrics_summary": "artifacts/release/reference-v21/metrics_summary.json",
-    "dangerous_sessions": "artifacts/release/reference-v21/dangerous_sessions.json",
-    "regression_gates": "artifacts/release/reference-v21/regression_gates.json",
-    "release_decision": "artifacts/release/reference-v21/release_decision.json",
-    "control_verification_results": "artifacts/release/reference-v21/control_verification_results.json",
-    "agent_profile": "artifacts/release/reference-v21/agent_profile.json",
-    "eval_suite": "artifacts/release/reference-v21/eval_suite.json",
-    "audit_manifest": "artifacts/release/reference-v21/audit_manifest.json",
-    "release_report": "artifacts/release/reference-v21/release_report.html"
+    "metrics_summary": "examples/artifacts/reference-v21/metrics_summary.json",
+    "dangerous_sessions": "examples/artifacts/reference-v21/dangerous_sessions.json",
+    "regression_gates": "examples/artifacts/reference-v21/regression_gates.json",
+    "release_decision": "examples/artifacts/reference-v21/release_decision.json",
+    "control_verification_results": "examples/artifacts/reference-v21/control_verification_results.json",
+    "agent_profile": "examples/artifacts/reference-v21/agent_profile.json",
+    "eval_suite": "examples/artifacts/reference-v21/eval_suite.json",
+    "agent_review_input": "examples/artifacts/reference-v21/agent_review_input.json",
+    "pattern_finder_plan": "examples/artifacts/reference-v21/pattern_finder_plan.json",
+    "pattern_finder_results": "examples/artifacts/reference-v21/pattern_finder_results.json",
+    "dataset_planner_results": "examples/artifacts/reference-v21/dataset_planner_results.json",
+    "audit_manifest": "examples/artifacts/reference-v21/audit_manifest.json",
+    "release_report": "examples/artifacts/reference-v21/release_report.html"
   },
   "evidence_source": {
     "type": "local_jsonl",
@@ -1060,5 +1064,18 @@
     "model": null,
     "validated_evidence_ids": true,
     "fallback_used": false
+  },
+  "decision_inputs": [
+    "metrics_summary",
+    "dangerous_sessions",
+    "regression_gates",
+    "control_verification_results",
+    "release_decision",
+    "agent_profile",
+    "eval_suite"
+  ],
+  "agentic_review": {
+    "enabled": true,
+    "status": "candidates_found"
   }
 }

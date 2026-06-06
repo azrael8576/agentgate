@@ -1,0 +1,15 @@
+<section class="band audit-archive-band" id="audit-archive">
+  <div class="section-head">
+    <p class="eyebrow">Offline archive</p>
+    <h2>{{ audit_archive_summary.headline }}</h2>
+    <p class="section-note">High-level artifact readiness.</p>
+  </div>
+  <div class="archive-status-grid">
+    {% for card in audit_archive_summary.status_cards %}
+      <article class="archive-status-card archive-status-{{ card.status_class }}">
+        <span class="archive-status-label">{{ card.label }}</span>
+        <strong class="archive-status-value">{{ card.status | title }}</strong>
+      </article>
+    {% endfor %}
+  </div>
+</section>

@@ -1,0 +1,15 @@
+{
+  "schema_version": "day4.metrics.v1",
+  "agent_id": "stability_ops_ai",
+  "agent_version": "v2.1",
+  "agent": "pattern_finder",
+  "status": "candidates_found",
+  "summary": "Dataset Planner proposed 1 human-review candidate.",
+  "authority_boundary": "Agents investigate and plan. The release gate still decides APPROVED or BLOCKED.",
+  "workflow": [
+    "Review shared release evidence and trace stories.",
+    "Group repeated critical findings into one release-safety pattern.",
+    "Cite only real trace IDs and span IDs from the evidence packet."
+  ],
+  "focus_areas": []
+}

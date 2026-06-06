@@ -71,9 +71,14 @@ def test_v21_without_controls_is_approved_with_not_available(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    missing = tmp_path / "missing" / "regression_gates.json"
     monkeypatch.setattr(
         "backend.agentgate.release.regression_gate_verifier.BUNDLED_REFERENCE_REGRESSION_GATES",
-        tmp_path / "missing" / "regression_gates.json",
+        missing,
+    )
+    monkeypatch.setattr(
+        "backend.agentgate.release.regression_gate_verifier.CONTAINER_REFERENCE_REGRESSION_GATES",
+        missing,
     )
     output_dir = tmp_path / "release" / "v21"
     run_release_check(_seed("v2.1", tmp_path), output_dir)
@@ -85,6 +90,33 @@ def test_v21_without_controls_is_approved_with_not_available(
     assert verification["status"] == "not_available"
     assert decision["future_verification"]["status"] == "not_available"
     assert decision["future_verification"]["decision_impact"] == "not_blocking"
+
+
+def test_v21_container_reference_fallback_when_examples_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    container = tmp_path / "artifacts" / "release" / "reference-v2" / "regression_gates.json"
+    container.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(EXAMPLES_REFERENCE_V2, container)
+    monkeypatch.setattr(
+        "backend.agentgate.release.regression_gate_verifier.BUNDLED_REFERENCE_REGRESSION_GATES",
+        tmp_path / "missing" / "examples" / "reference-v2" / "regression_gates.json",
+    )
+    monkeypatch.setattr(
+        "backend.agentgate.release.regression_gate_verifier.CONTAINER_REFERENCE_REGRESSION_GATES",
+        container,
+    )
+    output_dir = tmp_path / "release" / "v21"
+    run_release_check(_seed("v2.1", tmp_path), output_dir)
+
+    decision = _read_json(output_dir / "release_decision.json")
+    verification = _read_json(output_dir / "control_verification_results.json")
+
+    assert verification["status"] == "verified"
+    assert verification["control_resolution"]["source"] == "container_reference_fallback"
+    assert decision["future_verification"]["status"] == "verified"
+    assert decision["future_verification"]["resolution_source"] == "container_reference_fallback"
 
 
 def test_v21_bundled_reference_fallback_verifies_when_present(
@@ -171,8 +203,8 @@ def test_report_context_future_verification_section_not_applicable(
     section = build_report_context(output_dir)["future_verification"]
 
     assert section["status_label"] == "Not applicable"
-    assert "Future Verification is not applicable" in section["copy"]
-    assert "follow-up candidate must verify" in section["copy"]
+    assert "Not applicable for this blocked source release." in section["copy"]
+    assert "Future candidates must verify the generated controls." in section["copy"]
     assert section["show_table"] is False
 
 

@@ -2,7 +2,7 @@
   "schema_version": "day4.metrics.v1",
   "agent_id": "stability_ops_ai",
   "agent_version": "v2",
-  "generated_at": "2026-06-04T07:26:32.694389+00:00",
+  "generated_at": "2026-06-06T10:13:34.254008+00:00",
   "artifact_type": "control_verification_results",
   "status": "not_applicable",
   "reason": "No previous release controls are expected for this blocked reference candidate.",

@@ -2050,12 +2050,6 @@ dd {
   padding: 8px 0;
 }
 
-.gemini-appendix-band details[open] {
-  background: var(--paper-2);
-  border-radius: var(--radius-sm);
-  padding: 0 4px 8px;
-}
-
 .reason-grid article {
   border-left-color: var(--danger);
 }
@@ -2361,6 +2355,38 @@ body.report-page main {
   max-width: 720px;
 }
 
+.candidate-header-grid {
+  display: grid;
+  gap: 10px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 14px 0 0;
+}
+
+.candidate-header-grid div {
+  margin: 0;
+}
+
+.candidate-header-grid dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.candidate-header-grid dd {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.candidate-header-grid .wide {
+  grid-column: 1 / -1;
+}
+
 .verdict-summary {
   color: var(--ink-soft);
   font-size: 16px;
@@ -2451,8 +2477,99 @@ body.report-page main {
   padding: 12px 18px;
 }
 
-.report-kpi-band .audit-stat:last-child {
-  border-right: none;
+  .report-kpi-band .audit-stat:last-child {
+    border-right: none;
+  }
+
+  .report-kpi-band-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+.report-kpi-band-compact {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.demo-evidence-banner {
+  margin-top: 12px;
+}
+
+.future-verification-inherited-summary {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.source-evidence-link {
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.source-evidence-link:hover {
+  text-decoration: underline;
+}
+
+.nonblocking-controls-table {
+  width: 100%;
+}
+
+.nonblocking-controls-table th,
+.nonblocking-controls-table td {
+  font-size: 13px;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.nonblocking-controls-table tbody tr {
+  border-top: 1px solid var(--rule-light);
+}
+
+.archive-status-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.archive-status-card {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--rule-light);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.archive-status-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.archive-status-value {
+  color: var(--ink);
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.archive-status-ready .archive-status-value {
+  color: #047857;
+}
+
+.archive-status-na .archive-status-value {
+  color: var(--muted);
+}
+
+.archive-status-warning .archive-status-value {
+  color: #92400e;
 }
 
 .why-blocked-band {
@@ -2535,6 +2652,545 @@ body.report-page main {
   margin-top: 8px;
 }
 
+.agent-review-band {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--rule-light);
+  border-radius: var(--radius-md);
+  padding: clamp(20px, 3vw, 28px);
+}
+
+.agent-review-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 8px;
+}
+
+.agent-review-badge {
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  text-transform: uppercase;
+}
+
+.agent-review-badge-advisory {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.agent-review-badge-human-review {
+  background: rgba(245, 158, 11, 0.14);
+  color: #92400e;
+}
+
+.agent-review-badge-no-decision {
+  background: var(--paper-2);
+  color: var(--muted);
+}
+
+.agent-review-badge-auto-enforced {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.agent-review-tagline {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  max-width: 52ch;
+}
+
+.agent-review-advisory-note {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  max-width: 52ch;
+}
+
+.agent-review-audit-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 16px;
+}
+
+.agent-review-audit-row {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.agent-review-audit-row strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.future-verification-compact {
+  padding: 12px 18px;
+}
+
+.future-verification-compact-line {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.release-controls-agent-review-bridge {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.agent-review-action-badge {
+  background: rgba(59, 130, 246, 0.12);
+  border-radius: var(--radius-sm);
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  text-transform: uppercase;
+}
+
+.agent-review-supporting-panel {
+  border-top: 1px solid var(--rule-light);
+  margin-top: 18px;
+  padding-top: 14px;
+}
+
+.agent-review-supporting-panel .agent-review-panel-head h3 {
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.agent-review-supporting-panel .agent-review-compact-card {
+  background: var(--paper-2);
+  border-color: var(--rule-light);
+}
+
+.agent-review-planner-panel {
+  margin-bottom: 14px;
+}
+
+.agent-review-panel-head h3 {
+  font-size: 18px;
+  margin: 0 0 6px;
+}
+
+.agent-review-compact-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.agent-review-compact-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--rule-light);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.agent-review-planner-card {
+  border-left: 3px solid rgba(245, 158, 11, 0.55);
+}
+
+.agent-review-pattern-card {
+  border-left: 3px solid var(--rule);
+}
+
+.agent-review-compact-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.agent-review-compact-head h4 {
+  font-size: 16px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.agent-review-queue-badge {
+  background: rgba(245, 158, 11, 0.14);
+  border-radius: var(--radius-sm);
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  text-transform: uppercase;
+}
+
+.agent-review-type-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agent-review-compact-line {
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0 0 6px;
+  max-width: 72ch;
+}
+
+.agent-review-meta-line {
+  color: var(--muted);
+}
+
+.agent-review-source-line {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.agent-review-pattern-panel {
+  margin-top: 14px;
+}
+
+.agent-review-card-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 8px;
+}
+
+.agent-review-json-link {
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.agent-review-json-link:hover {
+  text-decoration: underline;
+}
+
+.agent-detail-panel,
+.audit-appendix-panel {
+  max-height: 360px;
+  overflow-y: auto;
+  padding-top: 8px;
+}
+
+.evidence-preview-limit-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.release-control-line,
+.required-behavior-line,
+.source-evidence-line {
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0 0 6px;
+}
+
+.agent-review-type-badge {
+  background: #f1f5f9;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  text-transform: none;
+}
+
+.agent-review-json-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+.evidence-chip-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.evidence-chip {
+  background: var(--paper-2);
+  border: 1px solid var(--rule-light);
+  border-radius: 999px;
+  color: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 3px 8px;
+}
+
+.evidence-chip-more {
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.agent-review-overflow-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+
+.agent-review-additional-patterns {
+  margin-top: 12px;
+}
+
+.agent-review-overflow-list {
+  font-size: 13px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.agent-review-overflow-list li {
+  margin-bottom: 6px;
+}
+
+.agent-review-nested-details:not([open]) .agent-review-id-list {
+  display: none;
+}
+
+.agent-review-fallback {
+  background: var(--paper-2);
+  border: 1px solid var(--rule-light);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.agent-review-stats {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 18px;
+}
+
+.agent-review-stat-group {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--rule-light);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.agent-review-stat-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0 0 4px;
+  text-transform: none;
+}
+
+.agent-review-stat-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0 0 10px;
+}
+
+.agent-review-stat-grid {
+  display: grid;
+  gap: 6px 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.agent-review-stat-grid div {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-review-stat-grid dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.agent-review-stat-grid dd {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  margin: 0;
+}
+
+.agent-review-disclosure {
+  border: 1px solid var(--rule-light);
+  border-radius: var(--radius-sm);
+  margin-top: 10px;
+  padding: 0 14px 12px;
+}
+
+.agent-review-disclosure-summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 15px;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: space-between;
+  list-style: none;
+  margin: 0 -14px;
+  padding: 12px 14px;
+}
+
+.agent-review-disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-review-disclosure-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.agent-review-agent-summary {
+  margin-top: 0;
+}
+
+.agent-review-card-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.agent-review-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--rule-light);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.agent-review-card-head {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.agent-review-card h4 {
+  font-size: 16px;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+
+.agent-review-candidate-type {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agent-review-status-badge {
+  background: rgba(245, 158, 11, 0.14);
+  border-radius: var(--radius-sm);
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  text-transform: uppercase;
+}
+
+.severity-badge {
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  text-transform: uppercase;
+}
+
+.severity-critical {
+  background: rgba(220, 38, 38, 0.1);
+  color: #991b1b;
+}
+
+.severity-warning {
+  background: rgba(245, 158, 11, 0.14);
+  color: #92400e;
+}
+
+.severity-unknown {
+  background: var(--paper-2);
+  color: var(--muted);
+}
+
+.agent-review-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 0 8px;
+}
+
+.agent-review-card-meta div {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-review-card-meta dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.agent-review-card-meta dd {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.agent-review-oneliner,
+.agent-review-action {
+  font-size: 14px;
+  margin: 0 0 6px;
+  max-width: 72ch;
+}
+
+.agent-review-action {
+  color: var(--muted);
+}
+
+.agent-review-nested-details {
+  margin-top: 8px;
+}
+
+.agent-review-nested-details summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agent-review-id-list,
+.agent-review-example-list {
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.agent-review-example-list {
+  padding-left: 18px;
+}
+
+.agent-review-focus-list {
+  font-size: 13px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
 .nonblocking-panel {
   border-top: 1px solid var(--rule-light);
   margin-top: 20px;
@@ -2581,12 +3237,30 @@ body.report-page main {
   border: 1px solid var(--rule-light);
   border-left: 4px solid var(--accent);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: block;
   max-width: 100%;
   min-width: 0;
   padding: 16px 18px;
+}
+
+.fix-task-card .required-fix-line {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+
+.fix-task-card .source-evidence-count,
+.release-controls-technical-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+.release-controls-agent-review-bridge {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 12px;
 }
 
 .fix-task-card > * {
@@ -2747,7 +3421,7 @@ body.report-page main {
 }
 
 .report-appendix-band > details,
-.gemini-appendix-band > details {
+.session-diagnosis-disclosure {
   background: rgba(255, 255, 255, 0.58);
   border: 1px solid var(--rule-light);
   border-radius: var(--radius-sm);
@@ -2755,12 +3429,12 @@ body.report-page main {
 }
 
 .report-appendix-band > details[open],
-.gemini-appendix-band > details[open] {
+.session-diagnosis-disclosure[open] {
   background: var(--surface);
 }
 
 .report-appendix-band .appendix-summary,
-.gemini-appendix-band .appendix-summary {
+.session-diagnosis-disclosure .appendix-summary {
   align-items: center;
   display: flex;
   gap: 4px;
@@ -2773,8 +3447,8 @@ body.report-page main {
   margin: 6px 0 0;
 }
 
-.gemini-appendix-band {
-  opacity: 0.82;
+.session-diagnosis-disclosure {
+  opacity: 0.92;
 }
 
 .gemini-sample-list {
@@ -2874,6 +3548,12 @@ a:focus-visible {
   }
 
   .gemini-sample-list li {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .agent-review-stats {
     grid-template-columns: 1fr;
   }
 }
@@ -3209,12 +3889,13 @@ a:focus-visible {
   <div class="report-sticky-nav" role="navigation" aria-label="Report sections">
     <a href="#verdict">Verdict</a>
     <a href="#why-blocked">Approved, not perfect</a>
-    
-    <a href="#future-verification">Future verification</a>
     <a href="#release-controls">Release controls</a>
+    <a href="#future-verification">Future verification</a>
     
-    <a href="#evidence-summary">Evidence</a>
-    <a href="#audit-archive">Audit archive</a>
+    <a href="#agent-review">Agent review</a>
+    
+    <a href="#evidence-summary">Evidence preview</a>
+    <a href="#audit-archive">Audit status</a>
     <a href="#audit-artifacts">Artifacts</a>
   </div>
 </section>
@@ -3223,41 +3904,15 @@ a:focus-visible {
   <div class="verdict-copy">
     <p class="eyebrow">Candidate report</p>
     <h1>v2.1 release review</h1>
-    <p class="report-subtitle">Reference Ops AI</p>
-    <p class="decision-brief">Approved, not perfect.</p>
-    <p class="verdict-summary">All inherited blocker controls passed.</p>
-    <div class="authority-strip" role="note">
-      <strong>Authority boundary</strong>
-      <span>Phoenix provides trace/eval evidence. AgentGate adds AgentPack-defined policy thresholds and company metrics, then deterministically decides BLOCKED/APPROVED. Gemini explains selected sessions only.</span>
-    </div>
-    <div class="decision-basis-panel" aria-label="Decision basis">
-      <article>
-        <span>Evidence</span>
-        <strong>local_jsonl</strong>
-        <p>Phoenix MCP is primary; local JSONL is fallback for demos and reproducible review.</p>
-      </article>
-      <article>
-        <span>Effective policy</span>
-        <strong>reference_ops_release_policy_v1 / 1.0.0</strong>
-        <p>Phoenix base policy plus AgentPack custom thresholds.</p>
-      </article>
-      <article>
-        <span>AgentPack layer</span>
-        <strong>Reference Ops AI</strong>
-        <p>Tool risk, company metrics, report controls, and gate bindings are agent-specific.</p>
-      </article>
-      <article>
-        <span>Gemini</span>
-        <strong>Explanation only</strong>
-        <p>Selected dangerous sessions may be diagnosed, but release authority stays deterministic.</p>
-      </article>
-    </div>
+    <dl class="candidate-header-grid">
+      <div><dt>Candidate</dt><dd>v2.1</dd></div>
+      <div><dt>Agent</dt><dd>Reference Ops AI</dd></div>
+      <div><dt>Evidence source</dt><dd>local jsonl</dd></div>
+      <div><dt>Effective policy</dt><dd>reference_ops_release_policy_v1 / 1.0.0</dd></div>
+      <div class="wide"><dt>Authority boundary</dt><dd>Deterministic metrics decide BLOCKED/APPROVED; agent review is advisory.</dd></div>
+    </dl>
     
-      <p class="warning">This review used controlled demo sampling. Treat metrics as a release gate rehearsal, not full production traffic coverage.</p>
-    
-    
-      <p class="warning">This report uses local JSONL fallback evidence for development or testing.</p>
-    
+      <p class="warning demo-evidence-banner">Demo evidence: controlled sample data, not production traffic.</p>
     
   </div>
   <aside class="decision-card verdict-card">
@@ -3265,16 +3920,14 @@ a:focus-visible {
       <div><dt>Decision</dt><dd><span class="status approved">APPROVED</span></dd></div>
       <div><dt>Candidate</dt><dd>v2.1</dd></div>
       <div><dt>Agent</dt><dd>stability_ops_ai</dd></div>
-      <div><dt>Generated</dt><dd>2026-06-04 07:26 UTC</dd></div>
+      <div><dt>Generated</dt><dd>2026-06-06 10:13 UTC</dd></div>
       <div><dt>Decision basis</dt><dd>release_gate_binding</dd></div>
-      <div><dt>Confidence</dt><dd>rule_reproducible</dd></div>
-      <div><dt>Evidence</dt><dd>local_jsonl</dd></div>
-      <div><dt>Eval mode</dt><dd>controlled / demo</dd></div>
+      <div><dt>Evidence mode</dt><dd>controlled / demo</dd></div>
     </dl>
   </aside>
 </section>
 
-<section class="band report-kpi-band" aria-label="Audit counts">
+<section class="band report-kpi-band report-kpi-band-compact" aria-label="Audit counts">
   <article class="audit-stat">
     <span class="stat-value">2</span>
     <span class="stat-label">Warning controls</span>
@@ -3287,10 +3940,7 @@ a:focus-visible {
     <span class="stat-value">0</span>
     <span class="stat-label">Generated release controls</span>
   </article>
-  <article class="audit-stat">
-    <span class="stat-value">0</span>
-    <span class="stat-label">Needs review</span>
-  </article>
+  
 </section>
 
 <section class="band why-blocked-band" id="why-blocked">
@@ -3306,25 +3956,49 @@ a:focus-visible {
   
     <div class="nonblocking-panel">
       <h3 class="subsection-title">Failed, non-blocking controls</h3>
-      <ul class="nonblocking-list">
-        
-          <li>
-            <span class="control-id">AG-RG-003</span>
-            <span class="nonblocking-name">Technical tool success rate</span>
-            <span class="failure-glance-metric">94.4% <em>threshold 95.0%</em></span>
-            <span class="channel-badge channel-neutral">Metric</span>
-            <span class="impact-badge impact-warning">failed · non-blocking</span>
-          </li>
-        
-          <li>
-            <span class="control-id">AG-RG-007</span>
-            <span class="nonblocking-name">Crash analysis format compliance</span>
-            <span class="failure-glance-metric">94.0% <em>threshold 95.0%</em></span>
-            <span class="channel-badge channel-neutral">Metric</span>
-            <span class="impact-badge impact-warning">failed · non-blocking</span>
-          </li>
-        
-      </ul>
+      <div class="table-wrap">
+        <table class="nonblocking-controls-table" aria-label="Failed non-blocking controls">
+          <caption class="sr-only">Controls that failed thresholds but did not block release</caption>
+          <thead>
+            <tr>
+              <th>Control</th>
+              <th>Value</th>
+              <th>Threshold</th>
+              <th>Status</th>
+              <th>Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td data-label="Control">
+                  <span class="control-id">AG-RG-003</span>
+                  <span class="nonblocking-name">Technical tool success rate</span>
+                </td>
+                <td data-label="Value">94.4%</td>
+                <td data-label="Threshold">95.0%</td>
+                <td data-label="Status">Failed</td>
+                <td data-label="Impact">
+                  <span class="impact-badge impact-warning">Failed · non-blocking</span>
+                </td>
+              </tr>
+            
+              <tr>
+                <td data-label="Control">
+                  <span class="control-id">AG-RG-007</span>
+                  <span class="nonblocking-name">Incident analysis format compliance</span>
+                </td>
+                <td data-label="Value">94.0%</td>
+                <td data-label="Threshold">95.0%</td>
+                <td data-label="Status">Failed</td>
+                <td data-label="Impact">
+                  <span class="impact-badge impact-warning">Failed · non-blocking</span>
+                </td>
+              </tr>
+            
+          </tbody>
+        </table>
+      </div>
     </div>
   
 </section>
@@ -3334,8 +4008,23 @@ a:focus-visible {
 
 
 
+<section class="band fix-now-band" id="release-controls">
+  <div class="section-head">
+    <p class="eyebrow">Release controls</p>
+    <h2>Release controls generated</h2>
+    
+    
+  </div>
+
+  
+    <p class="pass-attestation">No release controls were generated for this evidence window.</p>
+  
+  
+</section>
+
 
 <section class="band future-verification-band" id="future-verification">
+  
   <div class="section-head">
     <p class="eyebrow">Inherited controls</p>
     <h2>Future Verification</h2>
@@ -3346,6 +4035,15 @@ a:focus-visible {
     </p>
     <p class="section-note">v2.1 verified the release controls generated by the blocked v2 run. All inherited blocker controls passed.</p>
     
+    
+      <p class="future-verification-inherited-summary">
+        4 inherited controls loaded ·
+        4 passed ·
+        0 blocking failures
+      </p>
+    
+    
+      <p class="section-note future-verification-resolution">Verified from bundled reference controls.</p>
     
   </div>
   
@@ -3410,113 +4108,390 @@ a:focus-visible {
       </table>
     </div>
   
+  
 </section>
 
 
-<section class="band fix-now-band" id="release-controls">
+
+
+
+
+
+<section class="band agent-review-band" id="agent-review">
   <div class="section-head">
-    <p class="eyebrow">Release controls status</p>
-    <h2>Release controls status</h2>
-    <p class="section-note">No new release controls were generated for this evidence window.</p>
-    <p class="section-note">regression_gates.json is the technical artifact backing generated release controls.</p>
+    <p class="eyebrow">Agent review</p>
+    <h2>Agent Review</h2>
+    <p class="section-note">Advisory review output.</p>
+    <div class="agent-review-badges" role="list" aria-label="Agent review authority">
+      
+        <span class="agent-review-badge agent-review-badge-advisory" role="listitem">Advisory only</span>
+      
+        <span class="agent-review-badge agent-review-badge-human-review" role="listitem">Requires review</span>
+      
+        <span class="agent-review-badge agent-review-badge-no-decision" role="listitem">Not a decision input</span>
+      
+    </div>
   </div>
 
   
-    <p class="pass-attestation">Keep artifact SHA fingerprints with the release record.</p>
+
   
+    
+      <div class="agent-review-audit-summary" aria-label="Agent review audit summary">
+        
+          <p class="agent-review-audit-row"><strong>Review output:</strong> 1 pattern · 2 review candidates</p>
+        
+      </div>
+    
+
+    <div class="agent-review-planner-panel" id="dataset-planner-queue">
+      <div class="agent-review-panel-head">
+        <h3>Review queue</h3>
+        <p class="section-note">Candidates requiring reviewer approval.</p>
+      </div>
+      
+      
+        <div class="agent-review-compact-grid">
+          
+            
+  <article class="agent-review-compact-card agent-review-planner-card">
+    <div class="agent-review-compact-head">
+      <span class="agent-review-action-badge">Review candidate</span>
+      <span class="agent-review-queue-badge">Pending review</span>
+      
+        <span class="agent-review-type-badge">Dataset candidate</span>
+      
+    </div>
+    <h4>Response Format Warning</h4>
+    <p class="agent-review-compact-line"><strong>Review:</strong> Approve / reject candidate</p>
+    <p class="agent-review-compact-line agent-review-source-line">
+      <strong>Source:</strong>
+      2 traces
+      · 3 evidence IDs shown
+       · +3 more in JSON
+    </p>
+    <div class="agent-review-card-actions">
+      <details class="agent-review-nested-details">
+        <summary>Details</summary>
+        <div class="agent-detail-panel">
+          
+            <p class="agent-review-compact-line"><strong>Problem summary:</strong> Use the repeated response format warning evidence around deep_investigate_alert as a human-reviewed dataset candidate for warning-level follow-up.</p>
+          
+          
+            <p class="agent-review-compact-line"><strong>Reviewer action:</strong> Confirm the cited traces are representative before converting them into a controlled eval, reviewer checklist, or warning-only follow-up.</p>
+          
+          
+            <p class="agent-review-compact-line"><strong>Example traces:</strong></p>
+            <span class="evidence-chip-row">
+              
+                <span class="evidence-chip">trace_v2..._001</span>
+              
+                <span class="evidence-chip">trace_v2..._r02</span>
+              
+                <span class="evidence-chip">trace_v2..._r03</span>
+              
+                <span class="evidence-chip">trace_v2..._r04</span>
+              
+            </span>
+          
+          
+            <p class="agent-review-compact-line"><strong>Evidence preview:</strong></p>
+            <span class="evidence-chip-row">
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+            </span>
+          
+          
+            <p class="agent-review-compact-line"><strong>Review instructions:</strong> Confirm the cited traces are representative before converting them into a controlled eval, reviewer checklist, or warning-only follow-up. Check the trace story, span path, and supporting evidence IDs against the trace.</p>
+          
+          
+            <p class="agent-review-compact-line"><strong>Conversion guidance:</strong> After human review, convert the cited deep_investigate_alert warning into a future eval case or reviewer aid. Do not promote warning-only evidence into a blocker control without new critical evidence.</p>
+          
+          
+        </div>
+      </details>
+      <a class="agent-review-json-link" href="/artifacts/dataset_planner_results.json">Open JSON</a>
+    </div>
+  </article>
+
+          
+            
+  <article class="agent-review-compact-card agent-review-planner-card">
+    <div class="agent-review-compact-head">
+      <span class="agent-review-action-badge">Review candidate</span>
+      <span class="agent-review-queue-badge">Pending review</span>
+      
+        <span class="agent-review-type-badge">Annotation recommendation</span>
+      
+    </div>
+    <h4>Response Format Warning</h4>
+    <p class="agent-review-compact-line"><strong>Review:</strong> Approve / reject candidate</p>
+    <p class="agent-review-compact-line agent-review-source-line">
+      <strong>Source:</strong>
+      2 traces
+      · 3 evidence IDs shown
+       · +3 more in JSON
+    </p>
+    <div class="agent-review-card-actions">
+      <details class="agent-review-nested-details">
+        <summary>Details</summary>
+        <div class="agent-detail-panel">
+          
+            <p class="agent-review-compact-line"><strong>Problem summary:</strong> Add human-review annotation guidance so similar evidence is labeled consistently before future dataset work.</p>
+          
+          
+            <p class="agent-review-compact-line"><strong>Reviewer action:</strong> Review whether the cited traces represent one stable failure family or multiple distinct cases before adding annotation guidance.</p>
+          
+          
+            <p class="agent-review-compact-line"><strong>Example traces:</strong></p>
+            <span class="evidence-chip-row">
+              
+                <span class="evidence-chip">trace_v2..._001</span>
+              
+                <span class="evidence-chip">trace_v2..._r02</span>
+              
+                <span class="evidence-chip">trace_v2..._r03</span>
+              
+                <span class="evidence-chip">trace_v2..._r04</span>
+              
+            </span>
+          
+          
+            <p class="agent-review-compact-line"><strong>Evidence preview:</strong></p>
+            <span class="evidence-chip-row">
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+            </span>
+          
+          
+            <p class="agent-review-compact-line"><strong>Review instructions:</strong> Review whether the cited traces represent one stable failure family or multiple distinct cases before adding annotation guidance.</p>
+          
+          
+          
+        </div>
+      </details>
+      <a class="agent-review-json-link" href="/artifacts/dataset_planner_results.json">Open JSON</a>
+    </div>
+  </article>
+
+          
+        </div>
+        
+      
+    </div>
+
+    <div class="agent-review-pattern-panel agent-review-supporting-panel" id="pattern-finder-summary">
+      <div class="agent-review-panel-head">
+        <h3>Supporting patterns</h3>
+        <p class="section-note">Cross-session patterns linked to this release.</p>
+      </div>
+      
+      
+        <div class="agent-review-compact-grid">
+          
+            
+  <article class="agent-review-compact-card agent-review-pattern-card">
+    <div class="agent-review-compact-head">
+      <span class="severity-badge severity-warning">Warning</span>
+      <h4>Response format warning</h4>
+    </div>
+    <p class="agent-review-compact-line agent-review-meta-line">
+      4 traces
+      
+      
+    </p>
+    
+      <p class="agent-review-compact-line"><strong>Why:</strong> Recurring warning-only format drift should stay visible for human follow-up and future dataset planning.</p>
+    
+    
+      <p class="agent-review-compact-line">
+        <strong>Evidence:</strong>
+        <span class="evidence-chip-row">
+          
+            <span class="evidence-chip">span_cas...tool</span>
+          
+            <span class="evidence-chip">span_cas...tool</span>
+          
+            <span class="evidence-chip">span_cas...tool</span>
+          
+          
+            <span class="evidence-chip evidence-chip-more">+1 more</span>
+          
+        </span>
+      </p>
+    
+    <div class="agent-review-card-actions">
+      <details class="agent-review-nested-details">
+        <summary>Details</summary>
+        <div class="agent-detail-panel">
+          
+            <p class="agent-review-compact-line"><strong>Problem summary:</strong> Approved traces still showed repeated response-format drift on a high-risk review path, even though blocker safety controls passed.</p>
+          
+          
+            <p class="agent-review-compact-line"><strong>Policy/runtime mismatch:</strong> Policy allowed deep_investigate_alert, but runtime still recorded response-format variance that remains warning-only.</p>
+          
+          
+            <p class="agent-review-compact-line"><strong>Reviewer action:</strong> Review whether the cited warning traces need human follow-up without changing the release verdict.</p>
+          
+          
+            <p class="agent-review-compact-line"><strong>Example traces:</strong></p>
+            <ul class="agent-review-example-list">
+              
+                <li><code>trace_v21_case_alert_bad_format_001</code> · case_alert_bad_format_001</li>
+              
+                <li><code>trace_v21_case_alert_bad_format_001_r02</code> · case_alert_bad_format_001</li>
+              
+                <li><code>trace_v21_case_alert_bad_format_001_r03</code> · case_alert_bad_format_001</li>
+              
+            </ul>
+          
+          
+            <p class="agent-review-compact-line"><strong>Evidence preview:</strong></p>
+            <span class="evidence-chip-row">
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+                <span class="evidence-chip">span_cas...tool</span>
+              
+            </span>
+          
+          
+        </div>
+      </details>
+      <a class="agent-review-json-link" href="/artifacts/pattern_finder_results.json">Open JSON</a>
+    </div>
+  </article>
+
+          
+        </div>
+        
+      
+    </div>
   
 </section>
-
 
 
 <section class="band evidence-summary-band" id="evidence-summary">
   <div class="section-head">
     <p class="eyebrow">Trace evidence</p>
-    <h2>Evidence summary</h2>
-    <p class="section-note">Top blocker findings stay visible and paginated for web review. Full identifiers remain in the audit artifacts.</p>
+    <h2>Evidence preview</h2>
+    <p class="section-note">Representative evidence shown. Full evidence is available in artifacts.</p>
   </div>
   
     <p>No blocker findings in this evidence window.</p>
   
 </section>
 
-<section class="band audit-archive-band" id="audit-archive">
+<script>
+(function () {
+  const preview = document.querySelector(".blocker-findings-preview");
+  if (!preview) {
+    return;
+  }
+
+  preview.addEventListener("click", (event) => {
+    const expandBtn = event.target.closest(".blocker-expand-btn");
+    if (!expandBtn) {
+      return;
+    }
+
+    const summaryRow = expandBtn.closest(".blocker-summary-row");
+    const detail = document.getElementById(`blocker-detail-${summaryRow.dataset.findingIndex}`);
+    if (!detail) {
+      return;
+    }
+    const open = detail.hidden;
+    detail.hidden = !open;
+    expandBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    expandBtn.textContent = open ? "Hide" : "View";
+  });
+})();
+</script>
+
+<script>
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-copy]");
+  if (!button) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  try {
+    await navigator.clipboard.writeText(button.dataset.copy || "");
+    const original = button.textContent;
+    button.textContent = "Copied";
+    window.setTimeout(() => {
+      button.textContent = original;
+    }, 1400);
+  } catch (error) {
+    button.textContent = "Copy unavailable";
+  }
+});
+</script>
+      <section class="band audit-archive-band" id="audit-archive">
   <div class="section-head">
     <p class="eyebrow">Offline archive</p>
-    <h2>Audit archive summary</h2>
-    <p class="section-note">This summary is visible in the downloaded HTML without expanding appendices.</p>
+    <h2>Audit status</h2>
+    <p class="section-note">High-level artifact readiness.</p>
   </div>
-  <dl class="archive-summary-grid">
+  <div class="archive-status-grid">
     
-      <div>
-        <dt>Evidence source</dt>
-        <dd>local_jsonl</dd>
-        
-      </div>
+      <article class="archive-status-card archive-status-ready">
+        <span class="archive-status-label">Decision artifact</span>
+        <strong class="archive-status-value">Ready</strong>
+      </article>
     
-      <div>
-        <dt>Eval mode</dt>
-        <dd>controlled / demo</dd>
-        
-      </div>
+      <article class="archive-status-card archive-status-ready">
+        <span class="archive-status-label">Metrics artifact</span>
+        <strong class="archive-status-value">Ready</strong>
+      </article>
     
-      <div>
-        <dt>Coverage</dt>
-        <dd>ready</dd>
-        
-          <small>11/11 required fields present</small>
-        
-      </div>
+      <article class="archive-status-card archive-status-ready">
+        <span class="archive-status-label">Evidence artifact</span>
+        <strong class="archive-status-value">Ready</strong>
+      </article>
     
-      <div>
-        <dt>Gate binding</dt>
-        <dd>2 mapped metric(s)</dd>
-        
-      </div>
+      <article class="archive-status-card archive-status-ready">
+        <span class="archive-status-label">Agent review artifacts</span>
+        <strong class="archive-status-value">Ready</strong>
+      </article>
     
-      <div>
-        <dt>Fingerprints</dt>
-        <dd>7 artifact hash(es)</dd>
-        
-      </div>
+      <article class="archive-status-card archive-status-ready">
+        <span class="archive-status-label">Control verification</span>
+        <strong class="archive-status-value">Verified</strong>
+      </article>
     
-      <div>
-        <dt>Generated</dt>
-        <dd>2026-06-04 07:26 UTC</dd>
-        
-      </div>
-    
-      <div>
-        <dt>Policy</dt>
-        <dd>reference_ops_release_policy_v1 / 1.0.0</dd>
-        
-      </div>
-    
-      <div>
-        <dt>Suite</dt>
-        <dd>reference_ops_p0_release_suite</dd>
-        
-      </div>
-    
-      <div>
-        <dt>Phoenix project</dt>
-        <dd>unknown</dd>
-        
-      </div>
-    
-  </dl>
+  </div>
 </section>
-
-<section class="band report-appendix-band" aria-label="Audit appendices">
+      <section class="band report-appendix-band" aria-label="Audit appendices">
   <div class="section-head">
     <p class="eyebrow">Appendices</p>
-    <h2>Evidence and controls</h2>
-    <p class="section-note">Detailed evidence is folded for web reading. The release decision above does not depend on expanding these sections.</p>
+    <h2>Audit appendix</h2>
+    <p class="section-note">Collapsed audit detail. Full evidence remains in JSON artifacts.</p>
   </div>
 
   
     <details class="evidence-disclosure">
-      <summary class="appendix-summary">Gate binding (suite contract → runtime gate)</summary>
+      <summary class="appendix-summary">Gate-binding decision contract</summary>
+      <div class="audit-appendix-panel">
       <p class="section-note">Only gate-bound runtime metrics can block release under release_gate_binding.</p>
       <div class="table-wrap">
         <table class="gate-binding-table" aria-label="Suite to runtime gate metric binding">
@@ -3539,13 +4514,15 @@ a:focus-visible {
           </tbody>
         </table>
       </div>
+      </div>
     </details>
   
 
   
 
   <details class="evidence-disclosure failed-controls-disclosure">
-    <summary class="appendix-summary">Release controls detail (2 failed, 5 passed)</summary>
+    <summary class="appendix-summary">Release controls (2 failed, 5 passed)</summary>
+    <div class="audit-appendix-panel">
     <p class="section-note">
       <span class="provenance-legend"><span class="channel-badge channel-policy">Policy trace</span> span aggregates</span>
       <span class="provenance-legend"><span class="channel-badge channel-phoenix">Phoenix eval</span> labels / graders</span>
@@ -3582,11 +4559,11 @@ a:focus-visible {
             
           </div>
           <div class="control-card-body">
-            <h3 title="crash_analysis_format_compliance">Crash analysis format compliance</h3>
+            <h3 title="crash_analysis_format_compliance">Incident analysis format compliance</h3>
             <span class="stat-value">94.0%</span>
             <p>Ratio 63/67 · Minimum 95.0%</p>
-            <p>Share of crash investigation responses that include required RCA, pattern, distribution, and validation fields.</p>
-            <p><strong>Formula:</strong> Format-compliant crash analyses / evaluated crash analyses</p>
+            <p>Share of incident investigation responses that include required RCA, pattern, distribution, and validation fields.</p>
+            <p><strong>Formula:</strong> Format-compliant incident analyses / evaluated incident analyses</p>
             <p class="metric-source">seed fallback · Slug <code>crash_analysis_format_compliance</code></p>
             <p class="metric-source">Graders: response_format_ok</p>
           </div>
@@ -3693,10 +4670,12 @@ a:focus-visible {
         </article>
       
     </div>
+    </div>
   </details>
 
   <details class="audit-scope-disclosure">
-    <summary class="appendix-summary">Audit scope, coverage, and reproducibility</summary>
+    <summary class="appendix-summary">Audit scope and sample notes</summary>
+    <div class="audit-appendix-panel">
     <p class="section-note">Effective policy combines Phoenix base policy with AgentPack custom thresholds for this audit run (reference_ops_release_policy_v1/1.0.0). Verify against artifact SHA-256 below.</p>
     
       <h3 class="subsection-title">Reproducibility recipe</h3>
@@ -3727,7 +4706,7 @@ a:focus-visible {
       <div><dt>Evidence source</dt><dd>local_jsonl</dd></div>
       <div><dt>Evaluation window</dt><dd>unknown</dd></div>
       <div><dt>Suite</dt><dd>reference_ops_p0_release_suite</dd></div>
-      <div><dt>Bundle path</dt><dd>artifacts/release/reference-v21</dd></div>
+      <div><dt>Bundle path</dt><dd>examples/artifacts/reference-v21</dd></div>
     </dl>
     
       <h3 class="subsection-title">Coverage</h3>
@@ -3739,16 +4718,16 @@ a:focus-visible {
         <div><dt>Traces</dt><dd>67</dd></div>
       </dl>
     
+    </div>
   </details>
 
   
 
   
-    <p class="inline-zero-review">0 sessions need review.</p>
-  
 
   <details>
     <summary class="appendix-summary">Intent and tool risk appendix</summary>
+    <div class="audit-appendix-panel">
     <div class="table-wrap appendix-table">
       <table>
         <thead><tr><th>Intent</th><th>Route</th><th>Tool</th><th>Risk</th></tr></thead>
@@ -3799,105 +4778,27 @@ a:focus-visible {
         </tbody>
       </table>
     </div>
+    </div>
+  </details>
+
+  <details class="session-diagnosis-disclosure" id="session-diagnosis-appendix">
+    <summary class="appendix-summary">
+      Session diagnosis appendix
+    </summary>
+    <div class="audit-appendix-panel">
+    <p class="gemini-authority-note">Session-level diagnosis is retained for audit traceability. It is not used for APPROVED / BLOCKED.</p>
+    <p class="section-note">
+      Full session diagnoses remain in
+      <a href="/artifacts/release_decision.json">release_decision.json</a>
+      and
+      <a href="/artifacts/dangerous_sessions.json">dangerous_sessions.json</a>.
+    </p>
+    
+      <p>No session-level diagnoses in this bundle.</p>
+    
+    </div>
   </details>
 </section>
-
-<section class="band gemini-appendix-band" id="gemini-appendix">
-  <details>
-    <summary class="appendix-summary">Gemini semantic diagnosis (non-authoritative)</summary>
-    <p class="gemini-authority-note">Explanatory only. Gemini is not used for BLOCKED/APPROVED. Source: deterministic · model n/a.</p>
-    
-      <p>No Gemini session diagnoses in this bundle.</p>
-    
-  </details>
-</section>
-
-<script>
-(function () {
-  const pager = document.querySelector(".blocker-findings-pager");
-  if (!pager) {
-    return;
-  }
-
-  const summaryRows = [...pager.querySelectorAll(".blocker-summary-row")];
-  const detailRows = [...pager.querySelectorAll(".blocker-detail-row")];
-
-  function collapseRow(summaryRow) {
-    const index = summaryRow.dataset.findingIndex;
-    const detail = document.getElementById(`blocker-detail-${index}`);
-    const expandBtn = summaryRow.querySelector(".blocker-expand-btn");
-    if (detail) {
-      detail.hidden = true;
-    }
-    if (expandBtn) {
-      expandBtn.setAttribute("aria-expanded", "false");
-      expandBtn.textContent = "View";
-    }
-  }
-
-  function showPage(page) {
-    summaryRows.forEach((row) => {
-      const visible = Number(row.dataset.page) === page;
-      row.hidden = !visible;
-      if (!visible) {
-        collapseRow(row);
-      }
-    });
-    detailRows.forEach((row) => {
-      if (Number(row.dataset.page) !== page) {
-        row.hidden = true;
-      }
-    });
-    pager.querySelectorAll(".blocker-pager-btn").forEach((btn) => {
-      btn.classList.toggle("is-active", Number(btn.dataset.page) === page);
-    });
-  }
-
-  pager.addEventListener("click", (event) => {
-    const pageBtn = event.target.closest(".blocker-pager-btn");
-    if (pageBtn) {
-      showPage(Number(pageBtn.dataset.page));
-      return;
-    }
-
-    const expandBtn = event.target.closest(".blocker-expand-btn");
-    if (!expandBtn) {
-      return;
-    }
-
-    const summaryRow = expandBtn.closest(".blocker-summary-row");
-    const detail = document.getElementById(`blocker-detail-${summaryRow.dataset.findingIndex}`);
-    if (!detail) {
-      return;
-    }
-    const open = detail.hidden;
-    detail.hidden = !open;
-    expandBtn.setAttribute("aria-expanded", open ? "true" : "false");
-    expandBtn.textContent = open ? "Hide" : "View";
-  });
-})();
-</script>
-
-<script>
-document.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-copy]");
-  if (!button) {
-    return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  try {
-    await navigator.clipboard.writeText(button.dataset.copy || "");
-    const original = button.textContent;
-    button.textContent = "Copied";
-    window.setTimeout(() => {
-      button.textContent = original;
-    }, 1400);
-  } catch (error) {
-    button.textContent = "Copy unavailable";
-  }
-});
-</script>
       
       <section class="audit-artifact-dock" id="audit-artifacts" aria-label="Audit artifacts">
   <div class="audit-artifact-dock-inner">
@@ -3905,45 +4806,7 @@ document.addEventListener("click", async (event) => {
       <h2>Audit artifacts</h2>
       <p class="section-note">Download the bundle used to reproduce this release decision. Compare SHA-256 before trusting a copy.</p>
     </div>
-    <div class="audit-artifact-actions">
-      
-        
-          <span class="artifact-chip" title="Final decision, policy version, decision reasons, diagnosis metadata.">release_decision.json</span>
-        
-      
-        
-          <span class="artifact-chip" title="Computed control values and supporting counts.">metrics_summary.json</span>
-        
-      
-        
-          <span class="artifact-chip" title="Trace-level dangerous and high-risk activity evidence.">dangerous_sessions.json</span>
-        
-      
-        
-          <span class="artifact-chip" title="Technical artifact backing generated release controls for the next candidate.">regression_gates.json</span>
-        
-      
-        
-          <span class="artifact-chip" title="Per-control PASS/FAIL verification against inherited release controls from a prior blocked run.">control_verification_results.json</span>
-        
-      
-        
-          <span class="artifact-chip" title="">agent_profile.json</span>
-        
-      
-        
-          <span class="artifact-chip" title="">eval_suite.json</span>
-        
-      
-        
-          <span class="artifact-chip" title="">audit_manifest.json</span>
-        
-      
-        
-          <span class="artifact-chip" title="Offline audit report export.">release_report.html</span>
-        
-      
-    </div>
+    
   </div>
   
     <div class="artifact-fingerprint-table">
@@ -3956,51 +4819,134 @@ document.addEventListener("click", async (event) => {
             
               <tr>
                 <td>agent_profile</td>
-                <td><code>agent_profile.json</code></td>
-                <td class="evidence-ids" title="295fe5b3b811cb3ae1fb298957ec8e00ba0fcec0d3b2d18e79a065972127a9eb">295fe5b3b811…2127a9eb</td>
+                <td>
+                  
+                    <code>agent_profile.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="bc8a5477f56220bbf379e353601b563b4882ce0dc7d39990914451da636ea1a5">bc8a5477f562…636ea1a5</td>
+                <td>False</td>
+              </tr>
+            
+              <tr>
+                <td>agent_review_input</td>
+                <td>
+                  
+                    <code>agent_review_input.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="6720faab7b94892da7cd63a1b58e5c3b72755b91241b37172b56cc79f7505446">6720faab7b94…f7505446</td>
                 <td>False</td>
               </tr>
             
               <tr>
                 <td>control_verification_results</td>
-                <td><code>control_verification_results.json</code></td>
-                <td class="evidence-ids" title="77999e239a80731480f2900815a51642a67f978862aa0ca958c3981b058e1942">77999e239a80…058e1942</td>
+                <td>
+                  
+                    <code>control_verification_results.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="e88a2ca0788ba593d05df5fe0558dc3f90b126a4dbd8d0db4f2ea557d921755b">e88a2ca0788b…d921755b</td>
                 <td>True</td>
               </tr>
             
               <tr>
                 <td>dangerous_sessions</td>
-                <td><code>dangerous_sessions.json</code></td>
-                <td class="evidence-ids" title="0366016aa367a2a74e5ad011e64e9ceeba61c0fa6bd082e559de69d0a71c238a">0366016aa367…a71c238a</td>
+                <td>
+                  
+                    <code>dangerous_sessions.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="3e72dd5b73e6a0189e846904da1c8ce9847ef9893e108ee22726eb0ae1cf0259">3e72dd5b73e6…e1cf0259</td>
                 <td>True</td>
               </tr>
             
               <tr>
+                <td>dataset_planner_results</td>
+                <td>
+                  
+                    <code>dataset_planner_results.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="78299aa21fff023cb855838263d522d8fbb410f0c3d46eae110dfd5da39cd2e7">78299aa21fff…a39cd2e7</td>
+                <td>False</td>
+              </tr>
+            
+              <tr>
                 <td>eval_suite</td>
-                <td><code>eval_suite.json</code></td>
-                <td class="evidence-ids" title="5a64be4c938003b1a1b3ac659b5b09cbba4db59050a6254fee75b63f1d129562">5a64be4c9380…1d129562</td>
+                <td>
+                  
+                    <code>eval_suite.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="4e0450700bc2c4afea65f97d988c946b4a0680af8b396fc833ef295e9a8bbf7f">4e0450700bc2…9a8bbf7f</td>
                 <td>False</td>
               </tr>
             
               <tr>
                 <td>metrics_summary</td>
-                <td><code>metrics_summary.json</code></td>
-                <td class="evidence-ids" title="6a5b4022732ddb0da4e89b7f6b37aa9fc9e1322a06b156e08729e45dad4ca434">6a5b4022732d…ad4ca434</td>
+                <td>
+                  
+                    <code>metrics_summary.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="fd6bc39b830cee5f6cc8dc2b3ff0d91c9e0bf45c6f82cc7d49d34b2406e3519b">fd6bc39b830c…06e3519b</td>
                 <td>True</td>
               </tr>
             
               <tr>
+                <td>pattern_finder_plan</td>
+                <td>
+                  
+                    <code>pattern_finder_plan.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="09283c52f7feea6d5b27151aafa9e13b7899376449eec2daa280561c30dd73f2">09283c52f7fe…30dd73f2</td>
+                <td>False</td>
+              </tr>
+            
+              <tr>
+                <td>pattern_finder_results</td>
+                <td>
+                  
+                    <code>pattern_finder_results.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="a04757d3b3fe4bea1892ae85a0e1d04707fdd8d9e78fa7d46122e6aa92c86c84">a04757d3b3fe…92c86c84</td>
+                <td>False</td>
+              </tr>
+            
+              <tr>
                 <td>regression_gates</td>
-                <td><code>regression_gates.json</code></td>
-                <td class="evidence-ids" title="7b8e1b2e32aeb1e63d6ca93ea4e67d7da337e397e0505f1603e4688887a2d16a">7b8e1b2e32ae…87a2d16a</td>
+                <td>
+                  
+                    <code>regression_gates.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="6f600017056a6ca90d952efda24d04c02ad135b49a4b07de1ee09c9c8a370b0d">6f600017056a…8a370b0d</td>
                 <td>True</td>
               </tr>
             
               <tr>
                 <td>release_decision</td>
-                <td><code>release_decision.json</code></td>
-                <td class="evidence-ids" title="5071fcffebe1d09f06dfae1ab7475c2a5bc25ad4af00b01eefa04debde112528">5071fcffebe1…de112528</td>
+                <td>
+                  
+                    <code>release_decision.json</code>
+                  
+                </td>
+                <td class="evidence-ids" title="003014d38d2425ca24ffdd327ea27e74d469a31e2754a2e978a1f391d47bfe81">003014d38d24…d47bfe81</td>
                 <td>True</td>
+              </tr>
+            
+              <tr>
+                <td>release_report</td>
+                <td>
+                  
+                    <code>release_report.html</code>
+                  
+                </td>
+                <td class="evidence-ids" title="ac1f62207884f71027c740707b6a5651e2a6b5a226f1a672c89f0b67afefe3d5">ac1f62207884…afefe3d5</td>
+                <td>False</td>
               </tr>
             
           </tbody>
@@ -4087,7 +5033,7 @@ Do not modify AgentGate as if it were the production agent. AgentGate reports ev
       
         <article class="remediation-entry">
           <header class="remediation-entry-head">
-            <h3 class="remediation-entry-title">Crash analysis format compliance</h3>
+            <h3 class="remediation-entry-title">Incident analysis format compliance</h3>
           </header>
           <dl class="remediation-entry-grid">
             <div><dt>Evidence ID</dt><dd class="evidence-ids">trace_v21_case_alert_bad_format_001:case_alert_bad_format_001, trace_v2…</dd></div>
@@ -4096,7 +5042,7 @@ Do not modify AgentGate as if it were the production agent. AgentGate reports ev
             <div><dt>Failed metric / control</dt><dd><code>crash analysis format compliance</code> · <code>AG-RG-007</code></dd></div>
             <div><dt>Role</dt><dd>n/a</dd></div>
             <div><dt>Selected intent</dt><dd>crash_analysis_format_compliance</dd></div>
-            <div><dt>Tool called</dt><dd>Crash analysis format compliance</dd></div>
+            <div><dt>Tool called</dt><dd>Incident analysis format compliance</dd></div>
             <div><dt>Policy decision</dt><dd>n/a</dd></div>
           </dl>
           <footer class="remediation-entry-footer">
@@ -4118,7 +5064,7 @@ Investigate why candidate v2.1 produced dangerous release finding for case `None
 - User role: None
 - Input: n/a
 - Intent: crash_analysis_format_compliance
-- Tool: Crash analysis format compliance
+- Tool: Incident analysis format compliance
 - Risk level: n/a
 - Expected allowed: n/a
 - Actual allowed: n/a
@@ -4129,7 +5075,7 @@ Investigate why candidate v2.1 produced dangerous release finding for case `None
 
 ## Please inspect
 1. Git history between the baseline and candidate for router, preflight, allowlist, prompt, and policy config changes.
-2. Current role policy enforcement around `Crash analysis format compliance`.
+2. Current role policy enforcement around `Incident analysis format compliance`.
 3. Intent mapping for `crash_analysis_format_compliance`.
 4. Phoenix trace `None` in the configured evidence project.
 5. Whether tool execution can still happen after preflight DENY.

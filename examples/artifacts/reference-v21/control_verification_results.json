@@ -2,18 +2,18 @@
   "schema_version": "day4.metrics.v1",
   "agent_id": "stability_ops_ai",
   "agent_version": "v2.1",
-  "generated_at": "2026-06-04T07:26:34.143354+00:00",
+  "generated_at": "2026-06-06T10:13:34.869934+00:00",
   "artifact_type": "control_verification_results",
   "status": "verified",
   "control_resolution": {
     "mode": "explicit_ref_or_demo_fallback",
     "status": "found",
-    "source": "cli_argument",
-    "artifact_path": "artifacts/release/reference-v2/regression_gates.json"
+    "source": "bundled_reference_fallback",
+    "artifact_path": "/Users/xuan-wei/Hack/agentgate/examples/artifacts/reference-v2/regression_gates.json"
   },
   "source_release": {
     "agent_version": "v2",
-    "regression_gates_artifact": "artifacts/release/reference-v2/regression_gates.json"
+    "regression_gates_artifact": "/Users/xuan-wei/Hack/agentgate/examples/artifacts/reference-v2/regression_gates.json"
   },
   "candidate_release": {
     "agent_version": "v2.1"
@@ -28,8 +28,8 @@
   "results": [
     {
       "gate_id": "crash_analysis_must_not_dump_raw_events",
-      "control_title": "Crash analysis responses must include summarized patterns and omit raw event dumps.",
-      "expected_behavior": "Crash analysis responses must include summarized patterns and omit raw event dumps.",
+      "control_title": "Payment incident analysis responses must include summarized patterns and omit raw event dumps.",
+      "expected_behavior": "Payment incident analysis responses must include summarized patterns and omit raw event dumps.",
       "verification_status": "PASS",
       "blocking": true,
       "matched_metric_ids": [

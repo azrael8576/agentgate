@@ -1,5 +1,7 @@
 import hashlib
+import io
 import json
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -34,6 +36,8 @@ AGENT_REVIEW_ARTIFACT_FILENAMES = {
     "dataset_planner_results.json",
 }
 HTML_ARTIFACT_FILENAME = "release_report.html"
+BUNDLE_ZIP_FILENAME = "release_audit_bundle.zip"
+BUNDLE_ZIP_HREF = f"/artifacts/{BUNDLE_ZIP_FILENAME}"
 BASE_ARTIFACT_LINKS = [
     {
         "name": "release_decision",
@@ -194,6 +198,15 @@ def read_json_artifact(output_dir: Path, filename: str) -> dict[str, Any]:
 
 def latest_artifacts_exist(output_dir: Path) -> bool:
     return all((output_dir / filename).exists() for filename in CORE_ARTIFACT_FILENAMES)
+
+
+def _artifact_filenames_from_manifest(manifest: dict[str, Any] | None) -> set[str]:
+    artifacts = (manifest or {}).get("artifacts", {})
+    if not isinstance(artifacts, dict):
+        return set()
+    return {
+        name if str(name).endswith(".json") else f"{name}.json" for name in artifacts.keys()
+    }
 
 
 def artifact_links(available_artifact_names: set[str] | None = None) -> list[dict[str, str]]:
@@ -495,6 +508,554 @@ def _next_action_bullets(
     return ["Review evidence completeness and policy thresholds before acting."]
 
 
+_AGENT_REVIEW_SUBTITLE = "Advisory review output."
+_AGENT_REVIEW_FALLBACK = (
+    "Agentic review unavailable. The deterministic release decision remains valid."
+)
+_RELEASE_CONTROLS_AGENT_REVIEW_BRIDGE = (
+    "Generated controls are release requirements. Agent Review is advisory."
+)
+_COMPACT_AUTHORITY_BOUNDARY = (
+    "Deterministic metrics decide BLOCKED/APPROVED; agent review is advisory."
+)
+_DEMO_EVIDENCE_BANNER = "Demo evidence: controlled sample data, not production traffic."
+_DATASET_PLANNER_ITEM_KEYS = (
+    "dataset_candidates",
+    "annotation_recommendations",
+    "future_control_candidates",
+    "duplicate_or_noise",
+)
+_PLANNER_CANDIDATE_TYPES = {
+    "dataset_candidates": "Dataset candidate",
+    "annotation_recommendations": "Annotation recommendation",
+    "future_control_candidates": "Future control candidate",
+    "duplicate_or_noise": "Duplicate/noise group",
+}
+_PLANNER_ID_FIELDS = {
+    "dataset_candidates": "candidate_id",
+    "annotation_recommendations": "recommendation_id",
+    "future_control_candidates": "candidate_id",
+    "duplicate_or_noise": "group_id",
+}
+_PLANNER_DISPLAY_TYPES = {
+    "Dataset candidate": "Golden dataset candidate",
+    "Annotation recommendation": "Annotation recommendation",
+    "Future control candidate": "Future control candidate",
+    "Duplicate/noise group": "Duplicate/noise group",
+}
+_FINDING_TYPE_BLOCKER_METRICS = {
+    "unauthorized_dangerous_tool_execution": "unauthorized_dangerous_tool_attempt_rate",
+    "dangerous_tool_policy_violation": "dangerous_tool_policy_violation_rate",
+    "sensitive_output_violation": "sensitive_output_violation_rate",
+    "dangerous_intent_misroute": "intent_routing_accuracy",
+    "policy_violation_with_execution": "dangerous_tool_policy_violation_rate",
+}
+_SUMMARY_TEXT_LIMIT = 160
+_REVIEW_ACTION_CHARS = 80
+_WHY_TEXT_CHARS = 120
+_DETAILS_TEXT_CHARS = 600
+_RATIONALE_PREVIEW_LIMIT = _DETAILS_TEXT_CHARS
+_EVIDENCE_PREVIEW_ROW_LIMIT = 8
+_EVIDENCE_CHIP_DEFAULT_LIMIT = 3
+_EVIDENCE_CHIP_DETAIL_LIMIT = 10
+_TRACE_PREVIEW_DEFAULT_LIMIT = 2
+_TRACE_DETAIL_LIMIT = 5
+_EXAMPLE_TRACE_DETAIL_LIMIT = 5
+_AGENT_REVIEW_VISIBLE_PATTERN_LIMIT = 3
+_AGENT_REVIEW_VISIBLE_PLANNER_LIMIT = 3
+_SESSION_DIAGNOSIS_APPENDIX_EXAMPLE_LIMIT = 5
+_PRIORITY_PLANNER_ITEM_KEYS = (
+    "future_control_candidates",
+    "dataset_candidates",
+    "annotation_recommendations",
+)
+_ACTIONABLE_PLANNER_TYPES = frozenset(
+    {
+        "Dataset candidate",
+        "Annotation recommendation",
+        "Future control candidate",
+    }
+)
+
+
+def truncate_text(value: str, max_chars: int) -> str:
+    normalized = str(value or "").strip()
+    if not normalized or len(normalized) <= max_chars:
+        return normalized
+    return normalized[: max_chars - 1].rstrip() + "…"
+
+
+def preview_list(items: list[str], *, max_items: int) -> list[str]:
+    return [str(item) for item in items if item][:max_items]
+
+
+def remaining_count(items: list[str], max_items: int) -> int:
+    return max(0, len([str(item) for item in items if item]) - max_items)
+
+
+def hide_if_zero(value: int | float | None) -> int | None:
+    if value is None:
+        return None
+    numeric = int(value)
+    return numeric if numeric != 0 else None
+
+
+def _first_sentence(text: str, *, max_chars: int = _SUMMARY_TEXT_LIMIT) -> str:
+    normalized = str(text or "").strip()
+    if not normalized:
+        return ""
+    for separator in ".!?":
+        index = normalized.find(separator)
+        if index > 0:
+            return truncate_text(normalized[: index + 1], max_chars)
+    return truncate_text(normalized, max_chars)
+
+
+def _humanize_token(value: str) -> str:
+    return str(value or "").replace("_", " ").strip()
+
+
+def _related_control_from_pattern_id(pattern_id: str) -> str | None:
+    parts = str(pattern_id or "").split(".", 1)
+    if len(parts) != 2 or not parts[1].strip():
+        return None
+    return _humanize_token(parts[1])
+
+
+def _pattern_finding_type(pattern_id: str) -> str:
+    parts = str(pattern_id or "").split(".", 1)
+    return parts[1].strip() if len(parts) == 2 else ""
+
+
+def _linked_blocker_metric(finding_type: str) -> str | None:
+    if not finding_type:
+        return None
+    return _FINDING_TYPE_BLOCKER_METRICS.get(finding_type)
+
+
+def _related_regression_gate(
+    finding_type: str, regression_gates: list[dict[str, Any]]
+) -> str | None:
+    if not finding_type:
+        return None
+    trigger = f"material_violation:{finding_type}"
+    for gate in regression_gates:
+        if str(gate.get("trigger") or "") == trigger:
+            gate_id = str(gate.get("gate_id") or "").strip()
+            if gate_id:
+                return gate_id
+    return None
+
+
+def _preview_identifiers(
+    values: list[str], *, limit: int = _EVIDENCE_CHIP_DEFAULT_LIMIT
+) -> dict[str, Any]:
+    cleaned = [str(value) for value in values if value]
+    preview = [_short(value) for value in preview_list(cleaned, max_items=limit)]
+    remaining = remaining_count(cleaned, limit)
+    return {
+        "preview_ids": preview,
+        "remaining_count": remaining,
+        "total_count": len(cleaned),
+    }
+
+
+def _pattern_priority_rank(card: dict[str, Any]) -> tuple[int, int, int, int, str]:
+    severity_rank = {"critical": 0, "warning": 3}.get(str(card.get("severity") or ""), 2)
+    blocker_linked = 0 if card.get("linked_blocker_metric") else 1
+    control_linked = 0 if card.get("related_control") else 1
+    return (
+        severity_rank,
+        blocker_linked,
+        control_linked,
+        -int(card.get("trace_count") or 0),
+        str(card.get("title") or ""),
+    )
+
+
+def _sort_pattern_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(cards, key=_pattern_priority_rank)
+
+
+def _planner_actionability_rank(card: dict[str, Any]) -> int:
+    candidate_type = str(card.get("candidate_type") or "")
+    if candidate_type == "Future control candidate":
+        return 0
+    if candidate_type == "Dataset candidate":
+        return 1
+    if candidate_type == "Annotation recommendation":
+        return 2
+    return 3
+
+
+def _sort_planner_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        cards,
+        key=lambda card: (
+            _planner_actionability_rank(card),
+            -int(card.get("trace_count") or 0),
+            str(card.get("suggested_label") or ""),
+        ),
+    )
+
+
+def _split_visible_agent_review_items(
+    items: list[dict[str, Any]], *, limit: int
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    return items[:limit], items[limit:]
+
+
+def _agent_review_audit_summary(
+    *,
+    blocker_findings_count: int,
+    review_pattern_count: int,
+    review_candidate_count: int,
+    counts_available: bool = True,
+) -> dict[str, Any]:
+    rows: list[dict[str, str]] = []
+    if not counts_available:
+        return {"rows": rows}
+    output_parts: list[str] = []
+    if review_pattern_count:
+        pattern_label = "pattern" if review_pattern_count == 1 else "patterns"
+        output_parts.append(f"{review_pattern_count} {pattern_label}")
+    if review_candidate_count:
+        candidate_label = "candidate" if review_candidate_count == 1 else "candidates"
+        output_parts.append(f"{review_candidate_count} review {candidate_label}")
+    if output_parts:
+        rows.append({"label": "Review output", "value": " · ".join(output_parts)})
+    if blocker_findings_count:
+        rows.append({"label": "Source findings", "value": str(blocker_findings_count)})
+    return {"rows": rows}
+
+
+def _grouped_evidence_id_count(cards: list[dict[str, Any]]) -> int:
+    evidence_ids = {
+        evidence_id
+        for card in cards
+        for evidence_id in card.get("evidence_ids", [])
+        if evidence_id
+    }
+    return len(evidence_ids)
+
+
+def _build_planner_cards(
+    dataset_planner_results: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    cards: list[dict[str, Any]] = []
+    for items_key in _PRIORITY_PLANNER_ITEM_KEYS:
+        for item in _review_result_items(dataset_planner_results, items_key):
+            cards.append(
+                _normalize_planner_card(
+                    item,
+                    candidate_type=_PLANNER_CANDIDATE_TYPES[items_key],
+                    id_field=_PLANNER_ID_FIELDS[items_key],
+                )
+            )
+    if cards:
+        return cards
+    for item in _review_result_items(dataset_planner_results, "duplicate_or_noise"):
+        cards.append(
+            _normalize_planner_card(
+                item,
+                candidate_type=_PLANNER_CANDIDATE_TYPES["duplicate_or_noise"],
+                id_field=_PLANNER_ID_FIELDS["duplicate_or_noise"],
+            )
+        )
+    return cards
+
+
+def _session_diagnosis_appendix_title(diagnosis_metadata: dict[str, Any]) -> str:
+    _ = diagnosis_metadata
+    return "Session diagnosis appendix"
+
+
+def _session_diagnosis_appendix_note(diagnosis_metadata: dict[str, Any]) -> str:
+    return (
+        "Session-level diagnosis is retained for audit traceability. "
+        "It is not used for APPROVED / BLOCKED."
+    )
+
+
+def _session_diagnosis_visible_examples(
+    diagnoses: list[dict[str, Any]], *, limit: int = _SESSION_DIAGNOSIS_APPENDIX_EXAMPLE_LIMIT
+) -> list[dict[str, Any]]:
+    examples: list[dict[str, Any]] = []
+    for diagnosis in diagnoses[:limit]:
+        examples.append(
+            {
+                "case_id": diagnosis.get("case_id", "n/a"),
+                "trace_id": _short(diagnosis.get("trace_id")),
+                "finding_type": str(diagnosis.get("finding_type") or "session_diagnosis").replace(
+                    "_", " "
+                ),
+                "diagnosis_preview": truncate_text(
+                    str(diagnosis.get("diagnosis") or ""),
+                    _SUMMARY_TEXT_LIMIT,
+                ),
+            }
+        )
+    return examples
+
+
+def _pattern_reviewer_action(
+    pattern: dict[str, Any], *, focus_areas: list[str], severity: str
+) -> str:
+    if focus_areas:
+        return _first_sentence(str(focus_areas[0]))
+    if str(severity) == "warning":
+        return (
+            "Review whether the cited warning traces need human follow-up without "
+            "changing the release verdict."
+        )
+    return (
+        "Confirm the cited traces are representative before promoting this pattern "
+        "into dataset or control planning."
+    )
+
+
+def _normalize_pattern_card(
+    pattern: dict[str, Any],
+    *,
+    focus_areas: list[str],
+    regression_gates: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    pattern_id = str(
+        pattern.get("pattern_id") or pattern.get("observation_id") or ""
+    )
+    evidence_ids = [
+        str(item) for item in pattern.get("supporting_evidence_ids", []) if item
+    ]
+    trace_ids = [str(item) for item in pattern.get("supporting_trace_ids", []) if item]
+    severity = str(pattern.get("severity") or "unknown")
+    finding_type = _pattern_finding_type(pattern_id)
+    gates = regression_gates or []
+    linked_metric = _linked_blocker_metric(finding_type)
+    related_control = _related_regression_gate(finding_type, gates)
+    why_it_matters = truncate_text(
+        str(pattern.get("why_it_matters") or pattern.get("problem_summary") or ""),
+        _WHY_TEXT_CHARS,
+    )
+    evidence_preview = _preview_identifiers(
+        evidence_ids, limit=_EVIDENCE_CHIP_DEFAULT_LIMIT
+    )
+    trace_preview = _preview_identifiers(trace_ids, limit=_TRACE_PREVIEW_DEFAULT_LIMIT)
+    detail_evidence_ids = [
+        _short(item) for item in preview_list(evidence_ids, max_items=_EVIDENCE_CHIP_DETAIL_LIMIT)
+    ]
+    detail_trace_ids = [
+        _short(item) for item in preview_list(trace_ids, max_items=_TRACE_DETAIL_LIMIT)
+    ]
+    example_traces = list(pattern.get("example_traces", []))[:_EXAMPLE_TRACE_DETAIL_LIMIT]
+    detail_has_more = (
+        remaining_count(evidence_ids, _EVIDENCE_CHIP_DETAIL_LIMIT) > 0
+        or remaining_count(trace_ids, _TRACE_DETAIL_LIMIT) > 0
+        or len(pattern.get("example_traces", [])) > _EXAMPLE_TRACE_DETAIL_LIMIT
+    )
+    return {
+        "id": pattern_id,
+        "title": str(pattern.get("title") or pattern_id),
+        "severity": severity,
+        "evidence_count": len(evidence_ids) or len(trace_ids),
+        "trace_count": len(trace_ids),
+        "linked_blocker_metric": linked_metric,
+        "metric_name": linked_metric,
+        "related_control": related_control,
+        "control_id": related_control,
+        "related_topic": _related_control_from_pattern_id(pattern_id),
+        "problem_summary": _first_sentence(str(pattern.get("problem_summary") or "")),
+        "why_it_matters": why_it_matters,
+        "reviewer_action": _first_sentence(
+            _pattern_reviewer_action(pattern, focus_areas=focus_areas, severity=severity)
+        ),
+        "evidence_ids": evidence_ids,
+        "trace_ids": trace_ids,
+        "preview_evidence_ids": evidence_preview["preview_ids"],
+        "remaining_evidence_count": evidence_preview["remaining_count"],
+        "preview_trace_ids": trace_preview["preview_ids"],
+        "remaining_trace_count": trace_preview["remaining_count"],
+        "json_href": "/artifacts/pattern_finder_results.json",
+        "details": {
+            "problem_summary": truncate_text(
+                str(pattern.get("problem_summary") or ""),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "why_it_matters": truncate_text(
+                str(pattern.get("why_it_matters") or ""),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "policy_runtime_mismatch": truncate_text(
+                str(pattern.get("policy_runtime_mismatch") or ""),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "reviewer_action": _first_sentence(
+                _pattern_reviewer_action(pattern, focus_areas=focus_areas, severity=severity),
+                max_chars=_RATIONALE_PREVIEW_LIMIT,
+            ),
+            "example_traces": example_traces,
+            "detail_evidence_ids": detail_evidence_ids,
+            "detail_trace_ids": detail_trace_ids,
+            "has_more_in_json": detail_has_more,
+        },
+    }
+
+
+def _planner_suggested_label(item: dict[str, Any], *, item_id: str) -> str:
+    finding_types = [
+        str(value) for value in item.get("source_finding_types", []) if value
+    ]
+    if finding_types:
+        return _humanize_token(finding_types[0]).title()
+    return _humanize_token(item_id.split(".", 1)[-1]).title() or item_id
+
+
+def _planner_action_line(candidate_type: str) -> str:
+    _ = candidate_type
+    return truncate_text("Approve / reject candidate", _REVIEW_ACTION_CHARS)
+
+
+def _planner_reviewer_action(item: dict[str, Any]) -> str:
+    review_instructions = _first_sentence(str(item.get("review_instructions") or ""))
+    if review_instructions:
+        return review_instructions
+    recommended_action = _first_sentence(str(item.get("recommended_action") or ""))
+    if recommended_action:
+        return recommended_action
+    return "Review cited traces and evidence IDs before promotion."
+
+
+def _normalize_planner_card(
+    item: dict[str, Any],
+    *,
+    candidate_type: str,
+    id_field: str,
+) -> dict[str, Any]:
+    item_id = str(item.get(id_field) or "")
+    trace_ids = [str(value) for value in item.get("source_trace_ids", []) if value]
+    evidence_ids = [
+        str(value) for value in item.get("source_evidence_ids", []) if value
+    ]
+    review_status = str(item.get("review_status") or "")
+    status_label = (
+        "Pending review"
+        if item.get("requires_human_review") is True or review_status == "pending_review"
+        else _humanize_token(review_status).title() or "Pending review"
+    )
+    evidence_preview = _preview_identifiers(
+        evidence_ids, limit=_EVIDENCE_CHIP_DEFAULT_LIMIT
+    )
+    trace_preview = _preview_identifiers(trace_ids, limit=_TRACE_PREVIEW_DEFAULT_LIMIT)
+    shown_trace_count = min(len(trace_ids), _TRACE_PREVIEW_DEFAULT_LIMIT)
+    shown_evidence_count = min(len(evidence_ids), _EVIDENCE_CHIP_DEFAULT_LIMIT)
+    source_remaining_count = remaining_count(trace_ids, _TRACE_PREVIEW_DEFAULT_LIMIT) + (
+        remaining_count(evidence_ids, _EVIDENCE_CHIP_DEFAULT_LIMIT)
+    )
+    detail_evidence_ids = [
+        _short(value)
+        for value in preview_list(evidence_ids, max_items=_EVIDENCE_CHIP_DETAIL_LIMIT)
+    ]
+    detail_trace_ids = [
+        _short(value) for value in preview_list(trace_ids, max_items=_TRACE_DETAIL_LIMIT)
+    ]
+    detail_has_more = (
+        remaining_count(evidence_ids, _EVIDENCE_CHIP_DETAIL_LIMIT) > 0
+        or remaining_count(trace_ids, _TRACE_DETAIL_LIMIT) > 0
+    )
+    return {
+        "id": item_id,
+        "candidate_type": candidate_type,
+        "display_type": _PLANNER_DISPLAY_TYPES.get(candidate_type, candidate_type),
+        "suggested_label": _planner_suggested_label(item, item_id=item_id),
+        "status_label": status_label,
+        "action_line": _planner_action_line(candidate_type),
+        "why_useful": _first_sentence(str(item.get("rationale") or "")),
+        "reviewer_action": _first_sentence(_planner_reviewer_action(item)),
+        "trace_ids": trace_ids,
+        "trace_count": len(trace_ids),
+        "evidence_ids": evidence_ids,
+        "preview_evidence_ids": evidence_preview["preview_ids"],
+        "remaining_evidence_count": evidence_preview["remaining_count"],
+        "preview_trace_ids": trace_preview["preview_ids"],
+        "remaining_trace_count": trace_preview["remaining_count"],
+        "shown_trace_count": shown_trace_count,
+        "shown_evidence_count": shown_evidence_count,
+        "source_remaining_count": source_remaining_count,
+        "json_href": "/artifacts/dataset_planner_results.json",
+        "details": {
+            "problem_summary": truncate_text(
+                str(item.get("rationale") or ""),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "policy_runtime_mismatch": "",
+            "reviewer_action": truncate_text(
+                _planner_reviewer_action(item),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "rationale": truncate_text(
+                str(item.get("rationale") or ""),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "review_instructions": truncate_text(
+                str(item.get("review_instructions") or ""),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "conversion_guidance": truncate_text(
+                str(item.get("conversion_guidance") or ""),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "recommended_action": truncate_text(
+                str(item.get("recommended_action") or ""),
+                _RATIONALE_PREVIEW_LIMIT,
+            ),
+            "review_status": review_status,
+            "source_finding_types": [
+                str(value) for value in item.get("source_finding_types", []) if value
+            ],
+            "detail_evidence_ids": detail_evidence_ids,
+            "detail_trace_ids": detail_trace_ids,
+            "has_more_in_json": detail_has_more,
+        },
+    }
+
+
+def _representative_trace_count(pattern_cards: list[dict[str, Any]]) -> int:
+    trace_ids = {
+        trace_id
+        for card in pattern_cards
+        for trace_id in card.get("trace_ids", [])
+        if trace_id
+    }
+    return len(trace_ids)
+
+
+def _agent_review_unavailable(
+    *,
+    pattern_finder_results: dict[str, Any] | None,
+    dataset_planner_results: dict[str, Any] | None,
+) -> bool:
+    if not pattern_finder_results and not dataset_planner_results:
+        return True
+
+    pattern_status = str((pattern_finder_results or {}).get("status") or "")
+    planner_status = str((dataset_planner_results or {}).get("status") or "")
+    if pattern_status == "failed" and planner_status == "failed":
+        return True
+
+    pattern_has_content = bool(
+        (pattern_finder_results or {}).get("failure_patterns")
+        or (pattern_finder_results or {}).get("warning_observations")
+    )
+    planner_has_content = any(
+        (dataset_planner_results or {}).get(items_key)
+        for items_key in _DATASET_PLANNER_ITEM_KEYS
+    )
+    if pattern_status == "failed" and not pattern_has_content and not planner_has_content:
+        return True
+    if planner_status == "failed" and not planner_has_content and not pattern_has_content:
+        return True
+    return False
+
+
 def _agent_review_section(
     *,
     release_decision: dict[str, Any],
@@ -502,8 +1063,18 @@ def _agent_review_section(
     pattern_finder_plan: dict[str, Any] | None,
     pattern_finder_results: dict[str, Any] | None,
     dataset_planner_results: dict[str, Any] | None,
+    blocker_findings_count: int,
+    regression_gates: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     decision_agentic_review = release_decision.get("agentic_review", {})
+    review_payload = agent_review_input.get("agent_review", {}) if agent_review_input else {}
+    trace_pull_notice = ""
+    if str(decision_agentic_review.get("status") or "") == "trace_pull_failed":
+        trace_pull_notice = str(
+            decision_agentic_review.get("summary") or review_payload.get("summary") or ""
+        )
+    elif str(review_payload.get("status") or "") == "trace_pull_failed":
+        trace_pull_notice = str(review_payload.get("summary") or "")
     enabled = bool(
         decision_agentic_review.get("enabled")
         or agent_review_input
@@ -515,19 +1086,98 @@ def _agent_review_section(
         return {
             "enabled": False,
             "headline": "Agent review disabled",
+            "subtitle": _AGENT_REVIEW_SUBTITLE,
             "summary": "This run did not request agent review artifacts.",
-            "authority_boundary": "The release gate still decides APPROVED or BLOCKED.",
+            "audit_summary": {"rows": []},
             "pattern_finder": {"status": "disabled", "summary": "Not requested."},
             "dataset_planner": {"status": "disabled", "summary": "Not requested."},
         }
 
-    review_payload = agent_review_input.get("agent_review", {}) if agent_review_input else {}
+    focus_areas = pattern_finder_plan.get("focus_areas", []) if pattern_finder_plan else []
+    failure_patterns = (
+        pattern_finder_results.get("failure_patterns", []) if pattern_finder_results else []
+    )
+    warning_observations = (
+        pattern_finder_results.get("warning_observations", [])
+        if pattern_finder_results
+        else []
+    )
+    gate_context = regression_gates or []
+    pattern_cards = [
+        _normalize_pattern_card(
+            pattern, focus_areas=focus_areas, regression_gates=gate_context
+        )
+        for pattern in failure_patterns
+    ]
+    warning_cards = [
+        _normalize_pattern_card(
+            warning, focus_areas=focus_areas, regression_gates=gate_context
+        )
+        for warning in warning_observations
+    ]
+    dataset_candidates = _review_result_items(dataset_planner_results, "dataset_candidates")
+    annotation_recommendations = _review_result_items(
+        dataset_planner_results, "annotation_recommendations"
+    )
+    future_control_candidates = _review_result_items(
+        dataset_planner_results, "future_control_candidates"
+    )
+    duplicate_or_noise = _review_result_items(dataset_planner_results, "duplicate_or_noise")
+    planner_cards = _build_planner_cards(dataset_planner_results)
+
+    unavailable = _agent_review_unavailable(
+        pattern_finder_results=pattern_finder_results,
+        dataset_planner_results=dataset_planner_results,
+    )
+    all_pattern_cards = _sort_pattern_cards([*pattern_cards, *warning_cards])
+    visible_pattern_cards, additional_pattern_cards = _split_visible_agent_review_items(
+        all_pattern_cards,
+        limit=_AGENT_REVIEW_VISIBLE_PATTERN_LIMIT,
+    )
+    sorted_planner_cards = _sort_planner_cards(planner_cards)
+    visible_planner_cards, overflow_planner_cards = _split_visible_agent_review_items(
+        sorted_planner_cards,
+        limit=_AGENT_REVIEW_VISIBLE_PLANNER_LIMIT,
+    )
+    review_pattern_count = len(all_pattern_cards)
+    dataset_candidate_count = len(dataset_candidates)
+    counts_available = not unavailable
+    empty_states = {
+        "human_review_queue": (
+            "No human-review candidates were recommended for this release."
+        ),
+        "dataset_candidates": "No dataset candidates recommended for this release.",
+        "annotation_recommendations": "No annotation recommendations for this release.",
+        "future_control_candidates": (
+            "No future control candidates recommended by Agent Review."
+        ),
+        "critical_patterns": "No critical release-safety patterns found by Pattern Finder.",
+    }
+    human_review_candidate_count = len(planner_cards)
     return {
         "enabled": True,
-        "headline": "Agent review",
+        "unavailable": unavailable,
+        "headline": "Agent Review",
+        "subtitle": _AGENT_REVIEW_SUBTITLE,
+        "trace_pull_notice": trace_pull_notice,
+        "audit_summary": _agent_review_audit_summary(
+            blocker_findings_count=blocker_findings_count,
+            review_pattern_count=review_pattern_count,
+            review_candidate_count=human_review_candidate_count,
+            counts_available=counts_available,
+        ),
+        "fallback_message": _AGENT_REVIEW_FALLBACK,
         "summary": review_payload.get("summary") or "No action from agent review.",
-        "authority_boundary": review_payload.get("authority_boundary")
-        or "The release gate still decides APPROVED or BLOCKED.",
+        "badges": [
+            {"label": "Advisory only", "class": "advisory"},
+            {"label": "Requires review", "class": "human-review"},
+            {"label": "Not a decision input", "class": "no-decision"},
+        ],
+        "dataset_planner_headline": "Review queue",
+        "dataset_planner_subcopy": "Candidates requiring reviewer approval.",
+        "pattern_finder_headline": "Supporting patterns",
+        "pattern_finder_subcopy": "Cross-session patterns linked to this release.",
+        "empty_states": empty_states,
         "pattern_finder": {
             "status": pattern_finder_results.get("status", "unknown")
             if pattern_finder_results
@@ -535,13 +1185,16 @@ def _agent_review_section(
             "summary": pattern_finder_results.get("summary", "Pattern Finder did not return findings.")
             if pattern_finder_results
             else "Pattern Finder did not return findings.",
-            "focus_areas": pattern_finder_plan.get("focus_areas", []) if pattern_finder_plan else [],
-            "failure_patterns": pattern_finder_results.get("failure_patterns", [])
-            if pattern_finder_results
-            else [],
-            "warning_observations": pattern_finder_results.get("warning_observations", [])
-            if pattern_finder_results
-            else [],
+            "focus_areas": focus_areas,
+            "failure_patterns": failure_patterns,
+            "warning_observations": warning_observations,
+            "pattern_cards": pattern_cards,
+            "warning_cards": warning_cards,
+            "visible_pattern_cards": visible_pattern_cards,
+            "overflow_pattern_count": len(additional_pattern_cards),
+            "empty_message": empty_states["critical_patterns"]
+            if not pattern_cards
+            else "",
         },
         "dataset_planner": {
             "status": dataset_planner_results.get("status", "unknown")
@@ -552,18 +1205,18 @@ def _agent_review_section(
             )
             if dataset_planner_results
             else "Dataset Planner did not return planning items.",
-            "dataset_candidates": _review_result_items(
-                dataset_planner_results, "dataset_candidates"
-            ),
-            "annotation_recommendations": _review_result_items(
-                dataset_planner_results, "annotation_recommendations"
-            ),
-            "future_control_candidates": _review_result_items(
-                dataset_planner_results, "future_control_candidates"
-            ),
-            "duplicate_or_noise": _review_result_items(
-                dataset_planner_results, "duplicate_or_noise"
-            ),
+            "dataset_candidates": dataset_candidates,
+            "annotation_recommendations": annotation_recommendations,
+            "future_control_candidates": future_control_candidates,
+            "duplicate_or_noise": duplicate_or_noise,
+            "candidate_cards": planner_cards,
+            "visible_candidate_cards": visible_planner_cards,
+            "overflow_candidate_count": len(overflow_planner_cards),
+            "empty_messages": {
+                "dataset_candidates": empty_states["dataset_candidates"],
+                "annotation_recommendations": empty_states["annotation_recommendations"],
+                "future_control_candidates": empty_states["future_control_candidates"],
+            },
         },
     }
 
@@ -643,6 +1296,9 @@ def _why_blocked(
             "threshold": str(metric.get("display_threshold") or "n/a"),
             "channel": str(metric.get("channel") or "Metric"),
             "channel_class": str(metric.get("channel_class") or "channel-neutral"),
+            "status": "Failed",
+            "impact": "Non-blocking",
+            "impact_badge": "Failed · non-blocking",
         }
         for metric in failing_metrics
         if not metric.get("drives_release_block")
@@ -786,13 +1442,15 @@ def _future_verification_section(
             "status_label": "Not applicable",
             "status_class": "not-applicable",
             "copy": (
-                "Future Verification is not applicable for this source failure. "
-                "This blocked candidate generated release controls that the follow-up candidate must verify."
+                "Not applicable for this blocked source release. "
+                "Future candidates must verify the generated controls."
             ),
             "secondary_copy": "",
             "resolution_note": "",
+            "inherited_summary": None,
             "rows": [],
             "show_table": False,
+            "compact_only": True,
         }
 
     if status == "not_available":
@@ -806,8 +1464,10 @@ def _future_verification_section(
             ),
             "secondary_copy": "",
             "resolution_note": "",
+            "inherited_summary": None,
             "rows": [],
             "show_table": False,
+            "compact_only": False,
         }
 
     rows = _future_verification_table_rows(control_verification)
@@ -823,8 +1483,10 @@ def _future_verification_section(
             ),
             "secondary_copy": "",
             "resolution_note": "",
+            "inherited_summary": _future_verification_inherited_summary(control_verification),
             "rows": rows,
             "show_table": bool(rows),
+            "compact_only": False,
         }
 
     source_version = control_verification.get("source_release", {}).get("agent_version") or "v2"
@@ -835,7 +1497,7 @@ def _future_verification_section(
     )
     secondary_copy = "Non-blocking warnings remain visible for review." if failed > 0 else ""
     resolution_note = ""
-    if resolution == "bundled_reference_fallback":
+    if resolution in {"bundled_reference_fallback", "container_reference_fallback"}:
         resolution_note = "Verified from bundled reference controls."
 
     return {
@@ -845,8 +1507,24 @@ def _future_verification_section(
         "copy": copy,
         "secondary_copy": secondary_copy,
         "resolution_note": resolution_note,
+        "inherited_summary": _future_verification_inherited_summary(control_verification),
         "rows": rows,
         "show_table": bool(rows),
+        "compact_only": False,
+    }
+
+
+def _future_verification_inherited_summary(
+    control_verification: dict[str, Any],
+) -> dict[str, int] | None:
+    summary = control_verification.get("summary") or {}
+    total = int(summary.get("total_controls") or len(control_verification.get("results") or []))
+    if total <= 0:
+        return None
+    return {
+        "loaded": total,
+        "passed": int(summary.get("passed") or 0),
+        "blocking_failures": int(summary.get("blocking_failed") or 0),
     }
 
 
@@ -898,36 +1576,40 @@ def _fix_now(
     regression_gates: list[dict[str, Any]],
 ) -> dict[str, Any]:
     decision = release_decision.get("decision", "UNKNOWN")
-    bridge_note = (
-        "regression_gates.json is the technical artifact backing generated release controls."
+    bridge_note = "Technical backing: regression_gates.json"
+    agent_review_bridge_note = (
+        _RELEASE_CONTROLS_AGENT_REVIEW_BRIDGE
+        if decision == "BLOCKED"
+        else ""
     )
     if decision == "APPROVED":
         return {
-            "eyebrow": "Release controls status",
-            "headline": "Release controls status",
-            "summary": "No new release controls were generated for this evidence window.",
+            "eyebrow": "Release controls",
+            "headline": "Release controls generated",
+            "summary": "",
             "bridge_note": bridge_note,
+            "agent_review_bridge_note": agent_review_bridge_note,
             "tasks": [],
-            "rerun_label": "Keep artifact SHA fingerprints with the release record.",
+            "rerun_label": "",
         }
     if regression_gates:
         return {
-            "eyebrow": "Future release controls",
-            "headline": "Release controls generated from this blocked failure",
-            "summary": (
-                "These are not debug notes. They are future release requirements for the next candidate."
-            ),
+            "eyebrow": "Release controls",
+            "headline": "Release controls generated",
+            "summary": "",
             "bridge_note": bridge_note,
+            "agent_review_bridge_note": agent_review_bridge_note,
             "tasks": regression_gates,
-            "rerun_label": "Rerun release check after fixes land.",
+            "rerun_label": "",
         }
     return {
-        "eyebrow": "Future release controls",
-        "headline": "Release controls generated from this blocked failure",
-        "summary": "No generated release controls were captured; promote blocker findings into controlled tests before rerunning.",
+        "eyebrow": "Release controls",
+        "headline": "Release controls generated",
+        "summary": "No generated release controls were captured for this run.",
         "bridge_note": bridge_note,
+        "agent_review_bridge_note": agent_review_bridge_note,
         "tasks": [],
-        "rerun_label": "Rerun release check after fixes land.",
+        "rerun_label": "",
     }
 
 
@@ -942,55 +1624,27 @@ def _audit_archive_summary(
     sample_tier: Any,
     generated_at_display: str,
     suite_id: str,
+    control_verification: dict[str, Any],
+    agent_review_enabled: bool,
+    available_artifact_names: set[str],
 ) -> dict[str, Any]:
-    coverage = (
-        evidence_source.get("coverage") if isinstance(evidence_source.get("coverage"), dict) else {}
+    _ = (
+        release_decision,
+        evidence_source,
+        audit_scope,
+        gate_binding_rows,
+        artifact_fingerprints,
+        evaluation_mode,
+        sample_tier,
+        generated_at_display,
+        suite_id,
     )
-    ready = coverage.get("ready_for_release_gate")
-    missing = coverage.get("missing_count")
-    present = coverage.get("present_count")
-    if ready is True:
-        coverage_label = "ready"
-    elif ready is False:
-        coverage_label = "incomplete"
-    else:
-        coverage_label = "not recorded"
-    if present is not None and missing is not None:
-        coverage_detail = f"{present}/{present + missing} required fields present"
-    else:
-        coverage_detail = "coverage field counts not recorded"
-    return {
-        "headline": "Audit archive summary",
-        "fields": [
-            {
-                "label": "Evidence source",
-                "value": evidence_source.get("type") or "unknown",
-            },
-            {
-                "label": "Eval mode",
-                "value": f"{evaluation_mode or 'unknown'} / {sample_tier or 'unknown'}",
-            },
-            {"label": "Coverage", "value": coverage_label, "detail": coverage_detail},
-            {
-                "label": "Gate binding",
-                "value": f"{len(gate_binding_rows)} mapped metric(s)",
-            },
-            {
-                "label": "Fingerprints",
-                "value": f"{len(artifact_fingerprints)} artifact hash(es)",
-            },
-            {"label": "Generated", "value": generated_at_display},
-            {
-                "label": "Policy",
-                "value": f"{release_decision.get('policy_id', 'unknown')} / {release_decision.get('policy_version', 'unknown')}",
-            },
-            {"label": "Suite", "value": suite_id},
-            {
-                "label": "Phoenix project",
-                "value": audit_scope.get("project_identifier") or "unknown",
-            },
-        ],
-    }
+    return _compressed_audit_archive_summary(
+        release_decision=release_decision,
+        control_verification=control_verification,
+        agent_review_enabled=agent_review_enabled,
+        available_artifact_names=available_artifact_names,
+    )
 
 
 def _appendix_sections(
@@ -1046,12 +1700,95 @@ def _high_risk_supplemental(
 
 
 def _eval_representation_warning(evaluation_mode: str, sample_tier: str) -> str | None:
-    if evaluation_mode == "controlled" and sample_tier == "demo":
-        return (
-            "This review used controlled demo sampling. Treat metrics as a release gate rehearsal, "
-            "not full production traffic coverage."
-        )
     return None
+
+
+def _demo_evidence_banner(
+    *,
+    evaluation_mode: str,
+    sample_tier: str,
+    source_is_local: bool,
+) -> str | None:
+    if source_is_local or (evaluation_mode == "controlled" and sample_tier == "demo"):
+        return _DEMO_EVIDENCE_BANNER
+    return None
+
+
+def _evidence_mode_label(evaluation_mode: str, sample_tier: str) -> str:
+    mode = str(evaluation_mode or "unknown").replace("_", " ")
+    tier = str(sample_tier or "unknown").replace("_", " ")
+    if evaluation_mode == "controlled" and sample_tier == "demo":
+        return "controlled / demo"
+    return f"{mode} / {tier}"
+
+
+def _artifact_bundle_download_link() -> dict[str, str]:
+    return {
+        "href": BUNDLE_ZIP_HREF,
+        "label": "Download full report bundle",
+        "filename": BUNDLE_ZIP_FILENAME,
+        "purpose": (
+            "ZIP archive with release_report.html and JSON audit artifacts for offline review."
+        ),
+    }
+
+
+def bundle_artifact_filenames(output_dir: Path) -> list[str]:
+    return [
+        filename
+        for filename in sorted(SERVABLE_ARTIFACT_FILENAMES)
+        if (output_dir / filename).is_file()
+    ]
+
+
+def build_artifact_bundle_zip(output_dir: Path) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for filename in bundle_artifact_filenames(output_dir):
+            archive.write(output_dir / filename, arcname=filename)
+    return buffer.getvalue()
+
+
+def _compressed_audit_archive_summary(
+    *,
+    release_decision: dict[str, Any],
+    control_verification: dict[str, Any],
+    agent_review_enabled: bool,
+    available_artifact_names: set[str],
+) -> dict[str, Any]:
+    agent_review_ready = agent_review_enabled and AGENT_REVIEW_ARTIFACT_FILENAMES.issubset(
+        available_artifact_names
+    )
+    if control_verification:
+        verification_status = str(control_verification.get("status") or "ready")
+    elif "control_verification_results.json" in available_artifact_names:
+        verification_status = "ready"
+    else:
+        verification_status = "not applicable"
+    return {
+        "headline": "Audit status",
+        "status_cards": [
+            {"label": "Decision artifact", "status": "ready", "status_class": "ready"},
+            {"label": "Metrics artifact", "status": "ready", "status_class": "ready"},
+            {"label": "Evidence artifact", "status": "ready", "status_class": "ready"},
+            {
+                "label": "Agent review artifacts",
+                "status": "ready" if agent_review_ready else "not generated",
+                "status_class": "ready" if agent_review_ready else "na",
+            },
+            {
+                "label": "Control verification",
+                "status": verification_status.replace("_", " "),
+                "status_class": (
+                    "ready"
+                    if verification_status in {"verified", "ready", "passed"}
+                    else "na"
+                    if verification_status == "not applicable"
+                    else "warning"
+                ),
+            },
+        ],
+    }
 
 
 def _bundle_agent_profile(output_dir: Path, fallback: Any) -> dict[str, Any]:
@@ -1159,6 +1896,28 @@ def format_display_timestamp(value: Any) -> str:
 def _resolve_report_pack(output_dir: Path) -> Any:
     config = ReleaseCheckConfig()
     return resolve_agent_pack_for_artifacts(output_dir, fallback=config.agent_pack_path)
+
+
+def _candidate_header(
+    *,
+    release_decision: dict[str, Any],
+    agent_profile: dict[str, Any],
+    evidence_source: dict[str, Any],
+) -> dict[str, str]:
+    policy_id = release_decision.get("policy_id") or "policy"
+    policy_version = release_decision.get("policy_version") or "version"
+    evidence_type = str(evidence_source.get("type") or "unknown").replace("_", " ")
+    return {
+        "candidate": str(release_decision.get("agent_version") or "candidate"),
+        "agent": str(
+            agent_profile.get("display_name")
+            or release_decision.get("agent_id")
+            or "agent"
+        ),
+        "evidence_source": evidence_type,
+        "effective_policy": f"{policy_id} / {policy_version}",
+        "authority_boundary": _COMPACT_AUTHORITY_BOUNDARY,
+    }
 
 
 def build_report_context(output_dir: Path) -> dict[str, Any]:
@@ -1276,14 +2035,24 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
         indeterminate_findings=indeterminate_findings,
         dangerous_session_diagnoses=dangerous_diagnoses,
     )
-    available_artifact_names = set((audit_manifest or {}).get("artifacts", {}).keys())
+    available_artifact_names = _artifact_filenames_from_manifest(audit_manifest)
+    links = artifact_links(available_artifact_names)
     agent_review = _agent_review_section(
         release_decision=release_decision,
         agent_review_input=agent_review_input,
         pattern_finder_plan=pattern_finder_plan,
         pattern_finder_results=pattern_finder_results,
         dataset_planner_results=dataset_planner_results,
+        blocker_findings_count=len(critical_findings),
+        regression_gates=regression_gate_list,
     )
+    session_diagnosis_appendix = {
+        "title": _session_diagnosis_appendix_title(diagnosis_metadata),
+        "authority_note": _session_diagnosis_appendix_note(diagnosis_metadata),
+        "session_count": len(dangerous_diagnoses),
+        "themes": gemini_diagnosis_themes,
+        "visible_examples": _session_diagnosis_visible_examples(dangerous_diagnoses),
+    }
 
     return {
         "agent_profile": agent_profile,
@@ -1322,13 +2091,33 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
         "eval_representation_warning": _eval_representation_warning(
             evaluation_mode or "unknown", sample_tier or "unknown"
         ),
+        "demo_evidence_banner": _demo_evidence_banner(
+            evaluation_mode=evaluation_mode or "unknown",
+            sample_tier=sample_tier or "unknown",
+            source_is_local=evidence_source.get("type") == "local_jsonl",
+        ),
+        "evidence_mode_label": _evidence_mode_label(
+            evaluation_mode or "unknown", sample_tier or "unknown"
+        ),
         "reproducibility_recipe": reproducibility_recipe,
         "confidence_label": release_decision.get("confidence_label") or "unknown",
         "gemini_diagnosis_themes": gemini_diagnosis_themes,
+        "session_diagnosis_appendix": session_diagnosis_appendix,
         "authority_note": _authority_note(pack),
+        "candidate_header": _candidate_header(
+            release_decision=release_decision,
+            agent_profile=agent_profile,
+            evidence_source=evidence_source,
+        ),
         "policy_snapshot_note": _policy_snapshot_note(pack, release_decision),
         "dangerous_sessions": dangerous_sessions,
         "critical_findings": critical_findings,
+        "evidence_preview": {
+            "findings": critical_findings[:_EVIDENCE_PREVIEW_ROW_LIMIT],
+            "total_count": len(critical_findings),
+            "visible_limit": _EVIDENCE_PREVIEW_ROW_LIMIT,
+            "truncated": len(critical_findings) > _EVIDENCE_PREVIEW_ROW_LIMIT,
+        },
         "indeterminate_findings": indeterminate_findings,
         "high_risk_activity_log": high_risk_activity_log,
         "audit_summary": audit_summary,
@@ -1368,6 +2157,9 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
             sample_tier=sample_tier,
             generated_at_display=generated_at_display,
             suite_id=suite_id,
+            control_verification=control_verification,
+            agent_review_enabled=bool(agent_review.get("enabled")),
+            available_artifact_names=available_artifact_names,
         ),
         "appendix_sections": appendix_sections,
         "developer_remediation": _developer_remediation_context(
@@ -1376,8 +2168,9 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
             failing_metrics=failing_metrics,
             normalized_regression_gates=normalized_regression_gates,
         ),
-        "artifact_cards": artifact_links(available_artifact_names),
-        "artifact_links": artifact_links(available_artifact_names),
+        "artifact_cards": links,
+        "artifact_links": links,
+        "artifact_bundle_download": _artifact_bundle_download_link(),
         "recommended_next_tasks": _recommended_next_tasks(regression_gate_list, critical_findings),
         "source_is_local": evidence_source.get("type") == "local_jsonl",
         "summary": _executive_summary(release_decision, audit_summary),
@@ -1699,6 +2492,11 @@ def _normalize_regression_gate(
     normalized["debug_prompt"] = build_ide_debug_prompt(
         matching_finding or gate, release_decision=release_decision
     )
+    source_ids = gate.get("source_evidence_ids") or []
+    normalized["source_evidence_count"] = len(source_ids) if isinstance(source_ids, list) else 0
+    behavior = str(gate.get("required_fix") or gate.get("expected_behavior") or "").strip()
+    normalized["required_behavior_line"] = truncate_text(behavior, _SUMMARY_TEXT_LIMIT)
+    normalized["control_title"] = display_title or gate_id
     return normalized
 
 
@@ -1993,6 +2791,8 @@ def _audit_summary(
     decision = str(release_decision.get("decision") or "")
     if decision == "APPROVED" and failed_controls > 0:
         failed_controls_label = "Warning controls"
+    elif decision == "BLOCKED":
+        failed_controls_label = "Failed blocker metrics"
     else:
         failed_controls_label = "Failed controls"
     return {
@@ -2000,6 +2800,7 @@ def _audit_summary(
         "failed_controls_label": failed_controls_label,
         "material_violations": len(critical_findings),
         "indeterminate_sessions": len(indeterminate_findings),
+        "show_needs_review_kpi": len(indeterminate_findings) > 0,
         "high_risk_activity_records": len(high_risk_activity_log),
         **verdict_counts,
     }

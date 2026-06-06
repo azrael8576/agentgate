@@ -1,0 +1,238 @@
+<section class="band report-appendix-band" aria-label="Audit appendices">
+  <div class="section-head">
+    <p class="eyebrow">Appendices</p>
+    <h2>Audit appendix</h2>
+    <p class="section-note">Collapsed audit detail. Full evidence remains in JSON artifacts.</p>
+  </div>
+
+  {% if gate_binding_rows %}
+    <details class="evidence-disclosure">
+      <summary class="appendix-summary">Gate-binding decision contract</summary>
+      <div class="audit-appendix-panel">
+      <p class="section-note">Only gate-bound runtime metrics can block release under {{ release_decision.decision_basis or "release_gate_binding" }}.</p>
+      <div class="table-wrap">
+        <table class="gate-binding-table" aria-label="Suite to runtime gate metric binding">
+          <caption class="sr-only">Suite contract metrics mapped to runtime blocker metrics</caption>
+          <thead><tr><th>Suite metric (contract)</th><th>Runtime metric (gate)</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for row in gate_binding_rows %}
+              <tr>
+                <td data-label="Suite metric"><code>{{ row.suite_metric }}</code></td>
+                <td data-label="Runtime metric"><code>{{ row.runtime_metric }}</code></td>
+                <td data-label="Status">{{ row.status or "mapped" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      </div>
+    </details>
+  {% endif %}
+
+  {% if release_decision.decision_reasons %}
+    <details class="evidence-disclosure">
+      <summary class="appendix-summary">Decision evidence ({{ appendix_sections.decision_evidence }})</summary>
+      <div class="audit-appendix-panel">
+      <div class="table-wrap">
+        <table class="decision-evidence-table" aria-label="Full decision evidence">
+          <caption class="sr-only">Blocking decision reasons with metrics and evidence identifiers</caption>
+          <thead><tr><th>Reason</th><th>Metric</th><th>Evidence IDs</th></tr></thead>
+          <tbody>
+            {% for reason in release_decision.decision_reasons %}
+              <tr>
+                <td>{{ reason.reason }}</td>
+                <td><code>{{ reason.metric }}</code></td>
+                <td class="evidence-ids">{{ reason.evidence_ids | join(", ") if reason.evidence_ids else "not recorded" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      </div>
+    </details>
+  {% endif %}
+
+  <details class="evidence-disclosure failed-controls-disclosure">
+    <summary class="appendix-summary">Release controls ({{ appendix_sections.controls }})</summary>
+    <div class="audit-appendix-panel">
+    <p class="section-note">
+      <span class="provenance-legend"><span class="channel-badge channel-policy">Policy trace</span> span aggregates</span>
+      <span class="provenance-legend"><span class="channel-badge channel-phoenix">Phoenix eval</span> labels / graders</span>
+    </p>
+    <div class="metric-grid control-grid control-table">
+      {% for metric in metrics %}
+        <article class="metric-card control-card control-card-compact {{ metric.result }}">
+          <div class="control-card-head">
+            <span class="control-id">{{ metric.control_id }}</span>
+            <span class="result-badge result-{{ metric.result }}">{{ metric.result | replace("_", " ") }}</span>
+            <span class="channel-badge {{ metric.channel_class }}">{{ metric.channel }}</span>
+            {% if metric.drives_release_block %}
+              <span class="impact-badge impact-blocker">blocks release</span>
+            {% elif metric.is_blocker_impact %}
+              <span class="impact-badge impact-blocker">blocker impact</span>
+            {% elif metric.display_decision_impact != "informational" %}
+              <span class="impact-badge impact-warning">{{ metric.display_decision_impact }}</span>
+            {% endif %}
+          </div>
+          <div class="control-card-body">
+            <h3 title="{{ metric.name }}">{{ metric.display_name }}</h3>
+            <span class="stat-value">{{ metric.display_value }}</span>
+            <p>Ratio {{ metric.display_ratio }} · {{ metric.display_threshold_label | capitalize }} {{ metric.display_threshold }}</p>
+            <p>{{ metric.definition }}</p>
+            <p><strong>Formula:</strong> {{ metric.formula }}</p>
+            <p class="metric-source">{{ metric.channel_detail }} · Slug <code>{{ metric.name }}</code></p>
+            <p class="metric-source">Graders: {{ metric.display_grader_ids }}</p>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+    </div>
+  </details>
+
+  <details class="audit-scope-disclosure">
+    <summary class="appendix-summary">Audit scope and sample notes</summary>
+    <div class="audit-appendix-panel">
+    <p class="section-note">{{ policy_snapshot_note }}</p>
+    {% if reproducibility_recipe %}
+      <h3 class="subsection-title">Reproducibility recipe</h3>
+      <ol class="reproducibility-recipe">
+        {% for step in reproducibility_recipe %}
+          <li>{{ step }}</li>
+        {% endfor %}
+      </ol>
+    {% endif %}
+    <h3 class="subsection-title">Scope</h3>
+    <dl class="coverage-grid">
+      <div><dt>Agent</dt><dd>{{ audit_scope.agent }}</dd></div>
+      <div><dt>Candidate version</dt><dd>{{ audit_scope.candidate_version }}</dd></div>
+      <div><dt>Policy</dt><dd>{{ audit_scope.policy }}</dd></div>
+      <div><dt>Phoenix project</dt><dd>{{ audit_scope.project_identifier }}</dd></div>
+      <div><dt>Evidence source</dt><dd>{{ audit_scope.evidence_source }}</dd></div>
+      <div><dt>Evaluation window</dt><dd>{{ audit_scope.evaluation_window }}</dd></div>
+      <div><dt>Suite</dt><dd>{{ suite_id }}</dd></div>
+      <div><dt>Bundle path</dt><dd>{{ audit_scope.output_dir }}</dd></div>
+    </dl>
+    {% if evidence_source.coverage %}
+      <h3 class="subsection-title">Coverage</h3>
+      <dl class="coverage-grid">
+        <div><dt>Ready for release gate</dt><dd>{{ evidence_source.coverage.ready_for_release_gate }}</dd></div>
+        <div><dt>Required fields</dt><dd>{{ evidence_source.coverage.present_count }}/{{ evidence_source.coverage.present_count + evidence_source.coverage.missing_count }}</dd></div>
+        <div><dt>Missing fields</dt><dd>{{ evidence_source.coverage.missing_count }}</dd></div>
+        <div><dt>Eval labels</dt><dd>{{ evidence_source.coverage.supporting_counts.eval_labels if evidence_source.coverage.supporting_counts else evidence_source.eval_label_count }}</dd></div>
+        <div><dt>Traces</dt><dd>{{ evidence_source.coverage.supporting_counts.traces if evidence_source.coverage.supporting_counts else "n/a" }}</dd></div>
+      </dl>
+    {% endif %}
+    </div>
+  </details>
+
+  {% if high_risk_supplemental %}
+    <details>
+      <summary class="appendix-summary">High-risk log supplement ({{ appendix_sections.high_risk }} not in blocker table)</summary>
+      <div class="audit-appendix-panel">
+      <p class="section-note">Sessions logged as high-risk but not listed as blocker findings above.</p>
+      <div class="table-wrap table-wrap-full high-risk-table">
+        <table aria-label="Supplemental high-risk activity log">
+          <caption class="sr-only">High-risk sessions not duplicated in blocker findings</caption>
+          <thead>
+            <tr>
+              <th>Verdict</th>
+              <th>Case</th>
+              <th>Role</th>
+              <th>Tool</th>
+              <th>Trace</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in high_risk_supplemental %}
+              <tr>
+                <td><span class="verdict-badge verdict-{{ entry.verdict }}">{{ entry.verdict }}</span></td>
+                <td>{{ entry.case_id }}</td>
+                <td>{{ entry.user_role }}</td>
+                <td>{{ entry.tool_name or (entry.tool_names | join(", ") if entry.tool_names else "none") }}</td>
+                <td class="evidence-ids">{{ entry.trace_id }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      </div>
+    </details>
+  {% endif %}
+
+  {% if indeterminate_findings %}
+    <details>
+      <summary class="appendix-summary">Indeterminate sessions ({{ appendix_sections.indeterminate }})</summary>
+      <div class="audit-appendix-panel">
+      <div class="findings-list findings-list-full">
+        {% for finding in indeterminate_findings %}
+          <article class="finding finding-indeterminate">
+            <h3>{{ finding.finding_type }} · {{ finding.case_id }}</h3>
+            <dl class="finding-grid">
+              <div><dt>Role</dt><dd>{{ finding.user_role }}</dd></div>
+              <div><dt>Trace</dt><dd>{{ finding.trace_short }}</dd></div>
+              <div class="wide"><dt>Evidence</dt><dd>{{ finding.evidence_ids | join(", ") }}</dd></div>
+            </dl>
+          </article>
+        {% endfor %}
+      </div>
+      </div>
+    </details>
+  {% endif %}
+
+  <details>
+    <summary class="appendix-summary">Intent and tool risk appendix</summary>
+    <div class="audit-appendix-panel">
+    <div class="table-wrap appendix-table">
+      <table>
+        <thead><tr><th>Intent</th><th>Route</th><th>Tool</th><th>Risk</th></tr></thead>
+        <tbody>
+          {% for intent in intent_manifest.intents %}
+            <tr>
+              <td>{{ intent.intent_id }}</td>
+              <td>{{ intent.route_type }}</td>
+              <td>{{ intent.tool_name or "none" }}</td>
+              <td>{{ intent.risk_level }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    </div>
+  </details>
+
+  <details class="session-diagnosis-disclosure" id="session-diagnosis-appendix">
+    <summary class="appendix-summary">
+      {{ session_diagnosis_appendix.title }}{% if session_diagnosis_appendix.session_count %} ({{ session_diagnosis_appendix.session_count }} sessions){% endif %}
+    </summary>
+    <div class="audit-appendix-panel">
+    <p class="gemini-authority-note">{{ session_diagnosis_appendix.authority_note }}</p>
+    <p class="section-note">
+      Full session diagnoses remain in
+      <a href="/artifacts/release_decision.json">release_decision.json</a>
+      and
+      <a href="/artifacts/dangerous_sessions.json">dangerous_sessions.json</a>.
+    </p>
+    {% if session_diagnosis_appendix.visible_examples %}
+      <div class="table-wrap appendix-table">
+        <table aria-label="Session diagnosis examples">
+          <thead>
+            <tr><th>Case</th><th>Trace</th><th>Finding</th><th>Diagnosis preview</th></tr>
+          </thead>
+          <tbody>
+            {% for example in session_diagnosis_appendix.visible_examples %}
+              <tr>
+                <td>{{ example.case_id }}</td>
+                <td><code>{{ example.trace_id }}</code></td>
+                <td>{{ example.finding_type }}</td>
+                <td>{{ example.diagnosis_preview }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>No session-level diagnoses in this bundle.</p>
+    {% endif %}
+    </div>
+  </details>
+</section>

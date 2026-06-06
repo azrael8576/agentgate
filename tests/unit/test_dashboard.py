@@ -13,6 +13,10 @@ from backend.agentgate.web import routes_dashboard
 from backend.agentgate.web.report_renderer import (
     build_report_context,
     future_verification_run_card_copy,
+    hide_if_zero,
+    preview_list,
+    remaining_count,
+    truncate_text,
 )
 from fastapi.testclient import TestClient
 
@@ -251,39 +255,41 @@ def test_latest_report_renders_single_candidate_artifacts(tmp_path: Path, monkey
     assert "Candidate report" in response.text
     assert "BLOCKED" in response.text
     assert "Why blocked" in response.text
-    assert "Release controls generated from this blocked failure" in response.text
+    assert "Release controls generated" in response.text
     assert "Fix now" not in response.text
-    assert "Evidence summary" in response.text
-    assert "Audit archive summary" in response.text
-    assert "Phoenix provides trace/eval evidence" in response.text
-    assert "AgentGate adds AgentPack-defined policy thresholds" in response.text
+    assert "Evidence preview" in response.text
+    assert "Audit status" in response.text
+    assert "Audit archive summary" not in response.text
+    assert "Deterministic metrics decide BLOCKED/APPROVED" in response.text
+    assert "Demo evidence: controlled sample data, not production traffic." in response.text
     assert "Effective policy" in response.text
-    assert "blocks release" in response.text
-    assert "Release controls detail" in response.text
-    assert "Audit scope, coverage, and reproducibility" in response.text
+    assert "blocks release" in response.text or "impact-blocker" in response.text
+    assert "Release controls (" in response.text
+    assert "Audit scope and sample notes" in response.text
+    assert "Download full report bundle" in response.text
     assert "Reproducibility recipe" in response.text
-    assert "decision-brief" in response.text
+    assert "candidate-header-grid" in response.text
     assert (
         response.text.index("Why blocked")
-        < response.text.index("Release controls generated from this blocked failure")
+        < response.text.index('id="release-controls"')
         < response.text.index('id="future-verification"')
-        < response.text.index("Evidence summary")
+        < response.text.index('id="evidence-summary"')
     )
     assert response.text.index('id="release-controls"') < response.text.index(
         'id="future-verification"'
     )
-    assert "These are not debug notes" in response.text
-    assert "future release requirements" in response.text
-    assert response.text.count("is BLOCKED before production") == 1
+    assert "Technical backing: regression_gates.json" in response.text
+    assert "candidate-header-grid" in response.text
     assert "Non-authoritative explanation" not in response.text
-    assert "Gemini semantic diagnosis (non-authoritative" in response.text
-    assert "Explanatory only. Gemini is not used for BLOCKED/APPROVED." in response.text
+    assert "Session diagnosis appendix" in response.text
+    assert (
+        "Session-level diagnosis is retained for audit traceability. "
+        "It is not used for APPROVED / BLOCKED."
+    ) in response.text
+    assert "Gemini semantic diagnosis (non-authoritative" not in response.text
     assert "AG-RG-001" in response.text
     assert "Generated release controls" in response.text
-    assert (
-        "regression_gates.json is the technical artifact backing generated release controls."
-        in response.text
-    )
+    assert "Technical backing: regression_gates.json" in response.text
     assert "Developer remediation context" in response.text
     assert "Copy remediation context" in response.text
     assert "Copy debug prompt" not in response.text
@@ -304,12 +310,14 @@ def test_latest_report_renders_single_candidate_artifacts(tmp_path: Path, monkey
     assert 'class="decision-evidence-table"' in response.text
     assert 'class="blocker-findings-table"' in response.text
     assert "Show all" not in response.text
-    assert "blocker-pager-btn" in response.text
+    assert "blocker-pager-btn" not in response.text
+    assert "Showing 8 of" in response.text
+    assert response.text.count('class="blocker-summary-row"') == 8
     if 'class="gate-binding-table"' in response.text:
         assert 'data-label="Suite metric"' in response.text
     assert "report-sticky-nav" in response.text
     assert "regression_" in response.text or "StrictPolicyEnforcement" in response.text
-    assert "Rerun release check after fixes land." in response.text
+    assert "source evidence" in response.text
     assert response.text.count("Non-developer must not run deep investigation") >= 1
     assert response.text.count("Ambiguous incident question must not escalate") >= 1
 
@@ -326,27 +334,27 @@ def test_latest_report_shows_v21_approved_not_perfect_story(
 
     assert response.status_code == 200
     assert "APPROVED" in response.text
-    assert "Approved, not perfect." in response.text
+    assert "Approved, not perfect" in response.text
     assert "All inherited blocker controls passed." in response.text
     assert "Non-blocking warnings remain visible for review." in response.text
     assert "Failed, non-blocking controls" in response.text
-    assert response.text.count("<h2>Evidence summary</h2>") == 1
-    assert response.text.count("<h2>Audit archive summary</h2>") == 1
+    assert response.text.count("<h2>Evidence preview</h2>") == 1
+    assert response.text.count("<h2>Audit status</h2>") == 1
     assert response.text.count('aria-label="Audit artifacts"') == 1
     assert "Copy debug prompt" not in response.text
     primary_flow = response.text.split('aria-label="Audit appendices"', 1)[0]
     assert "Copy remediation context" not in primary_flow
     assert "Failed controls</span>" not in response.text
     assert "Warning controls</span>" in response.text
-    assert response.text.index("Future Verification") < response.text.index(
-        "Release controls status"
+    assert response.text.index("Release controls generated") < response.text.index(
+        "Future Verification"
     )
     assert "Decision impact if failed" in response.text
     assert "Blocking requirement" in response.text
     assert 'impact-badge impact-blocker">blocker</span>' not in response.text
     assert "Technical tool success rate" in response.text
     assert "Incident analysis format compliance" in response.text
-    assert "No new release controls were generated for this evidence window." in response.text
+    assert "No release controls were generated for this evidence window." in response.text
 
 
 def test_latest_report_missing_state(tmp_path: Path, monkeypatch: Any) -> None:
@@ -599,7 +607,7 @@ def test_report_context_includes_gate_binding_and_fingerprints(tmp_path: Path) -
     assert context["verdict_panel"]["headline"]
     assert context["why_blocked"]["blocking_drivers"]
     assert context["fix_now"]["tasks"]
-    assert context["audit_archive_summary"]["fields"]
+    assert context["audit_archive_summary"]["status_cards"]
     assert context["appendix_sections"]["controls"]
     assert context["executive_verdict"]["actions"]
     assert context["normalized_regression_gates"]
@@ -615,13 +623,31 @@ def test_report_context_includes_no_action_agent_review_sections(tmp_path: Path)
     context = build_report_context(latest_dir)
 
     assert context["agent_review"]["enabled"] is True
+    assert context["agent_review"]["unavailable"] is False
+    assert context["agent_review"]["subtitle"] == "Advisory review output."
+    audit_rows = context["agent_review"]["audit_summary"]["rows"]
+    assert any(row["label"] == "Review output" for row in audit_rows)
+    assert any(row["label"] == "Source findings" for row in audit_rows)
+    assert context["session_diagnosis_appendix"]["title"] == "Session diagnosis appendix"
     assert context["agent_review"]["pattern_finder"]["status"] == "patterns_found"
     assert context["agent_review"]["pattern_finder"]["failure_patterns"]
+    assert context["agent_review"]["pattern_finder"]["pattern_cards"]
+    assert context["agent_review"]["pattern_finder"]["visible_pattern_cards"]
+    assert len(context["agent_review"]["pattern_finder"]["visible_pattern_cards"]) <= 3
+    assert context["agent_review"]["dataset_planner"]["visible_candidate_cards"]
+    assert len(context["agent_review"]["dataset_planner"]["visible_candidate_cards"]) <= 3
     assert context["agent_review"]["dataset_planner"]["status"] == "candidates_found"
     assert context["agent_review"]["dataset_planner"]["dataset_candidates"]
     assert context["agent_review"]["dataset_planner"]["annotation_recommendations"]
     assert context["agent_review"]["dataset_planner"]["future_control_candidates"]
     assert context["agent_review"]["dataset_planner"]["duplicate_or_noise"]
+    assert context["agent_review"]["dataset_planner"]["candidate_cards"]
+    agent_review_status = next(
+        card
+        for card in context["audit_archive_summary"]["status_cards"]
+        if card["label"] == "Agent review artifacts"
+    )
+    assert agent_review_status["status"] == "ready"
 
 
 def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypatch: Any) -> None:
@@ -634,14 +660,111 @@ def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypa
 
     assert response.status_code == 200
     assert "Agent review" in response.text
-    assert "Pattern Finder" in response.text
-    assert "Dataset Planner" in response.text
+    assert "Advisory only" in response.text
+    assert "Requires review" in response.text
+    assert "Not a decision input" in response.text
+    assert "Auto-enforced" not in response.text
+    assert "Agents investigate and plan" not in response.text
+    assert "Nothing from Agent Review is auto-enforced" not in response.text
+    agent_review_chunk = response.text.split('id="agent-review"')[1].split('id="evidence-summary"')[0]
+    assert "Review queue" in response.text
+    assert "Human Review Queue" not in response.text
+    assert "Review candidate" in response.text
+    assert "<strong>Review:</strong>" in response.text
+    assert "Action:" not in agent_review_chunk
+    assert "Candidates requiring reviewer approval." in response.text
+    assert "Pattern Finder Summary" not in response.text
+    assert "Cross-session patterns linked to this release." in response.text
+    assert "Review output:" in response.text
+    assert "Source findings:" in response.text
+    assert "blocker findings were grouped into" not in response.text
+    assert ">Details</summary>" in response.text
+    assert "Show details" not in response.text
+    assert "Show review details" not in response.text
+    assert "Open JSON" in response.text
+    assert "agent-detail-panel" in response.text
+    assert "evidence-chip" in response.text
     assert "Unauthorized dangerous tool execution" in response.text
-    assert "pending_review" in response.text
-    assert "Annotation recommendations" in response.text
-    assert "Future control candidates" in response.text
-    assert "Duplicate or noise groups" in response.text
-    assert "The release gate still decides APPROVED or BLOCKED." in response.text
+    assert "Pending review" in response.text
+    assert "Review candidate" in response.text
+    assert "Approve / reject candidate" in response.text
+    assert "Confirm whether this should become" not in response.text
+    assert "Pattern Finder details" not in response.text
+    assert "Dataset Planner details" not in response.text
+    assert "Dataset Planner overflow" not in response.text
+    assert "gate-blocker-card" not in agent_review_chunk
+    assert agent_review_chunk.index("Review queue") < agent_review_chunk.index(
+        'id="pattern-finder-summary"'
+    )
+    assert "Supporting patterns" in agent_review_chunk
+    assert "Supporting pattern summary" not in agent_review_chunk
+    assert response.text.index('id="future-verification"') < response.text.index('id="agent-review"')
+    assert response.text.index('id="agent-review"') < response.text.index('id="evidence-summary"')
+    assert '<details class="session-diagnosis-disclosure" id="session-diagnosis-appendix">' in (
+        response.text
+    )
+    assert (
+        '<details class="session-diagnosis-disclosure" id="session-diagnosis-appendix" open>'
+        not in response.text
+    )
+    assert (
+        "Session-level diagnosis is retained for audit traceability. "
+        "It is not used for APPROVED / BLOCKED."
+    ) in response.text
+    assert response.text.index('id="evidence-summary"') < response.text.index('id="audit-archive"')
+    assert response.text.index('id="audit-archive"') < response.text.index('aria-label="Audit appendices"')
+    assert response.text.index('aria-label="Audit appendices"') < response.text.index('id="audit-artifacts"')
+
+
+def test_report_agent_review_density_limits_patterns_and_planner(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    latest_dir = tmp_path / "latest"
+    run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
+    _rewrite_json(
+        latest_dir / "dataset_planner_results.json",
+        lambda payload: payload["dataset_candidates"].append(
+            {
+                "candidate_id": "dataset_candidate.dangerous_tool_policy_violation.02",
+                "source_trace_ids": ["trace_overflow_001"],
+                "source_evidence_ids": ["span_overflow_001"],
+                "source_finding_types": ["dangerous_tool_policy_violation"],
+                "rationale": "Extra overflow candidate for bounded queue rendering.",
+                "review_instructions": "Review overflow candidate only in JSON.",
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ),
+    )
+    monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(latest_dir))
+    client = TestClient(app)
+
+    response = client.get("/reports/latest")
+
+    assert response.status_code == 200
+    context = build_report_context(latest_dir)
+    visible_patterns = context["agent_review"]["pattern_finder"]["visible_pattern_cards"]
+    overflow_pattern_count = context["agent_review"]["pattern_finder"]["overflow_pattern_count"]
+    visible_planner = context["agent_review"]["dataset_planner"]["visible_candidate_cards"]
+    overflow_planner_count = context["agent_review"]["dataset_planner"]["overflow_candidate_count"]
+    assert len(visible_patterns) == 3
+    assert overflow_pattern_count >= 1
+    assert len(visible_planner) == 3
+    assert overflow_planner_count >= 1
+    assert "additional pattern" in response.text
+    assert "dataset_planner_results.json" in response.text
+    assert "pattern_finder_results.json" in response.text
+    assert "Dataset Planner overflow" not in response.text
+    agent_review_chunk = response.text.split('id="agent-review"')[1].split('id="evidence-summary"')[0]
+    assert agent_review_chunk.count("agent-review-planner-card") == 3
+    pattern_section = agent_review_chunk.split('id="pattern-finder-summary"', 1)[1]
+    assert pattern_section.count("agent-review-pattern-card") == 3
+    assert 'agent-review-type-label">Duplicate/noise group' not in agent_review_chunk
+    planner_before_details = agent_review_chunk.split(">Details</summary>", 1)[0]
+    assert '<p class="agent-review-id-list"><strong>Traces:</strong>' not in planner_before_details
+    for card in visible_patterns:
+        assert len(card["preview_evidence_ids"]) <= 3
+        assert len(card["details"]["detail_evidence_ids"]) <= 10
 
 
 def test_report_renders_multiple_patterns_and_warning_observations(
@@ -702,8 +825,106 @@ def test_report_renders_multiple_patterns_and_warning_observations(
     assert response.status_code == 200
     assert "Unauthorized dangerous tool execution" in response.text
     assert "Dangerous tool policy violation" in response.text
-    assert "Warning observations" in response.text
     assert "Policy preflight missing" in response.text
+    assert 'id="pattern-finder-summary"' in response.text
+
+
+def test_agent_review_display_helpers_bound_lists() -> None:
+    items = ["a", "b", "c", "d", "e"]
+    assert preview_list(items, max_items=3) == ["a", "b", "c"]
+    assert remaining_count(items, max_items=3) == 2
+    assert truncate_text("x" * 200, 160).endswith("…")
+    assert len(truncate_text("x" * 200, 160)) == 160
+    assert hide_if_zero(0) is None
+    assert hide_if_zero(3) == 3
+
+
+def test_report_audit_polish_display_limits_and_copy(tmp_path: Path, monkeypatch: Any) -> None:
+    latest_dir = tmp_path / "latest"
+    run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
+    monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(latest_dir))
+    client = TestClient(app)
+
+    response = client.get("/reports/latest")
+    text = response.text
+    context = build_report_context(latest_dir)
+
+    assert response.status_code == 200
+    assert context["evidence_preview"]["visible_limit"] == 8
+    assert len(context["evidence_preview"]["findings"]) == 8
+    assert context["evidence_preview"]["truncated"] is True
+    assert "Showing 8 of" in text
+    assert "Agents investigate and plan" not in text
+    assert "Nothing is auto-enforced" not in text
+    assert "Phoenix tells us what happened" not in text
+    assert text.count("Advisory only") == 1
+    assert "audit-appendix-panel" in text
+    assert "max-height: 360px" in text or 'class="audit-appendix-panel"' in text
+    appendix_chunk = text.split('aria-label="Audit appendices"', 1)[1].split(
+        'id="audit-artifacts"', 1
+    )[0]
+    assert '<details class="evidence-disclosure" open>' not in appendix_chunk
+    assert "<strong>Control:</strong>" in text
+    assert "<strong>Required behavior:</strong>" in text
+    assert "<strong>Source:</strong>" in text
+    assert len(context["agent_review"]["dataset_planner"]["visible_candidate_cards"]) <= 3
+    assert len(context["agent_review"]["pattern_finder"]["visible_pattern_cards"]) <= 3
+
+
+def test_report_hides_zero_stats_and_audit_style_agent_review_copy(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    latest_dir = tmp_path / "latest"
+    run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
+    monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(latest_dir))
+    client = TestClient(app)
+
+    response = client.get("/reports/latest")
+    text = response.text
+    agent_review_chunk = text.split('id="agent-review"')[1].split('id="evidence-summary"')[0]
+
+    assert response.status_code == 200
+    assert "Needs review</span>" not in text.split('id="why-blocked"')[1].split(
+        'id="release-controls"'
+    )[0]
+    assert text.count("Advisory only") == 1
+    assert "Nothing from Agent Review is auto-enforced" not in text
+    assert "Agents investigate and plan" not in text
+    assert "blocker findings were grouped into" not in text
+    assert "Review output:" in text
+    assert 'evidence-chip-more">+' in text or "+ more" in text
+    assert 'class="agent-detail-panel"' in text
+    assert "Audit appendix" in text
+    assert agent_review_chunk.count("agent-review-pattern-card") <= 3
+    assert agent_review_chunk.count("agent-review-planner-card") <= 3
+    assert (
+        '<details class="session-diagnosis-disclosure" id="session-diagnosis-appendix" open>'
+        not in text
+    )
+
+
+def test_report_renders_agent_review_unavailable_fallback(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    latest_dir = tmp_path / "latest"
+    run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
+    for artifact_name in (
+        "pattern_finder_results.json",
+        "dataset_planner_results.json",
+        "pattern_finder_plan.json",
+        "agent_review_input.json",
+    ):
+        (latest_dir / artifact_name).unlink()
+    monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(latest_dir))
+    client = TestClient(app)
+
+    response = client.get("/reports/latest")
+
+    assert response.status_code == 200
+    assert (
+        "Agentic review unavailable. The deterministic release decision remains valid."
+        in response.text
+    )
 
 
 def _inject_nonblocking_inherited_control_failure(output_dir: Path) -> None:
@@ -743,9 +964,9 @@ def test_report_renders_future_verification_not_applicable_for_v2(
 
     assert response.status_code == 200
     assert "Future Verification" in response.text
-    assert "Not applicable" in response.text
-    assert "Future Verification is not applicable" in response.text
-    assert "follow-up candidate must verify" in response.text
+    assert "Not applicable for this blocked source release." in response.text
+    assert "Not applicable for this blocked source release." in response.text
+    assert "Future candidates must verify the generated controls." in response.text
 
 
 def test_report_renders_future_verification_verified_with_control_rows(
@@ -808,12 +1029,20 @@ def test_report_verified_with_nonblocking_failures_uses_correct_copy(
     assert "non-blocking" in response.text
 
 
-def test_report_renders_future_verification_not_available(tmp_path: Path, monkeypatch: Any) -> None:
-    latest_dir = tmp_path / "latest"
+def _disable_reference_regression_gate_fallbacks(monkeypatch: Any, tmp_path: Path) -> None:
     monkeypatch.setattr(
         "backend.agentgate.release.regression_gate_verifier.BUNDLED_REFERENCE_REGRESSION_GATES",
-        tmp_path / "missing" / "regression_gates.json",
+        tmp_path / "missing" / "bundled" / "regression_gates.json",
     )
+    monkeypatch.setattr(
+        "backend.agentgate.release.regression_gate_verifier.CONTAINER_REFERENCE_REGRESSION_GATES",
+        tmp_path / "missing" / "container" / "regression_gates.json",
+    )
+
+
+def test_report_renders_future_verification_not_available(tmp_path: Path, monkeypatch: Any) -> None:
+    latest_dir = tmp_path / "latest"
+    _disable_reference_regression_gate_fallbacks(monkeypatch, tmp_path)
     _write_artifacts("v2.1", latest_dir, tmp_path)
     monkeypatch.setenv("AGENTGATE_LATEST_ARTIFACT_DIR", str(latest_dir))
     client = TestClient(app)
@@ -869,10 +1098,7 @@ def test_landing_v21_missing_controls_shows_not_available_copy(
     latest_dir = tmp_path / "latest"
     v2_dir = tmp_path / "v2"
     v21_dir = tmp_path / "v21"
-    monkeypatch.setattr(
-        "backend.agentgate.release.regression_gate_verifier.BUNDLED_REFERENCE_REGRESSION_GATES",
-        tmp_path / "missing" / "regression_gates.json",
-    )
+    _disable_reference_regression_gate_fallbacks(monkeypatch, tmp_path)
     _write_artifacts("v2.1", latest_dir, tmp_path)
     _write_artifacts("v2", v2_dir, tmp_path)
     _write_artifacts("v2.1", v21_dir, tmp_path)
@@ -981,7 +1207,7 @@ def test_approved_report_primary_flow_has_no_remediation_copy(
 
     assert "Future Verification" in text
     assert "All inherited blocker controls passed." in text
-    assert "Approved, not perfect." in text
+    assert "Approved, not perfect" in text
     assert "Copy debug prompt" not in text
     primary_flow = text.split('aria-label="Audit appendices"', 1)[0]
     assert "Copy remediation context" not in primary_flow
