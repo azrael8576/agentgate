@@ -2800,8 +2800,18 @@ body.report-page main {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  justify-content: space-between;
+  justify-content: flex-start;
   margin-bottom: 6px;
+}
+
+.agent-review-compact-head-leading {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.agent-review-compact-head .agent-review-type-badge {
+  margin-left: auto;
 }
 
 .agent-review-compact-head h4 {
