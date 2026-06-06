@@ -65,6 +65,49 @@ def pull_phoenix_traces(
     ]
 
 
+def pull_phoenix_traces_with_failures(
+    client: PhoenixToolClient,
+    *,
+    project_identifier: str,
+    trace_ids: list[str],
+    include_annotations: bool = True,
+) -> dict[str, Any]:
+    traces: list[dict[str, Any]] = []
+    missing_trace_ids: list[str] = []
+    failures: list[dict[str, str]] = []
+
+    for trace_id in trace_ids:
+        try:
+            traces.append(
+                client.call_tool(
+                    "get-trace",
+                    {
+                        "project_identifier": project_identifier,
+                        "trace_id": trace_id,
+                        "include_annotations": include_annotations,
+                    },
+                )
+            )
+        except Exception as exc:
+            missing_trace_ids.append(trace_id)
+            failures.append(
+                {
+                    "trace_id": trace_id,
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                }
+            )
+
+    return {
+        "traces": traces,
+        "status": "failed" if failures else "completed",
+        "requested_trace_ids": list(trace_ids),
+        "missing_trace_ids": missing_trace_ids,
+        "failures": failures,
+        "pulled_trace_count": len(traces),
+    }
+
+
 def query_phoenix_evidence(
     query: PhoenixEvidenceQuery,
     client: PhoenixToolClient,

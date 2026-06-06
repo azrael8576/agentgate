@@ -13,10 +13,13 @@ from backend.agentgate.release.evidence_loader import (
 from backend.agentgate.schemas.evidence import SpanEvent
 
 AGENT_REVIEW_STATUS_DISABLED = "disabled"
+AGENT_REVIEW_STATUS_FAILED = "failed"
 AGENT_REVIEW_STATUS_INVALID = "invalid"
 AGENT_REVIEW_STATUS_NO_ACTION = "no_action"
+AGENT_REVIEW_STATUS_PARTIAL_FAILURE = "partial_failure"
 AGENT_REVIEW_STATUS_PATTERNS_FOUND = "patterns_found"
 AGENT_REVIEW_STATUS_CANDIDATES_FOUND = "candidates_found"
+AGENT_REVIEW_STATUS_TRACE_PULL_FAILED = "trace_pull_failed"
 AGENT_REVIEW_ARTIFACT_NAMES = [
     "agent_review_input",
     "pattern_finder_plan",
@@ -31,6 +34,9 @@ NO_ACTION_AGENT_REVIEW_SUMMARY = "No action from agent review."
 NO_ACTION_PATTERN_FINDER_SUMMARY = "No action from Pattern Finder."
 NO_ACTION_DATASET_PLANNER_SUMMARY = "No action from Dataset Planner in this slice."
 DATASET_PLANNER_SUMMARY = "Dataset Planner proposed 1 human-review candidate."
+PARTIAL_FAILURE_AGENT_REVIEW_SUMMARY = (
+    "Agent review had partial failures; deterministic release decision still used metrics and policy."
+)
 
 _PATTERN_TITLES = {
     "unauthorized_dangerous_tool_execution": "Unauthorized dangerous tool execution",
@@ -60,6 +66,7 @@ def build_agent_review_artifacts(
     reviewed_safe = dangerous_sessions.get("reviewed_safe", [])
     high_risk_activity = dangerous_sessions.get("high_risk_activity_log", [])
     trace_evidence = _build_trace_evidence(records, evidence_source, critical_findings)
+    trace_pull = _trace_pull_status(evidence_source)
 
     pattern_status = (
         AGENT_REVIEW_STATUS_PATTERNS_FOUND
@@ -89,6 +96,7 @@ def build_agent_review_artifacts(
             "coverage_summary": _coverage_summary(evidence_source.get("coverage")),
         },
         "trace_evidence": trace_evidence,
+        "trace_pull": trace_pull,
     }
     pattern_finder_plan = {
         **base,
@@ -101,26 +109,43 @@ def build_agent_review_artifacts(
         ],
         "focus_areas": _pattern_focus_areas(critical_findings, trace_evidence),
     }
-    pattern_finder_results = validate_pattern_finder_results(
-        _pattern_finder_results(
+    pattern_finder_results = _safe_review_agent_result(
+        agent="pattern_finder",
+        base=base,
+        items_key="failure_patterns",
+        builder=lambda: _pattern_finder_results(
             base=base,
             critical_findings=critical_findings,
             trace_evidence=trace_evidence,
         ),
-        agent_review_input,
+        validator=lambda results: validate_pattern_finder_results(
+            results,
+            agent_review_input,
+        ),
     )
-    dataset_planner_results = validate_dataset_planner_results(
-        _dataset_planner_results(
+    dataset_planner_results = _safe_review_agent_result(
+        agent="dataset_planner",
+        base=base,
+        items_key="dataset_candidates",
+        builder=lambda: _dataset_planner_results(
             base=base,
             critical_findings=critical_findings,
             trace_evidence=trace_evidence,
         ),
-        agent_review_input,
+        validator=lambda results: validate_dataset_planner_results(
+            results,
+            agent_review_input,
+        ),
     )
-    agent_review_input["agent_review"]["status"] = pattern_finder_results["status"]
-    agent_review_input["agent_review"]["summary"] = pattern_finder_results["summary"]
-    pattern_finder_plan["status"] = pattern_finder_results["status"]
-    pattern_finder_plan["summary"] = pattern_finder_results["summary"]
+    aggregate_status = _aggregate_agent_review_status(
+        trace_pull=trace_pull,
+        pattern_finder_results=pattern_finder_results,
+        dataset_planner_results=dataset_planner_results,
+    )
+    agent_review_input["agent_review"]["status"] = aggregate_status["status"]
+    agent_review_input["agent_review"]["summary"] = aggregate_status["summary"]
+    pattern_finder_plan["status"] = aggregate_status["status"]
+    pattern_finder_plan["summary"] = aggregate_status["summary"]
 
     return {
         "agent_review_input": agent_review_input,
@@ -147,7 +172,7 @@ def validate_pattern_finder_results(
         items_key="failure_patterns",
         validator=_pattern_validation_errors,
         default_summary=NO_ACTION_PATTERN_FINDER_SUMMARY,
-        invalid_summary="Pattern Finder output failed validation and was not trusted.",
+        invalid_summary="Pattern Finder failed validation and was not trusted.",
         validated_count_key="validated_failure_patterns",
     )
 
@@ -161,7 +186,7 @@ def validate_dataset_planner_results(
         items_key="dataset_candidates",
         validator=_dataset_candidate_validation_errors,
         default_summary=NO_ACTION_DATASET_PLANNER_SUMMARY,
-        invalid_summary="Dataset Planner output failed validation and was not trusted.",
+        invalid_summary="Dataset Planner failed validation and was not trusted.",
         validated_count_key="validated_dataset_candidates",
     )
 
@@ -193,6 +218,7 @@ def _validate_review_results(
         status = AGENT_REVIEW_STATUS_INVALID
         summary = invalid_summary
         validated_items = []
+    reference_errors, schema_errors = _split_validation_errors(errors)
     return {
         **results,
         "status": status,
@@ -202,7 +228,135 @@ def _validate_review_results(
             "trusted": trusted,
             validated_count_key: len(validated_items),
             "errors": errors,
+            "reference_errors": reference_errors,
+            "schema_errors": schema_errors,
         },
+    }
+
+
+def _split_validation_errors(errors: list[str]) -> tuple[list[str], list[str]]:
+    reference_prefixes = (
+        "unknown trace_id ",
+        "unknown evidence_id ",
+        "unknown example trace_id ",
+    )
+    reference_errors = [
+        error for error in errors if any(error.startswith(prefix) for prefix in reference_prefixes)
+    ]
+    schema_errors = [error for error in errors if error not in reference_errors]
+    return reference_errors, schema_errors
+
+
+def _safe_review_agent_result(
+    *,
+    agent: str,
+    base: dict[str, Any],
+    items_key: str,
+    builder: Callable[[], dict[str, Any]],
+    validator: Callable[[dict[str, Any]], dict[str, Any]],
+) -> dict[str, Any]:
+    try:
+        return validator(builder())
+    except Exception as exc:
+        return _failed_review_results(
+            base=base,
+            agent=agent,
+            items_key=items_key,
+            message=str(exc),
+        )
+
+
+def _failed_review_results(
+    *,
+    base: dict[str, Any],
+    agent: str,
+    items_key: str,
+    message: str,
+) -> dict[str, Any]:
+    agent_label = "Pattern Finder" if agent == "pattern_finder" else "Dataset Planner"
+    validated_count_key = (
+        "validated_failure_patterns"
+        if items_key == "failure_patterns"
+        else "validated_dataset_candidates"
+    )
+    return {
+        **base,
+        "agent": agent,
+        "status": AGENT_REVIEW_STATUS_FAILED,
+        "summary": (
+            f"{agent_label} failed; deterministic release decision still used metrics and policy."
+        ),
+        items_key: [],
+        "failure": {
+            "failure_mode": "agent_execution_failed",
+            "message": message,
+        },
+        "validation": {
+            "trusted": False,
+            validated_count_key: 0,
+            "errors": [message],
+            "reference_errors": [],
+            "schema_errors": [message],
+        },
+    }
+
+
+def _trace_pull_status(evidence_source: dict[str, Any]) -> dict[str, Any]:
+    trace_pull = evidence_source.get("trace_pull")
+    if isinstance(trace_pull, dict):
+        return {
+            "status": trace_pull.get("status", "not_requested"),
+            "requested_trace_ids": list(trace_pull.get("requested_trace_ids", [])),
+            "missing_trace_ids": list(trace_pull.get("missing_trace_ids", [])),
+            "failures": list(trace_pull.get("failures", [])),
+            "pulled_trace_count": int(trace_pull.get("pulled_trace_count", 0)),
+        }
+    dangerous_trace_ids = evidence_source.get("dangerous_trace_ids", [])
+    return {
+        "status": "not_requested" if not dangerous_trace_ids else "completed",
+        "requested_trace_ids": list(dangerous_trace_ids),
+        "missing_trace_ids": [],
+        "failures": [],
+        "pulled_trace_count": len(evidence_source.get("dangerous_traces", []) or []),
+    }
+
+
+def _aggregate_agent_review_status(
+    *,
+    trace_pull: dict[str, Any],
+    pattern_finder_results: dict[str, Any],
+    dataset_planner_results: dict[str, Any],
+) -> dict[str, str]:
+    if trace_pull.get("status") == "failed":
+        missing_count = len(trace_pull.get("missing_trace_ids", []))
+        trace_label = "trace" if missing_count == 1 else "traces"
+        return {
+            "status": AGENT_REVIEW_STATUS_TRACE_PULL_FAILED,
+            "summary": f"Phoenix trace pull had gaps for {missing_count} dangerous {trace_label}.",
+        }
+
+    child_statuses = {
+        str(pattern_finder_results.get("status") or ""),
+        str(dataset_planner_results.get("status") or ""),
+    }
+    if child_statuses & {AGENT_REVIEW_STATUS_INVALID, AGENT_REVIEW_STATUS_FAILED}:
+        return {
+            "status": AGENT_REVIEW_STATUS_PARTIAL_FAILURE,
+            "summary": PARTIAL_FAILURE_AGENT_REVIEW_SUMMARY,
+        }
+    if pattern_finder_results.get("status") == AGENT_REVIEW_STATUS_PATTERNS_FOUND:
+        return {
+            "status": AGENT_REVIEW_STATUS_PATTERNS_FOUND,
+            "summary": str(pattern_finder_results.get("summary") or PATTERN_FINDER_SUMMARY),
+        }
+    if dataset_planner_results.get("status") == AGENT_REVIEW_STATUS_CANDIDATES_FOUND:
+        return {
+            "status": AGENT_REVIEW_STATUS_CANDIDATES_FOUND,
+            "summary": str(dataset_planner_results.get("summary") or DATASET_PLANNER_SUMMARY),
+        }
+    return {
+        "status": AGENT_REVIEW_STATUS_NO_ACTION,
+        "summary": NO_ACTION_AGENT_REVIEW_SUMMARY,
     }
 
 

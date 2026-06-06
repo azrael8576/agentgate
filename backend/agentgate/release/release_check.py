@@ -30,7 +30,7 @@ from backend.agentgate.release.metrics_aggregator import aggregate_metrics
 from backend.agentgate.release.phoenix_evidence_source import (
     PhoenixEvidenceQuery,
     PhoenixToolClient,
-    pull_phoenix_traces,
+    pull_phoenix_traces_with_failures,
     query_phoenix_spans,
 )
 from backend.agentgate.release.phoenix_mcp_client import (
@@ -216,12 +216,13 @@ def _run_release_check_from_phoenix_client(
         max_traces=query.resolved_max_dangerous_traces,
         include_reviewed_safe=get_pull_reviewed_safe_traces(),
     )
-    dangerous_traces = pull_phoenix_traces(
+    trace_pull = pull_phoenix_traces_with_failures(
         client,
         project_identifier=query.project_identifier,
         trace_ids=dangerous_trace_ids,
         include_annotations=query.include_annotations,
     )
+    dangerous_traces = trace_pull["traces"]
 
     return run_release_check_from_records(
         records,
@@ -232,6 +233,13 @@ def _run_release_check_from_phoenix_client(
             "query": spans_payload.get("query", {}),
             "dangerous_trace_ids": dangerous_trace_ids,
             "dangerous_traces": dangerous_traces,
+            "trace_pull": {
+                "status": trace_pull["status"],
+                "requested_trace_ids": trace_pull["requested_trace_ids"],
+                "missing_trace_ids": trace_pull["missing_trace_ids"],
+                "failures": trace_pull["failures"],
+                "pulled_trace_count": trace_pull["pulled_trace_count"],
+            },
             "trace_selection_strategy": "critical_findings_priority",
             "eval_label_count": len(extra_labels),
         },
