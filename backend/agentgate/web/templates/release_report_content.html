@@ -275,6 +275,9 @@
         {% for candidate in agent_review.dataset_planner.dataset_candidates %}
           <p class="gate-reason"><strong>{{ candidate.candidate_id }}</strong></p>
           <p class="section-note">{{ candidate.review_status }}</p>
+          <p class="section-note">{{ candidate.rationale }}</p>
+          <p class="section-note">{{ candidate.review_instructions }}</p>
+          <p class="section-note">{{ candidate.conversion_guidance }}</p>
         {% endfor %}
       {% endif %}
     </article>

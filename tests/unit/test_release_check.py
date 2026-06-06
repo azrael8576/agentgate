@@ -303,6 +303,41 @@ def test_dataset_planner_validation_rejects_invented_references() -> None:
     assert validated["validation"]["errors"]
 
 
+def test_dataset_planner_validation_rejects_nondeterministic_candidate_ids() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_001",
+                "finding_types": ["unauthorized_dangerous_tool_execution"],
+                "spans": [{"span_id": "span_real_001"}],
+            }
+        ]
+    }
+    results = {
+        "status": "candidates_found",
+        "dataset_candidates": [
+            {
+                "candidate_id": "candidate made by llm",
+                "source_trace_ids": ["trace_real_001"],
+                "source_evidence_ids": ["span_real_001"],
+                "source_finding_types": ["unauthorized_dangerous_tool_execution"],
+                "rationale": "Use this blocker trace as a future release-eval case.",
+                "review_instructions": "Confirm the trace is representative before adding coverage.",
+                "conversion_guidance": "Convert into a future release control or eval case.",
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+    }
+
+    validated = validate_dataset_planner_results(results, agent_review_input)
+
+    assert validated["status"] == "invalid"
+    assert validated["dataset_candidates"] == []
+    assert validated["validation"]["trusted"] is False
+    assert "invalid candidate_id candidate made by llm" in validated["validation"]["errors"]
+
+
 def test_pattern_finder_validation_rejects_missing_example_traces() -> None:
     agent_review_input = {
         "trace_evidence": [
@@ -433,6 +468,18 @@ def test_cli_local_release_check_defaults_agent_review_off(tmp_path: Path) -> No
     assert result.exit_code == 0
     assert "agentic_review=disabled" in result.output
     assert not (output_dir / "agent_review_input.json").exists()
+
+
+def test_release_report_includes_dataset_planner_candidate_details(tmp_path: Path) -> None:
+    evidence = _seed("v2", tmp_path)
+    output_dir = tmp_path / "release" / "v2"
+
+    run_release_check(evidence, output_dir, agentic_review_enabled=True)
+    html = (output_dir / "release_report.html").read_text(encoding="utf-8")
+
+    assert "dataset_candidate.unauthorized_dangerous_tool_execution.01" in html
+    assert "Confirm the cited traces are representative before converting them" in html
+    assert "Do not add it directly to a golden dataset." in html
 
 
 def test_release_check_writes_release_authority_audit_manifest(tmp_path: Path) -> None:

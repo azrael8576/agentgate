@@ -73,3 +73,13 @@ def test_build_dataset_planner_agent_returns_agent_or_none() -> None:
     if agent is not None:
         assert agent.name == "agentgate_dataset_planner_agent"
         assert agent.tools == []
+
+
+def test_dataset_planner_prompt_preserves_human_review_boundary() -> None:
+    from backend.agentgate.adk.dataset_planner_agent import DATASET_PLANNER_AGENT_INSTRUCTION
+
+    assert "dataset, annotation, or future-control planning candidates" in (
+        DATASET_PLANNER_AGENT_INSTRUCTION
+    )
+    assert "do not approve or block releases" in DATASET_PLANNER_AGENT_INSTRUCTION.lower()
+    assert "do not directly add golden dataset items" in DATASET_PLANNER_AGENT_INSTRUCTION.lower()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import re
 from typing import Any, Callable
 
 from backend.agentgate.core.agent_pack import LoadedAgentPack
@@ -39,6 +40,9 @@ _PATTERN_TITLES = {
     "policy_violation_with_execution": "Policy violation with execution",
     "policy_preflight_missing": "Policy preflight missing",
 }
+_DATASET_CANDIDATE_ID_PATTERN = re.compile(
+    r"^dataset_candidate\.([a-z0-9_]+)\.(\d{2})$"
+)
 
 
 def build_agent_review_artifacts(
@@ -323,12 +327,21 @@ def _dataset_candidate_validation_errors(
     source_trace_ids = [str(item) for item in candidate.get("source_trace_ids", [])]
     source_evidence_ids = [str(item) for item in candidate.get("source_evidence_ids", [])]
     source_finding_types = [str(item) for item in candidate.get("source_finding_types", [])]
+    candidate_id = str(candidate.get("candidate_id") or "")
+    candidate_id_match = _DATASET_CANDIDATE_ID_PATTERN.match(candidate_id)
+    if not candidate_id_match:
+        errors.append(f"invalid candidate_id {candidate_id}")
     if not source_trace_ids:
         errors.append("missing source_trace_ids")
     if not source_evidence_ids:
         errors.append("missing source_evidence_ids")
     if not source_finding_types:
         errors.append("missing source_finding_types")
+    elif candidate_id_match and candidate_id_match.group(1) not in source_finding_types:
+        errors.append(
+            "candidate_id finding type does not match source_finding_types "
+            f"for {candidate_id}"
+        )
     if candidate.get("requires_human_review") is not True:
         errors.append("requires_human_review must be true")
     for trace_id in source_trace_ids:
@@ -364,6 +377,21 @@ def _dataset_planner_results(
             for evidence_id in finding.get("evidence_ids", [])
         }
     )
+    example_trace = next(
+        (
+            trace
+            for trace in trace_evidence
+            if str(trace.get("trace_id") or "") in source_trace_ids
+        ),
+        {},
+    )
+    tool_name = _first_nonempty_value(
+        *[
+            span.get("attributes", {}).get("tool_name")
+            for span in example_trace.get("spans", [])
+            if isinstance(span, dict)
+        ]
+    ) or "the dangerous tool path"
     return {
         **base,
         "agent": "dataset_planner",
@@ -371,21 +399,24 @@ def _dataset_planner_results(
         "summary": DATASET_PLANNER_SUMMARY,
         "dataset_candidates": [
             {
-                "candidate_id": f"dataset_candidate.{finding_type}.01",
+                "candidate_id": _dataset_candidate_id(finding_type, 1),
                 "source_trace_ids": source_trace_ids,
                 "source_evidence_ids": source_evidence_ids,
                 "source_finding_types": [finding_type],
                 "rationale": (
-                    "This blocker evidence should become a human-reviewed dataset candidate "
-                    "for future release coverage."
+                    f"Use the repeated {finding_type.replace('_', ' ')} evidence around "
+                    f"{tool_name} as a human-reviewed dataset candidate for future release "
+                    "coverage."
                 ),
                 "review_instructions": (
                     "Confirm the cited traces are representative before converting them into "
-                    "a controlled eval or release-control candidate."
+                    "a controlled eval or release-control candidate. Check the trace story, "
+                    "span path, and supporting evidence IDs against the pulled Phoenix trace."
                 ),
                 "conversion_guidance": (
-                    "Turn this candidate into a future eval case or release control after "
-                    "human review."
+                    f"After human review, convert the cited {tool_name} failure into a future "
+                    "eval case or release control candidate. Do not add it directly to a "
+                    "golden dataset."
                 ),
                 "requires_human_review": True,
                 "review_status": "pending_review",
@@ -695,6 +726,10 @@ def _selected_findings_by_type(
         grouped[str(finding.get("finding_type") or "unknown")].append(finding)
     finding_type = min(grouped, key=finding_priority)
     return finding_type, grouped[finding_type]
+
+
+def _dataset_candidate_id(finding_type: str, index: int) -> str:
+    return f"dataset_candidate.{finding_type}.{index:02d}"
 
 
 def _no_action_review_results(
