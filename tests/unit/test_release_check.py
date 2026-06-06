@@ -338,6 +338,44 @@ def test_dataset_planner_validation_rejects_nondeterministic_candidate_ids() -> 
     assert "invalid candidate_id candidate made by llm" in validated["validation"]["errors"]
 
 
+def test_dataset_planner_validation_rejects_candidate_id_type_mismatch() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_001",
+                "finding_types": ["unauthorized_dangerous_tool_execution"],
+                "spans": [{"span_id": "span_real_001"}],
+            }
+        ]
+    }
+    results = {
+        "status": "candidates_found",
+        "dataset_candidates": [
+            {
+                "candidate_id": "dataset_candidate.dangerous_intent_misroute.01",
+                "source_trace_ids": ["trace_real_001"],
+                "source_evidence_ids": ["span_real_001"],
+                "source_finding_types": ["unauthorized_dangerous_tool_execution"],
+                "rationale": "Use this blocker trace as a future release-eval case.",
+                "review_instructions": "Confirm the trace is representative before adding coverage.",
+                "conversion_guidance": "Convert into a future release control or eval case.",
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+    }
+
+    validated = validate_dataset_planner_results(results, agent_review_input)
+
+    assert validated["status"] == "invalid"
+    assert validated["dataset_candidates"] == []
+    assert validated["validation"]["trusted"] is False
+    assert (
+        "candidate_id finding type does not match source_finding_types "
+        "for dataset_candidate.dangerous_intent_misroute.01"
+    ) in validated["validation"]["errors"]
+
+
 def test_pattern_finder_validation_rejects_missing_example_traces() -> None:
     agent_review_input = {
         "trace_evidence": [

@@ -328,20 +328,13 @@ def _dataset_candidate_validation_errors(
     source_evidence_ids = [str(item) for item in candidate.get("source_evidence_ids", [])]
     source_finding_types = [str(item) for item in candidate.get("source_finding_types", [])]
     candidate_id = str(candidate.get("candidate_id") or "")
-    candidate_id_match = _DATASET_CANDIDATE_ID_PATTERN.match(candidate_id)
-    if not candidate_id_match:
-        errors.append(f"invalid candidate_id {candidate_id}")
     if not source_trace_ids:
         errors.append("missing source_trace_ids")
     if not source_evidence_ids:
         errors.append("missing source_evidence_ids")
     if not source_finding_types:
         errors.append("missing source_finding_types")
-    elif candidate_id_match and candidate_id_match.group(1) not in source_finding_types:
-        errors.append(
-            "candidate_id finding type does not match source_finding_types "
-            f"for {candidate_id}"
-        )
+    errors.extend(_dataset_candidate_identity_errors(candidate_id, source_finding_types))
     if candidate.get("requires_human_review") is not True:
         errors.append("requires_human_review must be true")
     for trace_id in source_trace_ids:
@@ -377,21 +370,7 @@ def _dataset_planner_results(
             for evidence_id in finding.get("evidence_ids", [])
         }
     )
-    example_trace = next(
-        (
-            trace
-            for trace in trace_evidence
-            if str(trace.get("trace_id") or "") in source_trace_ids
-        ),
-        {},
-    )
-    tool_name = _first_nonempty_value(
-        *[
-            span.get("attributes", {}).get("tool_name")
-            for span in example_trace.get("spans", [])
-            if isinstance(span, dict)
-        ]
-    ) or "the dangerous tool path"
+    tool_name = _dataset_candidate_tool_name(trace_evidence, source_trace_ids)
     return {
         **base,
         "agent": "dataset_planner",
@@ -730,6 +709,41 @@ def _selected_findings_by_type(
 
 def _dataset_candidate_id(finding_type: str, index: int) -> str:
     return f"dataset_candidate.{finding_type}.{index:02d}"
+
+
+def _dataset_candidate_identity_errors(
+    candidate_id: str, source_finding_types: list[str]
+) -> list[str]:
+    candidate_id_match = _DATASET_CANDIDATE_ID_PATTERN.match(candidate_id)
+    if not candidate_id_match:
+        return [f"invalid candidate_id {candidate_id}"]
+    if source_finding_types and candidate_id_match.group(1) not in source_finding_types:
+        return [
+            "candidate_id finding type does not match source_finding_types "
+            f"for {candidate_id}"
+        ]
+    return []
+
+
+def _dataset_candidate_tool_name(
+    trace_evidence: list[dict[str, Any]], source_trace_ids: list[str]
+) -> str:
+    example_trace = next(
+        (
+            trace
+            for trace in trace_evidence
+            if str(trace.get("trace_id") or "") in source_trace_ids
+        ),
+        {},
+    )
+    tool_name = _first_nonempty_value(
+        *[
+            span.get("attributes", {}).get("tool_name")
+            for span in example_trace.get("spans", [])
+            if isinstance(span, dict)
+        ]
+    )
+    return str(tool_name or "the dangerous tool path")
 
 
 def _no_action_review_results(
