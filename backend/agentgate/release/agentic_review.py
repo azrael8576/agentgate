@@ -35,6 +35,7 @@ NO_ACTION_PATTERN_FINDER_SUMMARY = "No action from Pattern Finder."
 NO_ACTION_DATASET_PLANNER_SUMMARY = "No action from Dataset Planner in this slice."
 DATASET_PLANNER_SUMMARY = "Dataset Planner proposed 1 human-review candidate."
 WARNING_ONLY_PATTERN_FINDER_SUMMARY = "Pattern Finder found warning observations only."
+INVALID_PATTERN_FINDER_SUMMARY = "Pattern Finder failed validation and was not trusted."
 PARTIAL_FAILURE_AGENT_REVIEW_SUMMARY = (
     "Agent review had partial failures; deterministic release decision still used metrics and policy."
 )
@@ -190,40 +191,28 @@ def validate_pattern_finder_results(
     results: dict[str, Any], agent_review_input: dict[str, Any]
 ) -> dict[str, Any]:
     trace_ids, evidence_ids = _review_reference_ids(agent_review_input)
-    validated_patterns: list[dict[str, Any]] = []
-    validated_warnings: list[dict[str, Any]] = []
-    errors: list[str] = []
-
-    for pattern in results.get("failure_patterns", []):
-        pattern_errors = _pattern_validation_errors(
-            pattern,
-            trace_ids,
-            evidence_ids,
-            id_field="pattern_id",
-        )
-        if pattern_errors:
-            errors.extend(pattern_errors)
-            continue
-        validated_patterns.append(pattern)
-
-    for warning in results.get("warning_observations", []):
-        warning_errors = _pattern_validation_errors(
-            warning,
-            trace_ids,
-            evidence_ids,
-            id_field="observation_id",
-        )
-        if warning_errors:
-            errors.extend(warning_errors)
-            continue
-        validated_warnings.append(warning)
+    validated_patterns, pattern_errors = _validate_pattern_collection(
+        results=results,
+        items_key="failure_patterns",
+        id_field="pattern_id",
+        trace_ids=trace_ids,
+        evidence_ids=evidence_ids,
+    )
+    validated_warnings, warning_errors = _validate_pattern_collection(
+        results=results,
+        items_key="warning_observations",
+        id_field="observation_id",
+        trace_ids=trace_ids,
+        evidence_ids=evidence_ids,
+    )
+    errors = [*pattern_errors, *warning_errors]
 
     trusted = not errors
     status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
     summary = results.get("summary", NO_ACTION_PATTERN_FINDER_SUMMARY)
     if not trusted:
         status = AGENT_REVIEW_STATUS_INVALID
-        summary = "Pattern Finder failed validation and was not trusted."
+        summary = INVALID_PATTERN_FINDER_SUMMARY
         validated_patterns = []
         validated_warnings = []
     reference_errors, schema_errors = _split_validation_errors(errors)
@@ -479,6 +468,30 @@ def _pattern_validation_errors(
     return errors
 
 
+def _validate_pattern_collection(
+    *,
+    results: dict[str, Any],
+    items_key: str,
+    id_field: str,
+    trace_ids: set[str],
+    evidence_ids: set[str],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    validated_items: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for item in results.get(items_key, []):
+        item_errors = _pattern_validation_errors(
+            item,
+            trace_ids,
+            evidence_ids,
+            id_field=id_field,
+        )
+        if item_errors:
+            errors.extend(item_errors)
+            continue
+        validated_items.append(item)
+    return validated_items, errors
+
+
 def _pattern_finder_results(
     *,
     base: dict[str, Any],
@@ -489,12 +502,14 @@ def _pattern_finder_results(
     failure_patterns = _build_review_observations(
         findings=critical_findings,
         trace_evidence=trace_evidence,
+        id_field="pattern_id",
         id_prefix="pattern",
         severity="critical",
     )
     warning_observations = _build_review_observations(
         findings=indeterminate_findings,
         trace_evidence=trace_evidence,
+        id_field="observation_id",
         id_prefix="warning",
         severity="warning",
     )
@@ -931,6 +946,7 @@ def _build_review_observations(
     *,
     findings: list[dict[str, Any]],
     trace_evidence: list[dict[str, Any]],
+    id_field: str,
     id_prefix: str,
     severity: str,
 ) -> list[dict[str, Any]]:
@@ -952,9 +968,7 @@ def _build_review_observations(
         title = _PATTERN_TITLES.get(finding_type, finding_type.replace("_", " ").title())
         observations.append(
             {
-                f"{'pattern' if id_prefix == 'pattern' else 'observation'}_id": (
-                    f"{id_prefix}.{finding_type}"
-                ),
+                id_field: f"{id_prefix}.{finding_type}",
                 "title": title,
                 "severity": severity,
                 "problem_summary": _problem_summary(finding_type, grouped_findings, examples),
