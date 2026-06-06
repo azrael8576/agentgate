@@ -250,6 +250,43 @@ def test_local_release_check_writes_pattern_finder_artifacts_for_blocked_evidenc
     assert candidate["conversion_guidance"]
 
 
+def test_local_release_check_writes_warning_only_agent_review_artifacts_for_approved_evidence(
+    tmp_path: Path,
+) -> None:
+    evidence = _seed("v2.1", tmp_path)
+    output_dir = tmp_path / "release" / "v21"
+
+    result = run_release_check(evidence, output_dir, agentic_review_enabled=True)
+    decision = _read_json(output_dir / "release_decision.json")
+    agent_review_input = _read_json(output_dir / "agent_review_input.json")
+    pattern_results = _read_json(output_dir / "pattern_finder_results.json")
+    dataset_results = _read_json(output_dir / "dataset_planner_results.json")
+    html = (output_dir / "release_report.html").read_text(encoding="utf-8")
+
+    assert result["decision"] == "APPROVED"
+    assert result["agentic_review"]["enabled"] is True
+    assert result["agentic_review"]["status"] == "candidates_found"
+    assert decision["decision"] == "APPROVED"
+    assert decision["agentic_review"]["status"] == "candidates_found"
+    assert agent_review_input["agent_review"]["status"] == "candidates_found"
+    assert agent_review_input["trace_evidence"]
+    assert pattern_results["status"] == "no_action"
+    assert pattern_results["validation"]["trusted"] is True
+    assert pattern_results["failure_patterns"] == []
+    assert pattern_results["warning_observations"]
+    assert {
+        observation["observation_id"]
+        for observation in pattern_results["warning_observations"]
+    } == {"warning.response_format_warning"}
+    assert dataset_results["status"] == "candidates_found"
+    assert dataset_results["validation"]["trusted"] is True
+    assert dataset_results["dataset_candidates"]
+    assert dataset_results["annotation_recommendations"]
+    assert dataset_results["future_control_candidates"] == []
+    assert "Pattern Finder found warning observations only." in html
+    assert "Dataset Planner proposed 1 human-review candidate." in html
+
+
 def test_pattern_finder_validation_rejects_invented_references() -> None:
     agent_review_input = {
         "trace_evidence": [
@@ -725,6 +762,60 @@ def test_release_check_records_partial_agent_failure_without_corrupting_other_ar
         "Dataset Planner failed; deterministic release decision still used metrics and policy."
         in html
     )
+
+
+def test_agent_review_no_action_for_approved_release_without_warning_evidence(
+    tmp_path: Path,
+) -> None:
+    config = ReleaseCheckConfig()
+    pack = config.load_pack()
+    records = load_evidence_jsonl(_seed("v2.1", tmp_path))
+
+    artifacts = build_agent_review_artifacts(
+        base={
+            "schema_version": "day4.metrics.v1",
+            "agent_id": "stability_ops_ai",
+            "agent_version": "v2.1",
+        },
+        pack=pack,
+        records=records,
+        evidence_source={
+            "type": "local_jsonl",
+            "dangerous_trace_ids": [],
+            "dangerous_traces": [],
+            "coverage": {"span_count": 1},
+        },
+        dangerous_sessions={
+            "critical_findings": [],
+            "indeterminate_findings": [],
+            "reviewed_safe": [],
+            "high_risk_activity_log": [],
+        },
+        metrics_summary={
+            "metrics": [
+                {
+                    "name": "technical_tool_success_rate",
+                    "passes_threshold": True,
+                    "decision_impact": "warning",
+                },
+                {
+                    "name": "crash_analysis_format_compliance",
+                    "passes_threshold": True,
+                    "decision_impact": "warning",
+                },
+            ]
+        },
+        gate_binding=pack.load_gate_binding(),
+    )
+
+    assert artifacts["agent_review_input"]["agent_review"]["status"] == "no_action"
+    assert artifacts["agent_review_input"]["trace_evidence"] == []
+    assert artifacts["pattern_finder_results"]["status"] == "no_action"
+    assert artifacts["pattern_finder_results"]["warning_observations"] == []
+    assert artifacts["dataset_planner_results"]["status"] == "no_action"
+    assert artifacts["dataset_planner_results"]["dataset_candidates"] == []
+    assert artifacts["dataset_planner_results"]["annotation_recommendations"] == []
+    assert artifacts["dataset_planner_results"]["future_control_candidates"] == []
 
 
 def test_agent_review_input_sanitizes_non_evidence_raw_fields(tmp_path: Path) -> None:
