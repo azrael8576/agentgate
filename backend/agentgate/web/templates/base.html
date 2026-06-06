@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}AgentGate{% endblock %}</title>
-    <link rel="icon" href="data:,">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/dashboard.css">
   </head>
   <body class="{% block body_class %}{% endblock %}">
@@ -18,7 +18,6 @@
         <a href="/"{% if active_nav == "overview" %} class="is-active"{% endif %}>Overview</a>
         <a href="/run"{% if active_nav == "run" %} class="is-active"{% endif %}>Run check</a>
         <a href="/reports/latest"{% if active_nav == "report" %} class="is-active"{% endif %}>Latest Report</a>
-        <a href="/api/agentgate/runs/latest">API</a>
       </nav>
     </header>
     <main>

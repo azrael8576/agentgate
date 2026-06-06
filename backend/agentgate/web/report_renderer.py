@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import io
 import json
@@ -22,6 +23,14 @@ from backend.agentgate.release.regression_gate_verifier import (
 WEB_DIR = Path(__file__).parent
 TEMPLATE_DIR = WEB_DIR / "templates"
 STATIC_DIR = WEB_DIR / "static"
+FAVICON_PATH = STATIC_DIR / "favicon.svg"
+
+
+def _favicon_data_uri() -> str:
+    svg = FAVICON_PATH.read_text(encoding="utf-8").strip()
+    encoded = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
+
 
 CORE_ARTIFACT_FILENAMES = {
     "release_decision.json",
@@ -224,6 +233,11 @@ def render_standalone_release_report_html(output_dir: Path) -> Path:
     html = html.replace(
         "<!-- agentgate:embedded-css -->",
         f"<style>\n{embedded_css}\n</style>",
+        1,
+    )
+    html = html.replace(
+        "<!-- agentgate:embedded-favicon -->",
+        _favicon_data_uri(),
         1,
     )
     html_path = output_dir / HTML_ARTIFACT_FILENAME

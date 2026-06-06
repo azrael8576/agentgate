@@ -306,8 +306,10 @@
 {% macro agent_review_planner_card(card) %}
   <article class="agent-review-compact-card agent-review-planner-card">
     <div class="agent-review-compact-head">
-      <span class="agent-review-action-badge">Review candidate</span>
-      <span class="agent-review-queue-badge">{{ card.status_label }}</span>
+      <div class="agent-review-compact-head-leading">
+        <span class="agent-review-action-badge">Review candidate</span>
+        <span class="agent-review-queue-badge">{{ card.status_label }}</span>
+      </div>
       {% if card.candidate_type in ["Dataset candidate", "Annotation recommendation", "Future control candidate"] %}
         <span class="agent-review-type-badge">{{ card.candidate_type }}</span>
       {% endif %}
