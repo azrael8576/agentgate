@@ -48,6 +48,10 @@ Wrong collector URL (missing `/s/<space>`) typically causes `401 Unauthorized` f
 
 Full traces are stored in `release_decision.json` for audit. Gemini receives `dangerous_session_summaries` only, not full trace dumps.
 
+For agentic review, AgentGate also pulls full trace logs through MCP so Pattern Finder and Dataset Planner can read the same dangerous-session slice humans audit later. Those agents do not decide release; the agentic review artifacts remain informational only.
+
+If a trace pull fails, AgentGate still completes the deterministic gate with the evidence it already has. Failures are recorded in `agent_review_input.json` under `trace_pull`, including missing trace IDs and per-trace error messages.
+
 ## Normalization
 
 `backend/agentgate/release/phoenix_normalizer.py` maps Phoenix span attributes (flat dict or OTEL `{key,value}` lists) into AgentGate evidence records.
@@ -104,6 +108,8 @@ uv run agentgate release check-phoenix \
   --spans-json artifacts/phoenix/spans.json \
   --output-dir artifacts/release/phoenix
 ```
+
+Phoenix release checks enable agentic review by default. Add `--no-agentic-review` to skip Pattern Finder and Dataset Planner when you want only the deterministic gate outputs.
 
 ## Troubleshooting
 

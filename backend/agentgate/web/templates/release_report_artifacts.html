@@ -4,17 +4,11 @@
       <h2>Audit artifacts</h2>
       <p class="section-note">Download the bundle used to reproduce this release decision. Compare SHA-256 before trusting a copy.</p>
     </div>
-    <div class="audit-artifact-actions">
-      {% for link in artifact_links %}
-        {% if standalone %}
-          <span class="artifact-chip" title="{{ link.purpose }}">{{ link.filename }}</span>
-        {% elif link.kind == "html" %}
-          <a class="button primary" href="{{ link.href }}" title="{{ link.purpose }}">{{ link.label }}</a>
-        {% else %}
-          <a class="artifact-chip" href="{{ link.href }}" title="{{ link.purpose }}">{{ link.filename }}</a>
-        {% endif %}
-      {% endfor %}
-    </div>
+    {% if artifact_bundle_download and not standalone %}
+      <div class="audit-artifact-actions">
+        <a class="button primary" href="{{ artifact_bundle_download.href }}" title="{{ artifact_bundle_download.purpose }}">{{ artifact_bundle_download.label }}</a>
+      </div>
+    {% endif %}
   </div>
   {% if artifact_fingerprints %}
     <div class="artifact-fingerprint-table">
@@ -27,7 +21,13 @@
             {% for row in artifact_fingerprints %}
               <tr>
                 <td>{{ row.name }}</td>
-                <td><code>{{ row.filename }}</code></td>
+                <td>
+                  {% if standalone %}
+                    <code>{{ row.filename }}</code>
+                  {% else %}
+                    <a href="/artifacts/{{ row.filename }}"><code>{{ row.filename }}</code></a>
+                  {% endif %}
+                </td>
                 <td class="evidence-ids" title="{{ row.sha256 }}">{{ row.sha256_short }}</td>
                 <td>{{ row.required }}</td>
               </tr>

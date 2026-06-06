@@ -2,7 +2,7 @@
   "schema_version": "day4.metrics.v1",
   "agent_id": "stability_ops_ai",
   "agent_version": "v2.1",
-  "generated_at": "2026-06-04T07:26:34.143354+00:00",
+  "generated_at": "2026-06-06T10:13:34.869934+00:00",
   "product_surface": "release_authority",
   "evaluation_mode": "controlled",
   "sample_tier": "demo",
@@ -18,6 +18,12 @@
     "agent_profile",
     "eval_suite"
   ],
+  "agent_review_artifacts": [
+    "agent_review_input",
+    "pattern_finder_plan",
+    "pattern_finder_results",
+    "dataset_planner_results"
+  ],
   "reproducibility_recipe": [
     "Read release_decision.json for policy version, gate_binding, decision reasons, and future_verification.",
     "Read metrics_summary.json for controlled metric values, thresholds, and provenance.",
@@ -29,44 +35,64 @@
   ],
   "artifacts": {
     "metrics_summary": {
-      "path": "artifacts/release/reference-v21/metrics_summary.json",
+      "path": "examples/artifacts/reference-v21/metrics_summary.json",
       "required_for_offline_audit": true,
-      "sha256": "6a5b4022732ddb0da4e89b7f6b37aa9fc9e1322a06b156e08729e45dad4ca434"
+      "sha256": "fd6bc39b830cee5f6cc8dc2b3ff0d91c9e0bf45c6f82cc7d49d34b2406e3519b"
     },
     "dangerous_sessions": {
-      "path": "artifacts/release/reference-v21/dangerous_sessions.json",
+      "path": "examples/artifacts/reference-v21/dangerous_sessions.json",
       "required_for_offline_audit": true,
-      "sha256": "0366016aa367a2a74e5ad011e64e9ceeba61c0fa6bd082e559de69d0a71c238a"
+      "sha256": "3e72dd5b73e6a0189e846904da1c8ce9847ef9893e108ee22726eb0ae1cf0259"
     },
     "regression_gates": {
-      "path": "artifacts/release/reference-v21/regression_gates.json",
+      "path": "examples/artifacts/reference-v21/regression_gates.json",
       "required_for_offline_audit": true,
-      "sha256": "7b8e1b2e32aeb1e63d6ca93ea4e67d7da337e397e0505f1603e4688887a2d16a"
+      "sha256": "6f600017056a6ca90d952efda24d04c02ad135b49a4b07de1ee09c9c8a370b0d"
     },
     "release_decision": {
-      "path": "artifacts/release/reference-v21/release_decision.json",
+      "path": "examples/artifacts/reference-v21/release_decision.json",
       "required_for_offline_audit": true,
-      "sha256": "2804a6f7fa0160892aacd1036ea295ef232f206b8f6c9093afc8f3f2b5ffa7ed"
+      "sha256": "003014d38d2425ca24ffdd327ea27e74d469a31e2754a2e978a1f391d47bfe81"
     },
     "control_verification_results": {
-      "path": "artifacts/release/reference-v21/control_verification_results.json",
+      "path": "examples/artifacts/reference-v21/control_verification_results.json",
       "required_for_offline_audit": true,
-      "sha256": "77999e239a80731480f2900815a51642a67f978862aa0ca958c3981b058e1942"
+      "sha256": "e88a2ca0788ba593d05df5fe0558dc3f90b126a4dbd8d0db4f2ea557d921755b"
     },
     "agent_profile": {
-      "path": "artifacts/release/reference-v21/agent_profile.json",
+      "path": "examples/artifacts/reference-v21/agent_profile.json",
       "required_for_offline_audit": false,
-      "sha256": "295fe5b3b811cb3ae1fb298957ec8e00ba0fcec0d3b2d18e79a065972127a9eb"
+      "sha256": "bc8a5477f56220bbf379e353601b563b4882ce0dc7d39990914451da636ea1a5"
     },
     "eval_suite": {
-      "path": "artifacts/release/reference-v21/eval_suite.json",
+      "path": "examples/artifacts/reference-v21/eval_suite.json",
       "required_for_offline_audit": false,
-      "sha256": "5a64be4c938003b1a1b3ac659b5b09cbba4db59050a6254fee75b63f1d129562"
+      "sha256": "4e0450700bc2c4afea65f97d988c946b4a0680af8b396fc833ef295e9a8bbf7f"
+    },
+    "agent_review_input": {
+      "path": "examples/artifacts/reference-v21/agent_review_input.json",
+      "required_for_offline_audit": false,
+      "sha256": "6720faab7b94892da7cd63a1b58e5c3b72755b91241b37172b56cc79f7505446"
+    },
+    "pattern_finder_plan": {
+      "path": "examples/artifacts/reference-v21/pattern_finder_plan.json",
+      "required_for_offline_audit": false,
+      "sha256": "09283c52f7feea6d5b27151aafa9e13b7899376449eec2daa280561c30dd73f2"
+    },
+    "pattern_finder_results": {
+      "path": "examples/artifacts/reference-v21/pattern_finder_results.json",
+      "required_for_offline_audit": false,
+      "sha256": "a04757d3b3fe4bea1892ae85a0e1d04707fdd8d9e78fa7d46122e6aa92c86c84"
+    },
+    "dataset_planner_results": {
+      "path": "examples/artifacts/reference-v21/dataset_planner_results.json",
+      "required_for_offline_audit": false,
+      "sha256": "78299aa21fff023cb855838263d522d8fbb410f0c3d46eae110dfd5da39cd2e7"
     },
     "release_report": {
-      "path": "artifacts/release/reference-v21/release_report.html",
+      "path": "examples/artifacts/reference-v21/release_report.html",
       "required_for_offline_audit": false,
-      "sha256": "5f1e25b51d6559fed0939f2f0b0870b9f74a9b6d150c05462014ec2c0007e176"
+      "sha256": "ac1f62207884f71027c740707b6a5651e2a6b5a226f1a672c89f0b67afefe3d5"
     }
   },
   "certified_reference": {

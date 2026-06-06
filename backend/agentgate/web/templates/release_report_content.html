@@ -7,15 +7,13 @@
   <div class="report-sticky-nav" role="navigation" aria-label="Report sections">
     <a href="#verdict">Verdict</a>
     <a href="#why-blocked">{{ why_blocked.section_title }}</a>
-    {% if release_decision.decision == "BLOCKED" %}
     <a href="#release-controls">Release controls</a>
     <a href="#future-verification">Future verification</a>
-    {% else %}
-    <a href="#future-verification">Future verification</a>
-    <a href="#release-controls">Release controls</a>
+    {% if agent_review.enabled %}
+    <a href="#agent-review">Agent review</a>
     {% endif %}
-    <a href="#evidence-summary">Evidence</a>
-    <a href="#audit-archive">Audit archive</a>
+    <a href="#evidence-summary">Evidence preview</a>
+    <a href="#audit-archive">Audit status</a>
     <a href="#audit-artifacts">Artifacts</a>
   </div>
 </section>
@@ -23,44 +21,16 @@
 <section class="report-head audit-cover report-head-{{ release_decision.decision | lower }}" id="verdict">
   <div class="verdict-copy">
     <p class="eyebrow">Candidate report</p>
-    <h1>{{ release_decision.agent_version }} release review</h1>
-    <p class="report-subtitle">{{ agent_profile.display_name }}</p>
-    <p class="decision-brief">{{ verdict_panel.headline }}</p>
-    <p class="verdict-summary">{{ verdict_panel.summary }}</p>
-    <div class="authority-strip" role="note">
-      <strong>Authority boundary</strong>
-      <span>{{ authority_note }}</span>
-    </div>
-    <div class="decision-basis-panel" aria-label="Decision basis">
-      <article>
-        <span>Evidence</span>
-        <strong>{{ evidence_source.type or "unknown" }}</strong>
-        <p>Phoenix MCP is primary; local JSONL is fallback for demos and reproducible review.</p>
-      </article>
-      <article>
-        <span>Effective policy</span>
-        <strong>{{ release_decision.policy_id or "policy" }} / {{ release_decision.policy_version or "version" }}</strong>
-        <p>Phoenix base policy plus AgentPack custom thresholds.</p>
-      </article>
-      <article>
-        <span>AgentPack layer</span>
-        <strong>{{ agent_profile.display_name or release_decision.agent_id }}</strong>
-        <p>Tool risk, company metrics, report controls, and gate bindings are agent-specific.</p>
-      </article>
-      <article>
-        <span>Gemini</span>
-        <strong>Explanation only</strong>
-        <p>Selected dangerous sessions may be diagnosed, but release authority stays deterministic.</p>
-      </article>
-    </div>
-    {% if eval_representation_warning %}
-      <p class="warning">{{ eval_representation_warning }}</p>
-    {% endif %}
-    {% if source_is_local %}
-      <p class="warning">This report uses local JSONL fallback evidence for development or testing.</p>
-    {% endif %}
-    {% if evidence_source.coverage and not evidence_source.coverage.ready_for_release_gate %}
-      <p class="warning">Evidence coverage is incomplete for a production release gate.</p>
+    <h1>{{ candidate_header.candidate }} release review</h1>
+    <dl class="candidate-header-grid">
+      <div><dt>Candidate</dt><dd>{{ candidate_header.candidate }}</dd></div>
+      <div><dt>Agent</dt><dd>{{ candidate_header.agent }}</dd></div>
+      <div><dt>Evidence source</dt><dd>{{ candidate_header.evidence_source }}</dd></div>
+      <div><dt>Effective policy</dt><dd>{{ candidate_header.effective_policy }}</dd></div>
+      <div class="wide"><dt>Authority boundary</dt><dd>{{ candidate_header.authority_boundary }}</dd></div>
+    </dl>
+    {% if demo_evidence_banner %}
+      <p class="warning demo-evidence-banner">{{ demo_evidence_banner }}</p>
     {% endif %}
   </div>
   <aside class="decision-card verdict-card">
@@ -69,15 +39,13 @@
       <div><dt>Candidate</dt><dd>{{ release_decision.agent_version }}</dd></div>
       <div><dt>Agent</dt><dd>{{ release_decision.agent_id }}</dd></div>
       <div><dt>Generated</dt><dd>{{ generated_at_display }}</dd></div>
-      <div><dt>Decision basis</dt><dd>{{ release_decision.decision_basis or "deterministic_release_gate" }}</dd></div>
-      <div><dt>Confidence</dt><dd>{{ confidence_label }}</dd></div>
-      <div><dt>Evidence</dt><dd>{{ evidence_source.type or "unknown" }}</dd></div>
-      <div><dt>Eval mode</dt><dd>{{ evaluation_mode }} / {{ sample_tier }}</dd></div>
+      <div><dt>Decision basis</dt><dd>{{ release_decision.decision_basis or "release_gate_binding" }}</dd></div>
+      <div><dt>Evidence mode</dt><dd>{{ evidence_mode_label }}</dd></div>
     </dl>
   </aside>
 </section>
 
-<section class="band report-kpi-band" aria-label="Audit counts">
+<section class="band report-kpi-band{% if not audit_summary.show_needs_review_kpi %} report-kpi-band-compact{% endif %}" aria-label="Audit counts">
   <article class="audit-stat">
     <span class="stat-value">{{ audit_summary.failed_controls }}</span>
     <span class="stat-label">{{ audit_summary.failed_controls_label }}</span>
@@ -90,10 +58,12 @@
     <span class="stat-value">{{ audit_summary.regression_gate_count }}</span>
     <span class="stat-label">Generated release controls</span>
   </article>
+  {% if audit_summary.show_needs_review_kpi %}
   <article class="audit-stat">
     <span class="stat-value">{{ audit_summary.indeterminate_sessions }}</span>
     <span class="stat-label">Needs review</span>
   </article>
+  {% endif %}
 </section>
 
 <section class="band why-blocked-band" id="why-blocked">
@@ -106,12 +76,8 @@
     <div class="gate-blocker-grid">
       {% for driver in why_blocked.blocking_drivers %}
         <article class="gate-blocker-card">
-          <div class="gate-blocker-head">
-            <span class="control-id">{{ driver.control_id }}</span>
-            <span class="impact-badge impact-blocker">blocks release</span>
-          </div>
           <h3>{{ driver.display_name }}</h3>
-          <p class="metric-slug">{{ driver.metric }}</p>
+          <p class="metric-slug"><code>{{ driver.metric }}</code></p>
           <div class="gate-threshold-line">
             <span class="gate-value">{{ driver.display_value }}</span>
             <span class="gate-operator">></span>
@@ -119,7 +85,7 @@
           </div>
           <p class="gate-reason">{{ driver.reason }}</p>
           {% if driver.evidence_count %}
-            <p class="evidence-count">{{ driver.evidence_count }} linked evidence ID(s). Full list is in Decision evidence.</p>
+            <p class="evidence-count">{{ driver.evidence_count }} linked evidence</p>
           {% endif %}
         </article>
       {% endfor %}
@@ -133,17 +99,36 @@
   {% if why_blocked.non_blocking_failures %}
     <div class="nonblocking-panel">
       <h3 class="subsection-title">Failed, non-blocking controls</h3>
-      <ul class="nonblocking-list">
-        {% for item in why_blocked.non_blocking_failures %}
-          <li>
-            <span class="control-id">{{ item.control_id }}</span>
-            <span class="nonblocking-name">{{ item.name }}</span>
-            <span class="failure-glance-metric">{{ item.value }} <em>threshold {{ item.threshold }}</em></span>
-            <span class="channel-badge {{ item.channel_class }}">{{ item.channel }}</span>
-            <span class="impact-badge impact-warning">failed · non-blocking</span>
-          </li>
-        {% endfor %}
-      </ul>
+      <div class="table-wrap">
+        <table class="nonblocking-controls-table" aria-label="Failed non-blocking controls">
+          <caption class="sr-only">Controls that failed thresholds but did not block release</caption>
+          <thead>
+            <tr>
+              <th>Control</th>
+              <th>Value</th>
+              <th>Threshold</th>
+              <th>Status</th>
+              <th>Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in why_blocked.non_blocking_failures %}
+              <tr>
+                <td data-label="Control">
+                  <span class="control-id">{{ item.control_id }}</span>
+                  <span class="nonblocking-name">{{ item.name }}</span>
+                </td>
+                <td data-label="Value">{{ item.value }}</td>
+                <td data-label="Threshold">{{ item.threshold }}</td>
+                <td data-label="Status">{{ item.status }}</td>
+                <td data-label="Impact">
+                  <span class="impact-badge impact-warning">{{ item.impact_badge }}</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   {% endif %}
 </section>
@@ -153,8 +138,12 @@
   <div class="section-head">
     <p class="eyebrow">{{ fix_now.eyebrow }}</p>
     <h2>{{ fix_now.headline }}</h2>
-    <p class="section-note">{{ fix_now.summary }}</p>
-    <p class="section-note">{{ fix_now.bridge_note }}</p>
+    {% if fix_now.summary %}
+      <p class="section-note">{{ fix_now.summary }}</p>
+    {% endif %}
+    {% if fix_now.tasks %}
+      <p class="section-note release-controls-technical-note">{{ fix_now.bridge_note }}</p>
+    {% endif %}
   </div>
 
   {% if fix_now.tasks %}
@@ -162,27 +151,29 @@
       {% for gate in fix_now.tasks %}
         <article class="gate fix-task-card">
           <div class="gate-body">
-            <span class="control-id">{{ gate.gate_id }}</span>
-            <h3>{{ gate.display_title or gate.expected_behavior }}</h3>
-            <p><strong>Required fix:</strong> {{ gate.required_fix }}</p>
-          </div>
-          <div class="gate-footer">
-            <small>{{ gate.source_evidence_ids | length }} source evidence ID(s)</small>
+            <p class="release-control-line"><strong>Control:</strong> {{ gate.control_title or gate.display_title or gate.gate_id }}</p>
+            <p class="required-behavior-line"><strong>Required behavior:</strong> {{ gate.required_behavior_line }}</p>
+            <p class="source-evidence-line"><strong>Source:</strong> {{ gate.source_evidence_count }} source evidence ID{% if gate.source_evidence_count != 1 %}s{% endif %}</p>
           </div>
         </article>
       {% endfor %}
     </div>
   {% else %}
-    <p class="pass-attestation">{{ fix_now.rerun_label }}</p>
+    <p class="pass-attestation">No release controls were generated for this evidence window.</p>
   {% endif %}
-  {% if fix_now.tasks %}
-    <p class="rerun-cta">{{ fix_now.rerun_label }}</p>
+  {% if fix_now.agent_review_bridge_note %}
+    <p class="section-note release-controls-agent-review-bridge">{{ fix_now.agent_review_bridge_note }}</p>
   {% endif %}
 </section>
 {% endmacro %}
 
 {% macro future_verification_band() %}
-<section class="band future-verification-band" id="future-verification">
+<section class="band future-verification-band{% if future_verification.compact_only %} future-verification-compact{% endif %}" id="future-verification">
+  {% if future_verification.compact_only %}
+    <p class="future-verification-compact-line">
+      <strong>{{ future_verification.title }}:</strong> {{ future_verification['copy'] }}
+    </p>
+  {% else %}
   <div class="section-head">
     <p class="eyebrow">Inherited controls</p>
     <h2>{{ future_verification.title }}</h2>
@@ -194,6 +185,13 @@
     <p class="section-note">{{ future_verification['copy'] }}</p>
     {% if future_verification.secondary_copy %}
       <p class="section-note">{{ future_verification.secondary_copy }}</p>
+    {% endif %}
+    {% if future_verification.inherited_summary %}
+      <p class="future-verification-inherited-summary">
+        {{ future_verification.inherited_summary.loaded }} inherited controls loaded ·
+        {{ future_verification.inherited_summary.passed }} passed ·
+        {{ future_verification.inherited_summary.blocking_failures }} blocking failures
+      </p>
     {% endif %}
     {% if future_verification.resolution_note %}
       <p class="section-note future-verification-resolution">{{ future_verification.resolution_note }}</p>
@@ -228,34 +226,243 @@
       </table>
     </div>
   {% endif %}
+  {% endif %}
 </section>
 {% endmacro %}
 
-{% if release_decision.decision == "BLOCKED" %}
 {{ release_controls_band() }}
 {{ future_verification_band() }}
-{% else %}
-{{ future_verification_band() }}
-{{ release_controls_band() }}
+
+{% macro agent_review_pattern_card(pattern) %}
+  <article class="agent-review-compact-card agent-review-pattern-card">
+    <div class="agent-review-compact-head">
+      <span class="severity-badge severity-{{ pattern.severity }}">{{ pattern.severity | capitalize }}</span>
+      <h4>{{ pattern.title }}</h4>
+    </div>
+    <p class="agent-review-compact-line agent-review-meta-line">
+      {{ pattern.trace_count }} trace{% if pattern.trace_count != 1 %}s{% endif %}
+      {% if pattern.metric_name %}
+        · metric: <code>{{ pattern.metric_name }}</code>
+      {% endif %}
+      {% if pattern.control_id %}
+        · control: <code>{{ pattern.control_id }}</code>
+      {% endif %}
+    </p>
+    {% if pattern.why_it_matters %}
+      <p class="agent-review-compact-line"><strong>Why:</strong> {{ pattern.why_it_matters }}</p>
+    {% endif %}
+    {% if pattern.preview_evidence_ids %}
+      <p class="agent-review-compact-line">
+        <strong>Evidence:</strong>
+        <span class="evidence-chip-row">
+          {% for evidence_id in pattern.preview_evidence_ids %}
+            <span class="evidence-chip">{{ evidence_id }}</span>
+          {% endfor %}
+          {% if pattern.remaining_evidence_count %}
+            <span class="evidence-chip evidence-chip-more">+{{ pattern.remaining_evidence_count }} more</span>
+          {% endif %}
+        </span>
+      </p>
+    {% endif %}
+    <div class="agent-review-card-actions">
+      <details class="agent-review-nested-details">
+        <summary>Details</summary>
+        <div class="agent-detail-panel">
+          {% if pattern.details.problem_summary %}
+            <p class="agent-review-compact-line"><strong>Problem summary:</strong> {{ pattern.details.problem_summary }}</p>
+          {% endif %}
+          {% if pattern.details.policy_runtime_mismatch %}
+            <p class="agent-review-compact-line"><strong>Policy/runtime mismatch:</strong> {{ pattern.details.policy_runtime_mismatch }}</p>
+          {% endif %}
+          {% if pattern.details.reviewer_action %}
+            <p class="agent-review-compact-line"><strong>Reviewer action:</strong> {{ pattern.details.reviewer_action }}</p>
+          {% endif %}
+          {% if pattern.details.example_traces %}
+            <p class="agent-review-compact-line"><strong>Example traces:</strong></p>
+            <ul class="agent-review-example-list">
+              {% for example in pattern.details.example_traces %}
+                <li><code>{{ example.trace_id }}</code>{% if example.case_id %} · {{ example.case_id }}{% endif %}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          {% if pattern.details.detail_evidence_ids %}
+            <p class="agent-review-compact-line"><strong>Evidence preview:</strong></p>
+            <span class="evidence-chip-row">
+              {% for evidence_id in pattern.details.detail_evidence_ids %}
+                <span class="evidence-chip">{{ evidence_id }}</span>
+              {% endfor %}
+            </span>
+          {% endif %}
+          {% if pattern.details.has_more_in_json %}
+            <p class="agent-review-json-note">Full evidence is available in the JSON artifact.</p>
+          {% endif %}
+        </div>
+      </details>
+      <a class="agent-review-json-link" href="{{ pattern.json_href }}">Open JSON</a>
+    </div>
+  </article>
+{% endmacro %}
+
+{% macro agent_review_planner_card(card) %}
+  <article class="agent-review-compact-card agent-review-planner-card">
+    <div class="agent-review-compact-head">
+      <span class="agent-review-action-badge">Review candidate</span>
+      <span class="agent-review-queue-badge">{{ card.status_label }}</span>
+      {% if card.candidate_type in ["Dataset candidate", "Annotation recommendation", "Future control candidate"] %}
+        <span class="agent-review-type-badge">{{ card.candidate_type }}</span>
+      {% endif %}
+    </div>
+    <h4>{{ card.suggested_label }}</h4>
+    <p class="agent-review-compact-line"><strong>Review:</strong> {{ card.action_line }}</p>
+    <p class="agent-review-compact-line agent-review-source-line">
+      <strong>Source:</strong>
+      {{ card.shown_trace_count }} trace{% if card.shown_trace_count != 1 %}s{% endif %}
+      · {{ card.shown_evidence_count }} evidence ID{% if card.shown_evidence_count != 1 %}s{% endif %} shown
+      {% if card.source_remaining_count %} · +{{ card.source_remaining_count }} more in JSON{% endif %}
+    </p>
+    <div class="agent-review-card-actions">
+      <details class="agent-review-nested-details">
+        <summary>Details</summary>
+        <div class="agent-detail-panel">
+          {% if card.details.problem_summary %}
+            <p class="agent-review-compact-line"><strong>Problem summary:</strong> {{ card.details.problem_summary }}</p>
+          {% endif %}
+          {% if card.details.reviewer_action %}
+            <p class="agent-review-compact-line"><strong>Reviewer action:</strong> {{ card.details.reviewer_action }}</p>
+          {% endif %}
+          {% if card.details.detail_trace_ids %}
+            <p class="agent-review-compact-line"><strong>Example traces:</strong></p>
+            <span class="evidence-chip-row">
+              {% for trace_id in card.details.detail_trace_ids %}
+                <span class="evidence-chip">{{ trace_id }}</span>
+              {% endfor %}
+            </span>
+          {% endif %}
+          {% if card.details.detail_evidence_ids %}
+            <p class="agent-review-compact-line"><strong>Evidence preview:</strong></p>
+            <span class="evidence-chip-row">
+              {% for evidence_id in card.details.detail_evidence_ids %}
+                <span class="evidence-chip">{{ evidence_id }}</span>
+              {% endfor %}
+            </span>
+          {% endif %}
+          {% if card.details.review_instructions %}
+            <p class="agent-review-compact-line"><strong>Review instructions:</strong> {{ card.details.review_instructions }}</p>
+          {% endif %}
+          {% if card.details.conversion_guidance %}
+            <p class="agent-review-compact-line"><strong>Conversion guidance:</strong> {{ card.details.conversion_guidance }}</p>
+          {% endif %}
+          {% if card.details.has_more_in_json %}
+            <p class="agent-review-json-note">Full evidence is available in the JSON artifact.</p>
+          {% endif %}
+        </div>
+      </details>
+      <a class="agent-review-json-link" href="{{ card.json_href }}">Open JSON</a>
+    </div>
+  </article>
+{% endmacro %}
+
+{% if agent_review.enabled %}
+<section class="band agent-review-band" id="agent-review">
+  <div class="section-head">
+    <p class="eyebrow">Agent review</p>
+    <h2>{{ agent_review.headline }}</h2>
+    <p class="section-note">{{ agent_review.subtitle }}</p>
+    <div class="agent-review-badges" role="list" aria-label="Agent review authority">
+      {% for badge in agent_review.badges %}
+        <span class="agent-review-badge agent-review-badge-{{ badge.class }}" role="listitem">{{ badge.label }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if agent_review.trace_pull_notice %}
+    <p class="agent-review-fallback">{{ agent_review.trace_pull_notice }}</p>
+  {% endif %}
+
+  {% if agent_review.unavailable %}
+    <p class="agent-review-fallback">{{ agent_review.fallback_message }}</p>
+  {% else %}
+    {% if agent_review.audit_summary.rows %}
+      <div class="agent-review-audit-summary" aria-label="Agent review audit summary">
+        {% for row in agent_review.audit_summary.rows %}
+          <p class="agent-review-audit-row"><strong>{{ row.label }}:</strong> {{ row.value }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="agent-review-planner-panel" id="dataset-planner-queue">
+      <div class="agent-review-panel-head">
+        <h3>{{ agent_review.dataset_planner_headline }}</h3>
+        <p class="section-note">{{ agent_review.dataset_planner_subcopy }}</p>
+      </div>
+      {% if agent_review.dataset_planner.status == "failed" %}
+        <p class="agent-review-fallback">{{ agent_review.dataset_planner.summary }}</p>
+      {% endif %}
+      {% if agent_review.dataset_planner.visible_candidate_cards %}
+        <div class="agent-review-compact-grid">
+          {% for card in agent_review.dataset_planner.visible_candidate_cards %}
+            {{ agent_review_planner_card(card) }}
+          {% endfor %}
+        </div>
+        {% if agent_review.dataset_planner.overflow_candidate_count %}
+          <p class="agent-review-overflow-note">
+            +{{ agent_review.dataset_planner.overflow_candidate_count }} additional candidate{% if agent_review.dataset_planner.overflow_candidate_count != 1 %}s{% endif %}
+            in
+            <a href="/artifacts/dataset_planner_results.json">dataset_planner_results.json</a>
+          </p>
+        {% endif %}
+      {% else %}
+        <p class="section-note">{{ agent_review.empty_states.human_review_queue }}</p>
+      {% endif %}
+    </div>
+
+    <div class="agent-review-pattern-panel agent-review-supporting-panel" id="pattern-finder-summary">
+      <div class="agent-review-panel-head">
+        <h3>{{ agent_review.pattern_finder_headline }}</h3>
+        <p class="section-note">{{ agent_review.pattern_finder_subcopy }}</p>
+      </div>
+      {% if agent_review.pattern_finder.status in ["failed", "invalid"] %}
+        <p class="agent-review-fallback">{{ agent_review.pattern_finder.summary }}</p>
+      {% endif %}
+      {% if agent_review.pattern_finder.visible_pattern_cards %}
+        <div class="agent-review-compact-grid">
+          {% for pattern in agent_review.pattern_finder.visible_pattern_cards %}
+            {{ agent_review_pattern_card(pattern) }}
+          {% endfor %}
+        </div>
+        {% if agent_review.pattern_finder.overflow_pattern_count %}
+          <p class="agent-review-overflow-note">
+            +{{ agent_review.pattern_finder.overflow_pattern_count }} additional pattern{% if agent_review.pattern_finder.overflow_pattern_count != 1 %}s{% endif %}
+            in
+            <a href="/artifacts/pattern_finder_results.json">pattern_finder_results.json</a>
+          </p>
+        {% endif %}
+      {% elif agent_review.pattern_finder.pattern_cards %}
+        <p class="section-note">{{ agent_review.pattern_finder.empty_message }}</p>
+      {% else %}
+        <p class="section-note">{{ agent_review.empty_states.critical_patterns }}</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
 {% endif %}
 
 <section class="band evidence-summary-band" id="evidence-summary">
   <div class="section-head">
     <p class="eyebrow">Trace evidence</p>
-    <h2>Evidence summary</h2>
-    <p class="section-note">Top blocker findings stay visible and paginated for web review. Full identifiers remain in the audit artifacts.</p>
+    <h2>Evidence preview</h2>
+    <p class="section-note">Representative evidence shown. Full evidence is available in artifacts.</p>
   </div>
-  {% if critical_findings %}
-    {% set blocker_page_size = 10 %}
-    {% set blocker_page_count = ((critical_findings | length - 1) // blocker_page_size) + 1 %}
-    <div
-      class="blocker-findings-pager"
-      data-page-size="{{ blocker_page_size }}"
-      data-total="{{ critical_findings | length }}"
-    >
+  {% if evidence_preview.findings %}
+    {% if evidence_preview.truncated %}
+      <p class="evidence-preview-limit-note">
+        Showing {{ evidence_preview.visible_limit }} of {{ evidence_preview.total_count }}. Full evidence is available in artifacts.
+      </p>
+    {% endif %}
+    <div class="blocker-findings-preview">
       <div class="table-wrap">
-        <table class="blocker-findings-table" aria-label="Blocker findings">
-          <caption class="sr-only">Critical blocker findings with routing and trace identifiers</caption>
+        <table class="blocker-findings-table" aria-label="Blocker findings preview">
+          <caption class="sr-only">Representative blocker findings with routing and trace identifiers</caption>
           <thead>
             <tr>
               <th>Type</th>
@@ -267,13 +474,10 @@
             </tr>
           </thead>
           <tbody>
-            {% for finding in critical_findings %}
-              {% set blocker_page = ((loop.index0) // blocker_page_size) + 1 %}
+            {% for finding in evidence_preview.findings %}
               <tr
                 class="blocker-summary-row"
                 data-finding-index="{{ loop.index0 }}"
-                data-page="{{ blocker_page }}"
-                {% if blocker_page != 1 %}hidden{% endif %}
               >
                 <td data-label="Type"><span class="finding-type">{{ finding.finding_type | replace("_", " ") }}</span></td>
                 <td data-label="Case">{{ finding.case_id }}</td>
@@ -295,7 +499,6 @@
               <tr
                 class="blocker-detail-row"
                 id="blocker-detail-{{ loop.index0 }}"
-                data-page="{{ blocker_page }}"
                 hidden
               >
                 <td colspan="6">
@@ -313,312 +516,20 @@
           </tbody>
         </table>
       </div>
-      {% if blocker_page_count > 1 %}
-        <div class="blocker-pager" role="navigation" aria-label="Blocker findings pagination">
-          <span class="blocker-pager-label">Page</span>
-          {% for page in range(1, blocker_page_count + 1) %}
-            <button
-              type="button"
-              class="blocker-pager-btn{% if page == 1 %} is-active{% endif %}"
-              data-page="{{ page }}"
-            >{{ page }}</button>
-          {% endfor %}
-          <span class="blocker-pager-meta">{{ critical_findings | length }} findings · {{ blocker_page_size }} per page</span>
-        </div>
-      {% endif %}
     </div>
   {% else %}
     <p>No blocker findings in this evidence window.</p>
   {% endif %}
 </section>
 
-<section class="band audit-archive-band" id="audit-archive">
-  <div class="section-head">
-    <p class="eyebrow">Offline archive</p>
-    <h2>{{ audit_archive_summary.headline }}</h2>
-    <p class="section-note">This summary is visible in the downloaded HTML without expanding appendices.</p>
-  </div>
-  <dl class="archive-summary-grid">
-    {% for field in audit_archive_summary.fields %}
-      <div>
-        <dt>{{ field.label }}</dt>
-        <dd>{{ field.value }}</dd>
-        {% if field.detail %}
-          <small>{{ field.detail }}</small>
-        {% endif %}
-      </div>
-    {% endfor %}
-  </dl>
-</section>
-
-<section class="band report-appendix-band" aria-label="Audit appendices">
-  <div class="section-head">
-    <p class="eyebrow">Appendices</p>
-    <h2>Evidence and controls</h2>
-    <p class="section-note">Detailed evidence is folded for web reading. The release decision above does not depend on expanding these sections.</p>
-  </div>
-
-  {% if gate_binding_rows %}
-    <details class="evidence-disclosure">
-      <summary class="appendix-summary">Gate binding (suite contract → runtime gate)</summary>
-      <p class="section-note">Only gate-bound runtime metrics can block release under {{ release_decision.decision_basis or "release_gate_binding" }}.</p>
-      <div class="table-wrap">
-        <table class="gate-binding-table" aria-label="Suite to runtime gate metric binding">
-          <caption class="sr-only">Suite contract metrics mapped to runtime blocker metrics</caption>
-          <thead><tr><th>Suite metric (contract)</th><th>Runtime metric (gate)</th><th>Status</th></tr></thead>
-          <tbody>
-            {% for row in gate_binding_rows %}
-              <tr>
-                <td data-label="Suite metric"><code>{{ row.suite_metric }}</code></td>
-                <td data-label="Runtime metric"><code>{{ row.runtime_metric }}</code></td>
-                <td data-label="Status">{{ row.status or "mapped" }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </details>
-  {% endif %}
-
-  {% if release_decision.decision_reasons %}
-    <details class="evidence-disclosure">
-      <summary class="appendix-summary">Decision evidence ({{ appendix_sections.decision_evidence }})</summary>
-      <div class="table-wrap">
-        <table class="decision-evidence-table" aria-label="Full decision evidence">
-          <caption class="sr-only">Blocking decision reasons with metrics and evidence identifiers</caption>
-          <thead><tr><th>Reason</th><th>Metric</th><th>Evidence IDs</th></tr></thead>
-          <tbody>
-            {% for reason in release_decision.decision_reasons %}
-              <tr>
-                <td>{{ reason.reason }}</td>
-                <td><code>{{ reason.metric }}</code></td>
-                <td class="evidence-ids">{{ reason.evidence_ids | join(", ") if reason.evidence_ids else "not recorded" }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </details>
-  {% endif %}
-
-  <details class="evidence-disclosure failed-controls-disclosure">
-    <summary class="appendix-summary">Release controls detail ({{ appendix_sections.controls }})</summary>
-    <p class="section-note">
-      <span class="provenance-legend"><span class="channel-badge channel-policy">Policy trace</span> span aggregates</span>
-      <span class="provenance-legend"><span class="channel-badge channel-phoenix">Phoenix eval</span> labels / graders</span>
-    </p>
-    <div class="metric-grid control-grid control-table">
-      {% for metric in metrics %}
-        <article class="metric-card control-card control-card-compact {{ metric.result }}">
-          <div class="control-card-head">
-            <span class="control-id">{{ metric.control_id }}</span>
-            <span class="result-badge result-{{ metric.result }}">{{ metric.result | replace("_", " ") }}</span>
-            <span class="channel-badge {{ metric.channel_class }}">{{ metric.channel }}</span>
-            {% if metric.drives_release_block %}
-              <span class="impact-badge impact-blocker">blocks release</span>
-            {% elif metric.is_blocker_impact %}
-              <span class="impact-badge impact-blocker">blocker impact</span>
-            {% elif metric.display_decision_impact != "informational" %}
-              <span class="impact-badge impact-warning">{{ metric.display_decision_impact }}</span>
-            {% endif %}
-          </div>
-          <div class="control-card-body">
-            <h3 title="{{ metric.name }}">{{ metric.display_name }}</h3>
-            <span class="stat-value">{{ metric.display_value }}</span>
-            <p>Ratio {{ metric.display_ratio }} · {{ metric.display_threshold_label | capitalize }} {{ metric.display_threshold }}</p>
-            <p>{{ metric.definition }}</p>
-            <p><strong>Formula:</strong> {{ metric.formula }}</p>
-            <p class="metric-source">{{ metric.channel_detail }} · Slug <code>{{ metric.name }}</code></p>
-            <p class="metric-source">Graders: {{ metric.display_grader_ids }}</p>
-          </div>
-        </article>
-      {% endfor %}
-    </div>
-  </details>
-
-  <details class="audit-scope-disclosure">
-    <summary class="appendix-summary">Audit scope, coverage, and reproducibility</summary>
-    <p class="section-note">{{ policy_snapshot_note }}</p>
-    {% if reproducibility_recipe %}
-      <h3 class="subsection-title">Reproducibility recipe</h3>
-      <ol class="reproducibility-recipe">
-        {% for step in reproducibility_recipe %}
-          <li>{{ step }}</li>
-        {% endfor %}
-      </ol>
-    {% endif %}
-    <h3 class="subsection-title">Scope</h3>
-    <dl class="coverage-grid">
-      <div><dt>Agent</dt><dd>{{ audit_scope.agent }}</dd></div>
-      <div><dt>Candidate version</dt><dd>{{ audit_scope.candidate_version }}</dd></div>
-      <div><dt>Policy</dt><dd>{{ audit_scope.policy }}</dd></div>
-      <div><dt>Phoenix project</dt><dd>{{ audit_scope.project_identifier }}</dd></div>
-      <div><dt>Evidence source</dt><dd>{{ audit_scope.evidence_source }}</dd></div>
-      <div><dt>Evaluation window</dt><dd>{{ audit_scope.evaluation_window }}</dd></div>
-      <div><dt>Suite</dt><dd>{{ suite_id }}</dd></div>
-      <div><dt>Bundle path</dt><dd>{{ audit_scope.output_dir }}</dd></div>
-    </dl>
-    {% if evidence_source.coverage %}
-      <h3 class="subsection-title">Coverage</h3>
-      <dl class="coverage-grid">
-        <div><dt>Ready for release gate</dt><dd>{{ evidence_source.coverage.ready_for_release_gate }}</dd></div>
-        <div><dt>Required fields</dt><dd>{{ evidence_source.coverage.present_count }}/{{ evidence_source.coverage.present_count + evidence_source.coverage.missing_count }}</dd></div>
-        <div><dt>Missing fields</dt><dd>{{ evidence_source.coverage.missing_count }}</dd></div>
-        <div><dt>Eval labels</dt><dd>{{ evidence_source.coverage.supporting_counts.eval_labels if evidence_source.coverage.supporting_counts else evidence_source.eval_label_count }}</dd></div>
-        <div><dt>Traces</dt><dd>{{ evidence_source.coverage.supporting_counts.traces if evidence_source.coverage.supporting_counts else "n/a" }}</dd></div>
-      </dl>
-    {% endif %}
-  </details>
-
-  {% if high_risk_supplemental %}
-    <details>
-      <summary class="appendix-summary">High-risk log supplement ({{ appendix_sections.high_risk }} not in blocker table)</summary>
-      <p class="section-note">Sessions logged as high-risk but not listed as blocker findings above.</p>
-      <div class="table-wrap table-wrap-full high-risk-table">
-        <table aria-label="Supplemental high-risk activity log">
-          <caption class="sr-only">High-risk sessions not duplicated in blocker findings</caption>
-          <thead>
-            <tr>
-              <th>Verdict</th>
-              <th>Case</th>
-              <th>Role</th>
-              <th>Tool</th>
-              <th>Trace</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for entry in high_risk_supplemental %}
-              <tr>
-                <td><span class="verdict-badge verdict-{{ entry.verdict }}">{{ entry.verdict }}</span></td>
-                <td>{{ entry.case_id }}</td>
-                <td>{{ entry.user_role }}</td>
-                <td>{{ entry.tool_name or (entry.tool_names | join(", ") if entry.tool_names else "none") }}</td>
-                <td class="evidence-ids">{{ entry.trace_id }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </details>
-  {% endif %}
-
-  {% if indeterminate_findings %}
-    <details>
-      <summary class="appendix-summary">Indeterminate sessions ({{ appendix_sections.indeterminate }})</summary>
-      <div class="findings-list findings-list-full">
-        {% for finding in indeterminate_findings %}
-          <article class="finding finding-indeterminate">
-            <h3>{{ finding.finding_type }} · {{ finding.case_id }}</h3>
-            <dl class="finding-grid">
-              <div><dt>Role</dt><dd>{{ finding.user_role }}</dd></div>
-              <div><dt>Trace</dt><dd>{{ finding.trace_short }}</dd></div>
-              <div class="wide"><dt>Evidence</dt><dd>{{ finding.evidence_ids | join(", ") }}</dd></div>
-            </dl>
-          </article>
-        {% endfor %}
-      </div>
-    </details>
-  {% else %}
-    <p class="inline-zero-review">0 sessions need review.</p>
-  {% endif %}
-
-  <details>
-    <summary class="appendix-summary">Intent and tool risk appendix</summary>
-    <div class="table-wrap appendix-table">
-      <table>
-        <thead><tr><th>Intent</th><th>Route</th><th>Tool</th><th>Risk</th></tr></thead>
-        <tbody>
-          {% for intent in intent_manifest.intents %}
-            <tr>
-              <td>{{ intent.intent_id }}</td>
-              <td>{{ intent.route_type }}</td>
-              <td>{{ intent.tool_name or "none" }}</td>
-              <td>{{ intent.risk_level }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </details>
-</section>
-
-<section class="band gemini-appendix-band" id="gemini-appendix">
-  <details>
-    <summary class="appendix-summary">Gemini semantic diagnosis (non-authoritative{% if gemini_diagnosis_themes %}, {{ appendix_sections.gemini }} sessions{% endif %})</summary>
-    <p class="gemini-authority-note">Explanatory only. Gemini is not used for BLOCKED/APPROVED. Source: {{ diagnosis_metadata.diagnosis_source or "unknown" }} · model {{ diagnosis_metadata.model or "n/a" }}.</p>
-    {% if gemini_diagnosis_themes %}
-      <div class="gemini-theme-list">
-        {% for theme in gemini_diagnosis_themes %}
-          <article class="gemini-theme-card">
-            <h3>{{ theme.finding_type }} <span class="gemini-theme-count">{{ theme.count }} sessions</span></h3>
-            <p>{{ theme.sample_diagnosis }}{% if theme.sample_diagnosis | length >= 280 %}…{% endif %}</p>
-            {% if theme.samples %}
-              <ul class="gemini-sample-list">
-                {% for sample in theme.samples %}
-                  <li>
-                    <strong>{{ sample.case_id }}</strong>
-                    <span>{{ sample.diagnosis[:160] }}{% if sample.diagnosis | length > 160 %}…{% endif %}</span>
-                  </li>
-                {% endfor %}
-              </ul>
-            {% endif %}
-          </article>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p>No Gemini session diagnoses in this bundle.</p>
-    {% endif %}
-  </details>
-</section>
-
 <script>
 (function () {
-  const pager = document.querySelector(".blocker-findings-pager");
-  if (!pager) {
+  const preview = document.querySelector(".blocker-findings-preview");
+  if (!preview) {
     return;
   }
 
-  const summaryRows = [...pager.querySelectorAll(".blocker-summary-row")];
-  const detailRows = [...pager.querySelectorAll(".blocker-detail-row")];
-
-  function collapseRow(summaryRow) {
-    const index = summaryRow.dataset.findingIndex;
-    const detail = document.getElementById(`blocker-detail-${index}`);
-    const expandBtn = summaryRow.querySelector(".blocker-expand-btn");
-    if (detail) {
-      detail.hidden = true;
-    }
-    if (expandBtn) {
-      expandBtn.setAttribute("aria-expanded", "false");
-      expandBtn.textContent = "View";
-    }
-  }
-
-  function showPage(page) {
-    summaryRows.forEach((row) => {
-      const visible = Number(row.dataset.page) === page;
-      row.hidden = !visible;
-      if (!visible) {
-        collapseRow(row);
-      }
-    });
-    detailRows.forEach((row) => {
-      if (Number(row.dataset.page) !== page) {
-        row.hidden = true;
-      }
-    });
-    pager.querySelectorAll(".blocker-pager-btn").forEach((btn) => {
-      btn.classList.toggle("is-active", Number(btn.dataset.page) === page);
-    });
-  }
-
-  pager.addEventListener("click", (event) => {
-    const pageBtn = event.target.closest(".blocker-pager-btn");
-    if (pageBtn) {
-      showPage(Number(pageBtn.dataset.page));
-      return;
-    }
-
+  preview.addEventListener("click", (event) => {
     const expandBtn = event.target.closest(".blocker-expand-btn");
     if (!expandBtn) {
       return;

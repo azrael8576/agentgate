@@ -86,6 +86,13 @@ class FakePhoenixClient:
         raise AssertionError(f"Unexpected tool call: {name}")
 
 
+class TracePullFailurePhoenixClient(FakePhoenixClient):
+    def call_tool(self, name: str, arguments: dict) -> dict:
+        if name == "get-trace":
+            raise RuntimeError(f"phoenix get-trace failed for {arguments['trace_id']}")
+        return super().call_tool(name, arguments)
+
+
 def test_phoenix_spans_promote_replay_sensitive_output_attributes() -> None:
     records = normalize_phoenix_spans(
         {
@@ -463,6 +470,64 @@ def test_release_check_from_phoenix_mcp_queries_spans_and_dangerous_trace(
     assert decision["evidence_source"]["dangerous_trace_ids"] == ["trace_phoenix_unauth_deep_001"]
     assert decision["phoenix_dangerous_traces"]
 
+    agent_review_input = json.loads((output_dir / "agent_review_input.json").read_text("utf-8"))
+    pattern_results = json.loads((output_dir / "pattern_finder_results.json").read_text("utf-8"))
+    dataset_results = json.loads((output_dir / "dataset_planner_results.json").read_text("utf-8"))
+    assert agent_review_input["trace_evidence"][0]["trace_id"] == "trace_phoenix_unauth_deep_001"
+    assert (
+        agent_review_input["trace_evidence"][0]["trace_audit_id"]
+        == "trace:trace_phoenix_unauth_deep_001"
+    )
+    assert agent_review_input["agent_context"]["display_name"] == "Reference Ops AI"
+    assert agent_review_input["policy_context"]["tool_risk_catalog"]
+    assert agent_review_input["metric_context"]["metrics"]
+    assert "expected_intent_id" in agent_review_input["trace_evidence"][0]
+    assert "selected_intent_id" in agent_review_input["trace_evidence"][0]
+    assert "Expected intent:" in agent_review_input["trace_evidence"][0]["trace_story"]
+    assert agent_review_input["trace_evidence"][0]["spans"][0]["plain_language_summary"]
+    assert agent_review_input["trace_evidence"][0]["spans"][0]["span_id"] == "span_policy"
+    assert pattern_results["status"] == "patterns_found"
+    assert pattern_results["failure_patterns"][0]["supporting_trace_ids"] == [
+        "trace_phoenix_unauth_deep_001"
+    ]
+    assert dataset_results["status"] == "candidates_found"
+    assert dataset_results["dataset_candidates"][0]["source_trace_ids"] == [
+        "trace_phoenix_unauth_deep_001"
+    ]
+
+
+def test_release_check_from_phoenix_mcp_records_trace_pull_failures_without_changing_verdict(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "release"
+
+    result = run_release_check_from_phoenix_mcp(
+        output_dir=output_dir,
+        project_identifier="agentgate-reference-ops-demo",
+        agent_version="v2",
+        last_n_minutes=60,
+        client=TracePullFailurePhoenixClient(),
+    )
+    decision = json.loads((output_dir / "release_decision.json").read_text(encoding="utf-8"))
+    agent_review_input = json.loads((output_dir / "agent_review_input.json").read_text("utf-8"))
+    html = (output_dir / "release_report.html").read_text(encoding="utf-8")
+
+    assert result["decision"] == "BLOCKED"
+    assert decision["decision"] == "BLOCKED"
+    assert decision["agentic_review"]["status"] == "trace_pull_failed"
+    assert agent_review_input["trace_pull"]["status"] == "failed"
+    assert agent_review_input["trace_pull"]["missing_trace_ids"] == [
+        "trace_phoenix_unauth_deep_001"
+    ]
+    assert (
+        agent_review_input["trace_pull"]["failures"][0]["error_message"]
+        == "phoenix get-trace failed for trace_phoenix_unauth_deep_001"
+    )
+    assert all(
+        "agentic review" not in str(reason).lower() for reason in decision["decision_reasons"]
+    )
+    assert "Phoenix trace pull had gaps for 1 dangerous trace." in html
+
 
 def test_cli_release_check_defaults_to_phoenix_without_evidence(
     monkeypatch, tmp_path: Path
@@ -470,11 +535,15 @@ def test_cli_release_check_defaults_to_phoenix_without_evidence(
     def fake_release_check(**kwargs):
         assert kwargs["project_identifier"] == "agentgate-reference-ops-demo"
         assert kwargs["agent_version"] == "v2"
+        assert kwargs["agentic_review_enabled"] is True
         return {
             "agent_version": "v2",
             "decision": "BLOCKED",
             "critical_findings": 1,
             "reviewed_safe": 0,
+            "indeterminate_findings": 0,
+            "high_risk_activity_count": 0,
+            "agentic_review": {"enabled": True, "status": "no_action"},
         }
 
     monkeypatch.setattr(
@@ -500,6 +569,47 @@ def test_cli_release_check_defaults_to_phoenix_without_evidence(
     assert result.exit_code == 0
     assert "source=phoenix" in result.output
     assert "decision=BLOCKED" in result.output
+    assert "agentic_review=no_action" in result.output
+
+
+def test_cli_release_check_can_disable_agent_review_for_phoenix(
+    monkeypatch, tmp_path: Path
+) -> None:
+    def fake_release_check(**kwargs):
+        assert kwargs["agentic_review_enabled"] is False
+        return {
+            "agent_version": "v2",
+            "decision": "BLOCKED",
+            "critical_findings": 1,
+            "reviewed_safe": 0,
+            "indeterminate_findings": 0,
+            "high_risk_activity_count": 0,
+            "agentic_review": {"enabled": False, "status": "disabled"},
+        }
+
+    monkeypatch.setattr(
+        "backend.agentgate.cli.run_release_check_from_phoenix_mcp", fake_release_check
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "release",
+            "check",
+            "--source",
+            "phoenix",
+            "--project-identifier",
+            "agentgate-reference-ops-demo",
+            "--agent-version",
+            "v2",
+            "--no-agentic-review",
+            "--output-dir",
+            str(tmp_path / "release"),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "agentic_review=disabled" in result.output
 
 
 def test_cli_release_check_phoenix_reports_missing_config(monkeypatch, tmp_path: Path) -> None:

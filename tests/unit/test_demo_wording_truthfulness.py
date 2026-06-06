@@ -89,9 +89,10 @@ def test_v2_report_section_order_and_copy(tmp_path, monkeypatch) -> None:
 
     assert response.status_code == 200
     assert text.index('id="release-controls"') < text.index('id="future-verification"')
-    assert "These are not debug notes" in text
-    assert "future release requirements" in text
-    assert "Future Verification is not applicable" in text
+    assert "Technical backing: regression_gates.json" in text
+    assert "Release controls generated" in text
+    assert "Not applicable for this blocked source release." in text
+    assert "Future candidates must verify the generated controls." in text
     for phrase in FORBIDDEN_WEBSITE_PATTERNS:
         assert phrase not in text
 
@@ -146,7 +147,7 @@ def test_approved_report_primary_flow_before_appendix(tmp_path, monkeypatch) -> 
     primary = response.text.split('aria-label="Audit appendices"', 1)[0]
 
     assert (
-        primary.index("Future Verification")
-        < primary.index("Release controls status")
-        < primary.index("Evidence summary")
+        primary.index("Release controls generated")
+        < primary.index("Future Verification")
+        < primary.index('id="evidence-summary"')
     )

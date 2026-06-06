@@ -19,6 +19,21 @@ Gemini does **not** decide release; BLOCK/APPROVE remains deterministic from `me
 
 The dashboard report and standalone `release_report.html` share the same audit structure. The HTML artifact is not a Phoenix export; it is AgentGate's offline release review package.
 
+## Agent review artifacts
+
+These files are optional informational outputs from agentic review:
+
+| File | Role |
+| --- | --- |
+| `agent_review_input.json` | Shared review packet with release slice context, trace evidence, and `trace_pull` status |
+| `pattern_finder_plan.json` | Pattern Finder workflow and focus areas for the current slice |
+| `pattern_finder_results.json` | Pattern Finder findings and validation status |
+| `dataset_planner_results.json` | Dataset Planner findings and validation status |
+
+Agent review artifacts are separate from decision inputs. They do not approve or block releases, do not change `release_decision.json`, and do not write back to Phoenix datasets or annotation queues in P0.
+
+Pattern Finder and Dataset Planner can surface repeated blocker patterns, warning-only follow-up, dataset candidates, annotation recommendations, future control candidates, or duplicate/noise buckets. Human review still decides what to promote into controlled eval coverage, annotations, or future controls.
+
 ## Evidence source metadata
 
 `release_decision.json` records:

@@ -10,6 +10,8 @@
   <body class="report-page">
     <main>
       {% include "release_report_content.html" %}
+      {% include "release_report_audit_archive.html" %}
+      {% include "release_report_appendices.html" %}
       {% with standalone=true %}
       {% include "release_report_artifacts.html" %}
       {% endwith %}

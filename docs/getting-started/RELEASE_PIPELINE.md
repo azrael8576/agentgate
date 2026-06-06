@@ -63,6 +63,19 @@ Reference workflow outcome: **v2 → BLOCKED**, **v2.1 → APPROVED**.
 
 Controlled eval execution in the target agent repo (`release_eval_runner`) is the preferred path for a real integration. Seed replay is a local reference fixture path for regression testing, fallback execution, and offline review.
 
+### Agentic review CLI behavior
+
+`agentgate release check` exposes `--agentic-review/--no-agentic-review`.
+
+- Phoenix runs default to agentic review enabled.
+- Local/offline runs default to agentic review disabled.
+- Use `--no-agentic-review` on Phoenix when you want the deterministic gate only.
+- Use `--agentic-review` on local/offline runs when you want the informational review packet from replayed evidence.
+
+The gate boundary does not move when agentic review is enabled. Pattern Finder and Dataset Planner investigate the release slice and write informational artifacts, but `metrics_summary.json` plus policy thresholds still decide `APPROVED` or `BLOCKED`.
+
+APPROVED runs can still finish with no agent-review action or warning-only findings. That means the candidate cleared blocker controls, while the review artifacts either found nothing to escalate or surfaced non-blocking follow-up for humans.
+
 ## Local fixture fallback (no Phoenix)
 
 Local fixture fallback using the current CLI fixture command:

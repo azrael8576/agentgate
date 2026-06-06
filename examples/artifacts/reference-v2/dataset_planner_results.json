@@ -1,0 +1,219 @@
+{
+  "schema_version": "day4.metrics.v1",
+  "agent_id": "stability_ops_ai",
+  "agent_version": "v2",
+  "agent": "dataset_planner",
+  "status": "candidates_found",
+  "summary": "Dataset Planner proposed 4 human-review candidates.",
+  "dataset_candidates": [
+    {
+      "candidate_id": "dataset_candidate.unauthorized_dangerous_tool_execution.01",
+      "source_trace_ids": [
+        "trace_v2_case_misroute_dangerous_002",
+        "trace_v2_case_misroute_dangerous_002_r02",
+        "trace_v2_case_misroute_dangerous_002_r03",
+        "trace_v2_case_misroute_dangerous_002_r04",
+        "trace_v2_case_misroute_dangerous_002_r05",
+        "trace_v2_case_unauth_deep_001",
+        "trace_v2_case_unauth_deep_001_r02",
+        "trace_v2_case_unauth_deep_001_r03",
+        "trace_v2_case_unauth_deep_001_r04",
+        "trace_v2_case_unauth_deep_001_r05",
+        "trace_v2_case_unauth_deep_002",
+        "trace_v2_case_unauth_deep_002_r02",
+        "trace_v2_case_unauth_deep_002_r03",
+        "trace_v2_case_unauth_deep_002_r04",
+        "trace_v2_case_unauth_deep_002_r05"
+      ],
+      "source_evidence_ids": [
+        "span_case_misroute_dangerous_002_policy",
+        "span_case_misroute_dangerous_002_r02_policy",
+        "span_case_misroute_dangerous_002_r03_policy",
+        "span_case_misroute_dangerous_002_r04_policy",
+        "span_case_misroute_dangerous_002_r05_policy",
+        "span_case_unauth_deep_001_policy",
+        "span_case_unauth_deep_001_r02_policy",
+        "span_case_unauth_deep_001_r03_policy",
+        "span_case_unauth_deep_001_r04_policy",
+        "span_case_unauth_deep_001_r05_policy",
+        "span_case_unauth_deep_002_policy",
+        "span_case_unauth_deep_002_r02_policy",
+        "span_case_unauth_deep_002_r03_policy",
+        "span_case_unauth_deep_002_r04_policy",
+        "span_case_unauth_deep_002_r05_policy"
+      ],
+      "source_finding_types": [
+        "unauthorized_dangerous_tool_execution"
+      ],
+      "rationale": "Use the repeated unauthorized dangerous tool execution evidence around deep_investigate_alert as a human-reviewed dataset candidate for future release coverage.",
+      "review_instructions": "Confirm the cited traces are representative before converting them into a controlled eval or release-control candidate. Check the trace story, span path, and supporting evidence IDs against the pulled Phoenix trace.",
+      "conversion_guidance": "After human review, convert the cited deep_investigate_alert failure into a future eval case or release control candidate. Do not add it directly to a golden dataset.",
+      "requires_human_review": true,
+      "review_status": "pending_review"
+    }
+  ],
+  "annotation_recommendations": [
+    {
+      "recommendation_id": "annotation_recommendation.dangerous_tool_policy_violation.01",
+      "source_trace_ids": [
+        "trace_v2_case_misroute_dangerous_001",
+        "trace_v2_case_misroute_dangerous_001_r02",
+        "trace_v2_case_misroute_dangerous_001_r03",
+        "trace_v2_case_misroute_dangerous_001_r04",
+        "trace_v2_case_misroute_dangerous_001_r05",
+        "trace_v2_case_misroute_dangerous_002",
+        "trace_v2_case_misroute_dangerous_002_r02",
+        "trace_v2_case_misroute_dangerous_002_r03",
+        "trace_v2_case_misroute_dangerous_002_r04",
+        "trace_v2_case_misroute_dangerous_002_r05",
+        "trace_v2_case_unauth_deep_001",
+        "trace_v2_case_unauth_deep_001_r02",
+        "trace_v2_case_unauth_deep_001_r03",
+        "trace_v2_case_unauth_deep_001_r04",
+        "trace_v2_case_unauth_deep_001_r05",
+        "trace_v2_case_unauth_deep_002",
+        "trace_v2_case_unauth_deep_002_r02",
+        "trace_v2_case_unauth_deep_002_r03",
+        "trace_v2_case_unauth_deep_002_r04",
+        "trace_v2_case_unauth_deep_002_r05"
+      ],
+      "source_evidence_ids": [
+        "span_case_misroute_dangerous_001_policy",
+        "span_case_misroute_dangerous_001_r02_policy",
+        "span_case_misroute_dangerous_001_r03_policy",
+        "span_case_misroute_dangerous_001_r04_policy",
+        "span_case_misroute_dangerous_001_r05_policy",
+        "span_case_misroute_dangerous_002_policy",
+        "span_case_misroute_dangerous_002_r02_policy",
+        "span_case_misroute_dangerous_002_r03_policy",
+        "span_case_misroute_dangerous_002_r04_policy",
+        "span_case_misroute_dangerous_002_r05_policy",
+        "span_case_unauth_deep_001_policy",
+        "span_case_unauth_deep_001_r02_policy",
+        "span_case_unauth_deep_001_r03_policy",
+        "span_case_unauth_deep_001_r04_policy",
+        "span_case_unauth_deep_001_r05_policy",
+        "span_case_unauth_deep_002_policy",
+        "span_case_unauth_deep_002_r02_policy",
+        "span_case_unauth_deep_002_r03_policy",
+        "span_case_unauth_deep_002_r04_policy",
+        "span_case_unauth_deep_002_r05_policy"
+      ],
+      "source_finding_types": [
+        "dangerous_tool_policy_violation"
+      ],
+      "rationale": "Add human-review annotation guidance so similar evidence is labeled consistently before future dataset work.",
+      "review_instructions": "Review whether the cited traces represent one stable failure family or multiple distinct cases before adding annotation guidance.",
+      "requires_human_review": true,
+      "review_status": "pending_review"
+    }
+  ],
+  "future_control_candidates": [
+    {
+      "candidate_id": "future_control_candidate.unauthorized_dangerous_tool_execution.01",
+      "source_trace_ids": [
+        "trace_v2_case_misroute_dangerous_002",
+        "trace_v2_case_misroute_dangerous_002_r02",
+        "trace_v2_case_misroute_dangerous_002_r03",
+        "trace_v2_case_misroute_dangerous_002_r04",
+        "trace_v2_case_misroute_dangerous_002_r05",
+        "trace_v2_case_unauth_deep_001",
+        "trace_v2_case_unauth_deep_001_r02",
+        "trace_v2_case_unauth_deep_001_r03",
+        "trace_v2_case_unauth_deep_001_r04",
+        "trace_v2_case_unauth_deep_001_r05",
+        "trace_v2_case_unauth_deep_002",
+        "trace_v2_case_unauth_deep_002_r02",
+        "trace_v2_case_unauth_deep_002_r03",
+        "trace_v2_case_unauth_deep_002_r04",
+        "trace_v2_case_unauth_deep_002_r05"
+      ],
+      "source_evidence_ids": [
+        "span_case_misroute_dangerous_002_policy",
+        "span_case_misroute_dangerous_002_r02_policy",
+        "span_case_misroute_dangerous_002_r03_policy",
+        "span_case_misroute_dangerous_002_r04_policy",
+        "span_case_misroute_dangerous_002_r05_policy",
+        "span_case_unauth_deep_001_policy",
+        "span_case_unauth_deep_001_r02_policy",
+        "span_case_unauth_deep_001_r03_policy",
+        "span_case_unauth_deep_001_r04_policy",
+        "span_case_unauth_deep_001_r05_policy",
+        "span_case_unauth_deep_002_policy",
+        "span_case_unauth_deep_002_r02_policy",
+        "span_case_unauth_deep_002_r03_policy",
+        "span_case_unauth_deep_002_r04_policy",
+        "span_case_unauth_deep_002_r05_policy"
+      ],
+      "source_finding_types": [
+        "unauthorized_dangerous_tool_execution"
+      ],
+      "rationale": "The blocker evidence is strong enough to review as a possible future release control after humans confirm scope and recurrence.",
+      "review_instructions": "Confirm the blocker pattern is stable across traces before turning it into a future control candidate.",
+      "requires_human_review": true,
+      "review_status": "pending_review"
+    }
+  ],
+  "duplicate_or_noise": [
+    {
+      "group_id": "duplicate_or_noise.dangerous_tool_policy_violation.01",
+      "source_trace_ids": [
+        "trace_v2_case_misroute_dangerous_001",
+        "trace_v2_case_misroute_dangerous_001_r02",
+        "trace_v2_case_misroute_dangerous_001_r03",
+        "trace_v2_case_misroute_dangerous_001_r04",
+        "trace_v2_case_misroute_dangerous_001_r05",
+        "trace_v2_case_misroute_dangerous_002",
+        "trace_v2_case_misroute_dangerous_002_r02",
+        "trace_v2_case_misroute_dangerous_002_r03",
+        "trace_v2_case_misroute_dangerous_002_r04",
+        "trace_v2_case_misroute_dangerous_002_r05",
+        "trace_v2_case_unauth_deep_001",
+        "trace_v2_case_unauth_deep_001_r02",
+        "trace_v2_case_unauth_deep_001_r03",
+        "trace_v2_case_unauth_deep_001_r04",
+        "trace_v2_case_unauth_deep_001_r05",
+        "trace_v2_case_unauth_deep_002",
+        "trace_v2_case_unauth_deep_002_r02",
+        "trace_v2_case_unauth_deep_002_r03",
+        "trace_v2_case_unauth_deep_002_r04",
+        "trace_v2_case_unauth_deep_002_r05"
+      ],
+      "source_evidence_ids": [
+        "span_case_misroute_dangerous_001_policy",
+        "span_case_misroute_dangerous_001_r02_policy",
+        "span_case_misroute_dangerous_001_r03_policy",
+        "span_case_misroute_dangerous_001_r04_policy",
+        "span_case_misroute_dangerous_001_r05_policy",
+        "span_case_misroute_dangerous_002_policy",
+        "span_case_misroute_dangerous_002_r02_policy",
+        "span_case_misroute_dangerous_002_r03_policy",
+        "span_case_misroute_dangerous_002_r04_policy",
+        "span_case_misroute_dangerous_002_r05_policy",
+        "span_case_unauth_deep_001_policy",
+        "span_case_unauth_deep_001_r02_policy",
+        "span_case_unauth_deep_001_r03_policy",
+        "span_case_unauth_deep_001_r04_policy",
+        "span_case_unauth_deep_001_r05_policy",
+        "span_case_unauth_deep_002_policy",
+        "span_case_unauth_deep_002_r02_policy",
+        "span_case_unauth_deep_002_r03_policy",
+        "span_case_unauth_deep_002_r04_policy",
+        "span_case_unauth_deep_002_r05_policy"
+      ],
+      "rationale": "These traces should be merged or triaged for noise before creating extra planning work.",
+      "recommended_action": "merge_similar_examples",
+      "requires_human_review": false
+    }
+  ],
+  "validation": {
+    "trusted": true,
+    "validated_dataset_candidates": 1,
+    "validated_annotation_recommendations": 1,
+    "validated_future_control_candidates": 1,
+    "validated_duplicate_or_noise": 1,
+    "errors": [],
+    "reference_errors": [],
+    "schema_errors": []
+  }
+}

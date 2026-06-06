@@ -11,6 +11,7 @@ ResolutionSource = Literal[
     "cli_argument",
     "api_request",
     "bundled_reference_fallback",
+    "container_reference_fallback",
     "not_found",
 ]
 
@@ -23,6 +24,19 @@ def _repo_root() -> Path:
 BUNDLED_REFERENCE_REGRESSION_GATES = (
     _repo_root() / "examples" / "artifacts" / "reference-v2" / "regression_gates.json"
 )
+
+# Docker/Cloud Run image: v2 controls are baked at build time under artifacts/release/.
+CONTAINER_REFERENCE_REGRESSION_GATES = (
+    _repo_root() / "artifacts" / "release" / "reference-v2" / "regression_gates.json"
+)
+
+
+def _v21_reference_fallbacks() -> tuple[tuple[Path, ResolutionSource], ...]:
+    return (
+        (BUNDLED_REFERENCE_REGRESSION_GATES, "bundled_reference_fallback"),
+        (CONTAINER_REFERENCE_REGRESSION_GATES, "container_reference_fallback"),
+    )
+
 
 # Heuristic gate_id -> metrics and pass rules for the reference demo workflow.
 _GATE_RULES: dict[str, dict[str, Any]] = {
@@ -125,19 +139,19 @@ def resolve_release_controls_path(
         }
 
     if agent_version == "v2.1":
-        fallback = BUNDLED_REFERENCE_REGRESSION_GATES
-        if fallback.exists():
-            return fallback, {
-                "mode": "explicit_ref_or_demo_fallback",
-                "status": "found",
-                "source": "bundled_reference_fallback",
-                "artifact_path": str(fallback),
-            }
+        for fallback, source in _v21_reference_fallbacks():
+            if fallback.exists():
+                return fallback, {
+                    "mode": "explicit_ref_or_demo_fallback",
+                    "status": "found",
+                    "source": source,
+                    "artifact_path": str(fallback),
+                }
         return None, {
             "mode": "demo_fallback",
             "status": "not_found",
             "source": "bundled_reference_fallback",
-            "artifact_path": str(fallback),
+            "artifact_path": str(BUNDLED_REFERENCE_REGRESSION_GATES),
         }
 
     return None, {

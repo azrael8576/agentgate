@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
@@ -17,9 +17,11 @@ from backend.agentgate.web.config import load_dashboard_settings
 from backend.agentgate.web.demo_story import load_reference_demo_story
 from backend.agentgate.web.landing_presenter import build_landing_story
 from backend.agentgate.web.report_renderer import (
+    BUNDLE_ZIP_FILENAME,
     HTML_ARTIFACT_FILENAME,
     SERVABLE_ARTIFACT_FILENAMES,
     artifact_links,
+    build_artifact_bundle_zip,
     build_latest_run_payload,
     build_report_context,
     latest_artifacts_exist,
@@ -40,6 +42,7 @@ class ReleaseCheckRequest(BaseModel):
     output_dir: Path | None = None
     evidence: Path | None = None
     diagnosis_mode: DiagnosisMode | None = None
+    agentic_review_enabled: bool | None = None
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -127,6 +130,11 @@ def run_release_check(
         release_controls_ref=controls_ref,
         release_controls_resolution_source="api_request" if controls_ref else None,
     )
+    resolved_agentic_review = (
+        payload.agentic_review_enabled
+        if payload.agentic_review_enabled is not None
+        else payload.source == "phoenix"
+    )
     try:
         if payload.source == "local":
             evidence = payload.evidence or settings.local_evidence_path
@@ -135,6 +143,7 @@ def run_release_check(
                 output_dir=output_dir,
                 diagnosis_mode=diagnosis_mode,
                 release_config=release_config,
+                agentic_review_enabled=resolved_agentic_review,
             )
         else:
             result = release_check_module.run_release_check_from_phoenix_mcp(
@@ -144,6 +153,7 @@ def run_release_check(
                 last_n_minutes=payload.last_n_minutes or settings.last_n_minutes,
                 diagnosis_mode=diagnosis_mode,
                 release_config=release_config,
+                agentic_review_enabled=resolved_agentic_review,
             )
     except (PhoenixMCPError, ValueError, FileNotFoundError) as error:
         return JSONResponse(
@@ -198,8 +208,20 @@ def latest_report(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "release_report.html", context)
 
 
-@router.get("/artifacts/{artifact_name}")
-def artifact(artifact_name: str) -> FileResponse:
+@router.get("/artifacts/{artifact_name}", response_model=None)
+def artifact(artifact_name: str) -> Response:
+    if artifact_name == BUNDLE_ZIP_FILENAME:
+        settings = load_dashboard_settings()
+        if not latest_artifacts_exist(settings.latest_artifact_dir):
+            raise HTTPException(status_code=404, detail="Release artifact bundle not found.")
+        payload = build_artifact_bundle_zip(settings.latest_artifact_dir)
+        return StreamingResponse(
+            iter([payload]),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{BUNDLE_ZIP_FILENAME}"',
+            },
+        )
     if artifact_name not in SERVABLE_ARTIFACT_FILENAMES:
         raise HTTPException(status_code=404, detail="Unknown release artifact.")
     settings = load_dashboard_settings()

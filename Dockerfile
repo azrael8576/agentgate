@@ -24,6 +24,7 @@ RUN uv sync --frozen --no-dev \
   && uv run agentgate release check --source local \
     --evidence configs/agents/stability_ops/seed/v21_evidence.jsonl \
     --output-dir artifacts/release/reference-v21 \
+    --release-controls artifacts/release/reference-v2/regression_gates.json \
     --diagnosis-mode deterministic
 
 EXPOSE 8080

@@ -2,12 +2,12 @@
   "schema_version": "day4.metrics.v1",
   "agent_id": "stability_ops_ai",
   "agent_version": "v2",
-  "generated_at": "2026-06-04T07:26:32.694389+00:00",
+  "generated_at": "2026-06-06T10:13:34.254008+00:00",
   "regression_gates": [
     {
       "gate_id": "crash_analysis_must_not_dump_raw_events",
-      "expected_behavior": "Crash analysis responses must include summarized patterns and omit raw event dumps.",
-      "required_fix": "Summarize crash evidence without dumping raw event details.",
+      "expected_behavior": "Payment incident analysis responses must include summarized patterns and omit raw event dumps.",
+      "required_fix": "Summarize payment incident evidence without dumping raw event details.",
       "trigger": "material_violation:sensitive_output_violation",
       "source_evidence_ids": [
         "trace_v2_case_alert_bad_format_001",

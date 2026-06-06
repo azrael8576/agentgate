@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from backend.agentgate.adk.dataset_planner_agent import build_dataset_planner_agent
+from backend.agentgate.adk.pattern_finder_agent import build_pattern_finder_agent
 from backend.agentgate.adk.release_evidence_agent import (
     build_release_evidence_agent,
     run_local_release_evidence_check,
@@ -57,3 +59,27 @@ def test_build_release_evidence_agent_returns_agent_or_none() -> None:
     if agent is not None:
         assert agent.name == "agentgate_release_evidence_agent"
         assert agent.tools
+
+
+def test_build_pattern_finder_agent_returns_agent_or_none() -> None:
+    agent = build_pattern_finder_agent()
+    if agent is not None:
+        assert agent.name == "agentgate_pattern_finder_agent"
+        assert agent.tools == []
+
+
+def test_build_dataset_planner_agent_returns_agent_or_none() -> None:
+    agent = build_dataset_planner_agent()
+    if agent is not None:
+        assert agent.name == "agentgate_dataset_planner_agent"
+        assert agent.tools == []
+
+
+def test_dataset_planner_prompt_preserves_human_review_boundary() -> None:
+    from backend.agentgate.adk.dataset_planner_agent import DATASET_PLANNER_AGENT_INSTRUCTION
+
+    assert "dataset, annotation, or future-control planning candidates" in (
+        DATASET_PLANNER_AGENT_INSTRUCTION
+    )
+    assert "do not approve or block releases" in DATASET_PLANNER_AGENT_INSTRUCTION.lower()
+    assert "do not directly add golden dataset items" in DATASET_PLANNER_AGENT_INSTRUCTION.lower()
