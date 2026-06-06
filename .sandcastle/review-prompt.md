@@ -44,11 +44,23 @@ Review the code changes on branch `{{BRANCH}}` and improve code clarity, consist
 
 # EXECUTION
 
+## RTK shell (mandatory in Docker sandbox)
+
+- `rtk` is preinstalled. Read `/home/agent/.codex/RTK.md`. Prefix **every** shell command with `rtk` (including `rtk git diff`, `rtk uv run pytest`).
+
+## Sandcastle autonomous mode
+
+This review run is unattended. If you make refinements, commit them directly.
+
+- Do **NOT** use `git-smart-commit` or wait for user confirmation.
+- If tests pass after your edits, `git add` and `git commit` immediately.
+- If the code is already clean, make no commit.
+
 If you find improvements to make:
 
 1. Make the changes directly on this branch
-2. Run `uv run pytest` and AgentGate validate commands to ensure nothing is broken
-3. Commit describing the refinements
+2. Run `rtk uv run pytest` and AgentGate validate commands to ensure nothing is broken
+3. Commit immediately describing the refinements (no confirmation step)
 
 If the code is already clean and well-structured, do nothing.
 

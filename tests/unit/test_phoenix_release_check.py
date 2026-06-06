@@ -86,6 +86,13 @@ class FakePhoenixClient:
         raise AssertionError(f"Unexpected tool call: {name}")
 
 
+class TracePullFailurePhoenixClient(FakePhoenixClient):
+    def call_tool(self, name: str, arguments: dict) -> dict:
+        if name == "get-trace":
+            raise RuntimeError(f"phoenix get-trace failed for {arguments['trace_id']}")
+        return super().call_tool(name, arguments)
+
+
 def test_phoenix_spans_promote_replay_sensitive_output_attributes() -> None:
     records = normalize_phoenix_spans(
         {
@@ -484,6 +491,39 @@ def test_release_check_from_phoenix_mcp_queries_spans_and_dangerous_trace(
     assert dataset_results["dataset_candidates"][0]["source_trace_ids"] == [
         "trace_phoenix_unauth_deep_001"
     ]
+
+
+def test_release_check_from_phoenix_mcp_records_trace_pull_failures_without_changing_verdict(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "release"
+
+    result = run_release_check_from_phoenix_mcp(
+        output_dir=output_dir,
+        project_identifier="agentgate-reference-ops-demo",
+        agent_version="v2",
+        last_n_minutes=60,
+        client=TracePullFailurePhoenixClient(),
+    )
+    decision = json.loads((output_dir / "release_decision.json").read_text(encoding="utf-8"))
+    agent_review_input = json.loads((output_dir / "agent_review_input.json").read_text("utf-8"))
+    html = (output_dir / "release_report.html").read_text(encoding="utf-8")
+
+    assert result["decision"] == "BLOCKED"
+    assert decision["decision"] == "BLOCKED"
+    assert decision["agentic_review"]["status"] == "trace_pull_failed"
+    assert agent_review_input["trace_pull"]["status"] == "failed"
+    assert agent_review_input["trace_pull"]["missing_trace_ids"] == [
+        "trace_phoenix_unauth_deep_001"
+    ]
+    assert (
+        agent_review_input["trace_pull"]["failures"][0]["error_message"]
+        == "phoenix get-trace failed for trace_phoenix_unauth_deep_001"
+    )
+    assert all(
+        "agentic review" not in str(reason).lower() for reason in decision["decision_reasons"]
+    )
+    assert "Phoenix trace pull had gaps for 1 dangerous trace." in html
 
 
 def test_cli_release_check_defaults_to_phoenix_without_evidence(

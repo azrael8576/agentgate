@@ -1,4 +1,5 @@
-FROM node:22-bookworm
+# Trixie (GLIBC >= 2.39) — RTK aarch64 binary requires newer glibc than bookworm.
+FROM node:22-trixie
 
 # Install system dependencies + Python for AgentGate (uv-managed)
 RUN apt-get update && apt-get install -y \
@@ -33,6 +34,11 @@ RUN groupmod -o -g $AGENT_GID node && usermod -o -u $AGENT_UID -g $AGENT_GID -d 
 
 # Install Codex CLI (run as root before USER agent)
 RUN npm install -g @openai/codex
+
+# RTK — token-optimized CLI proxy (Codex reads ~/.codex/RTK.md in the sandbox)
+ENV RTK_INSTALL_DIR=/usr/local/bin
+RUN curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh \
+  && rtk --version
 
 # uv for the agent user (install script ran as root above; copy binary)
 RUN cp /root/.local/bin/uv /usr/local/bin/uv && chmod +x /usr/local/bin/uv
