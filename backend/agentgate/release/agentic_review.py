@@ -73,6 +73,12 @@ _FUTURE_CONTROL_CANDIDATE_ID_PATTERN = re.compile(
 _DUPLICATE_OR_NOISE_GROUP_ID_PATTERN = re.compile(
     r"^duplicate_or_noise\.([a-z0-9_]+)\.(\d{2})$"
 )
+_DATASET_PLANNER_ITEM_KEYS = (
+    "dataset_candidates",
+    "annotation_recommendations",
+    "future_control_candidates",
+    "duplicate_or_noise",
+)
 
 
 def build_agent_review_artifacts(
@@ -246,40 +252,20 @@ def validate_dataset_planner_results(
     results: dict[str, Any], agent_review_input: dict[str, Any]
 ) -> dict[str, Any]:
     trace_ids, evidence_ids = _review_reference_ids(agent_review_input)
-    validated_dataset_candidates, dataset_errors = _validate_review_collection(
-        results=results,
-        items_key="dataset_candidates",
-        validator=_dataset_candidate_validation_errors,
-        trace_ids=trace_ids,
-        evidence_ids=evidence_ids,
-    )
-    validated_annotation_recommendations, annotation_errors = _validate_review_collection(
-        results=results,
-        items_key="annotation_recommendations",
-        validator=_annotation_recommendation_validation_errors,
-        trace_ids=trace_ids,
-        evidence_ids=evidence_ids,
-    )
-    validated_future_control_candidates, future_control_errors = _validate_review_collection(
-        results=results,
-        items_key="future_control_candidates",
-        validator=_future_control_candidate_validation_errors,
-        trace_ids=trace_ids,
-        evidence_ids=evidence_ids,
-    )
-    validated_duplicate_or_noise, duplicate_or_noise_errors = _validate_review_collection(
-        results=results,
-        items_key="duplicate_or_noise",
-        validator=_duplicate_or_noise_validation_errors,
-        trace_ids=trace_ids,
-        evidence_ids=evidence_ids,
-    )
-    errors = [
-        *dataset_errors,
-        *annotation_errors,
-        *future_control_errors,
-        *duplicate_or_noise_errors,
-    ]
+    validated_results: dict[str, list[dict[str, Any]]] = {}
+    validation_counts: dict[str, int] = {}
+    errors: list[str] = []
+    for items_key, validated_count_key, validator in _dataset_planner_collection_specs():
+        validated_items, item_errors = _validate_review_collection(
+            results=results,
+            items_key=items_key,
+            validator=validator,
+            trace_ids=trace_ids,
+            evidence_ids=evidence_ids,
+        )
+        validated_results[items_key] = validated_items
+        validation_counts[validated_count_key] = len(validated_items)
+        errors.extend(item_errors)
 
     trusted = not errors
     status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
@@ -287,29 +273,22 @@ def validate_dataset_planner_results(
     if not trusted:
         status = AGENT_REVIEW_STATUS_INVALID
         summary = "Dataset Planner failed validation and was not trusted."
-        validated_dataset_candidates = []
-        validated_annotation_recommendations = []
-        validated_future_control_candidates = []
-        validated_duplicate_or_noise = []
+        validated_results = {
+            items_key: [] for items_key in _DATASET_PLANNER_ITEM_KEYS
+        }
+        validation_counts = {
+            validated_count_key: 0
+            for _, validated_count_key, _ in _dataset_planner_collection_specs()
+        }
     reference_errors, schema_errors = _split_validation_errors(errors)
     return {
         **results,
         "status": status,
         "summary": summary,
-        "dataset_candidates": validated_dataset_candidates,
-        "annotation_recommendations": validated_annotation_recommendations,
-        "future_control_candidates": validated_future_control_candidates,
-        "duplicate_or_noise": validated_duplicate_or_noise,
+        **validated_results,
         "validation": {
             "trusted": trusted,
-            "validated_dataset_candidates": len(validated_dataset_candidates),
-            "validated_annotation_recommendations": len(
-                validated_annotation_recommendations
-            ),
-            "validated_future_control_candidates": len(
-                validated_future_control_candidates
-            ),
-            "validated_duplicate_or_noise": len(validated_duplicate_or_noise),
+            **validation_counts,
             "errors": errors,
             "reference_errors": reference_errors,
             "schema_errors": schema_errors,
@@ -618,7 +597,7 @@ def _dataset_candidate_validation_errors(
 def _annotation_recommendation_validation_errors(
     recommendation: dict[str, Any], trace_ids: set[str], evidence_ids: set[str]
 ) -> list[str]:
-    errors = _planner_item_validation_errors(
+    return _planner_item_validation_errors(
         recommendation,
         trace_ids,
         evidence_ids,
@@ -633,7 +612,6 @@ def _annotation_recommendation_validation_errors(
         ),
         requires_human_review=True,
     )
-    return errors
 
 
 def _future_control_candidate_validation_errors(
@@ -705,12 +683,7 @@ def _dataset_planner_results(
             base=base,
             agent="dataset_planner",
             summary=NO_ACTION_DATASET_PLANNER_SUMMARY,
-            items_keys=(
-                "dataset_candidates",
-                "annotation_recommendations",
-                "future_control_candidates",
-                "duplicate_or_noise",
-            ),
+            items_keys=_DATASET_PLANNER_ITEM_KEYS,
         )
 
     primary_finding_type, primary_findings = grouped_findings[0]
@@ -1173,6 +1146,34 @@ def _dataset_planner_summary(grouped_findings: list[tuple[str, list[dict[str, An
     candidate_count = len(grouped_findings)
     label = "candidate" if candidate_count == 1 else "candidates"
     return f"Dataset Planner proposed {candidate_count} human-review {label}."
+
+
+def _dataset_planner_collection_specs() -> tuple[
+    tuple[str, str, Callable[[dict[str, Any], set[str], set[str]], list[str]]],
+    ...,
+]:
+    return (
+        (
+            "dataset_candidates",
+            "validated_dataset_candidates",
+            _dataset_candidate_validation_errors,
+        ),
+        (
+            "annotation_recommendations",
+            "validated_annotation_recommendations",
+            _annotation_recommendation_validation_errors,
+        ),
+        (
+            "future_control_candidates",
+            "validated_future_control_candidates",
+            _future_control_candidate_validation_errors,
+        ),
+        (
+            "duplicate_or_noise",
+            "validated_duplicate_or_noise",
+            _duplicate_or_noise_validation_errors,
+        ),
+    )
 
 
 def _planner_item_id(prefix: str, finding_type: str, index: int) -> str:

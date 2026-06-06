@@ -552,24 +552,28 @@ def _agent_review_section(
             )
             if dataset_planner_results
             else "Dataset Planner did not return planning items.",
-            "dataset_candidates": dataset_planner_results.get("dataset_candidates", [])
-            if dataset_planner_results
-            else [],
-            "annotation_recommendations": dataset_planner_results.get(
-                "annotation_recommendations", []
-            )
-            if dataset_planner_results
-            else [],
-            "future_control_candidates": dataset_planner_results.get(
-                "future_control_candidates", []
-            )
-            if dataset_planner_results
-            else [],
-            "duplicate_or_noise": dataset_planner_results.get("duplicate_or_noise", [])
-            if dataset_planner_results
-            else [],
+            "dataset_candidates": _review_result_items(
+                dataset_planner_results, "dataset_candidates"
+            ),
+            "annotation_recommendations": _review_result_items(
+                dataset_planner_results, "annotation_recommendations"
+            ),
+            "future_control_candidates": _review_result_items(
+                dataset_planner_results, "future_control_candidates"
+            ),
+            "duplicate_or_noise": _review_result_items(
+                dataset_planner_results, "duplicate_or_noise"
+            ),
         },
     }
+
+
+def _review_result_items(
+    review_results: dict[str, Any] | None, items_key: str
+) -> list[dict[str, Any]]:
+    if not review_results:
+        return []
+    return list(review_results.get(items_key, []))
 
 
 def _verdict_panel(
