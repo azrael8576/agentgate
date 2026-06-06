@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections import defaultdict
 import re
-from typing import Any, Callable
+from collections import defaultdict
+from collections.abc import Callable
+from typing import Any
 
 from backend.agentgate.core.agent_pack import LoadedAgentPack
 from backend.agentgate.release.dangerous_evidence_classifier import finding_priority
@@ -36,9 +37,7 @@ NO_ACTION_DATASET_PLANNER_SUMMARY = "No action from Dataset Planner in this slic
 DATASET_PLANNER_SUMMARY = "Dataset Planner proposed 1 human-review candidate."
 WARNING_ONLY_PATTERN_FINDER_SUMMARY = "Pattern Finder found warning observations only."
 INVALID_PATTERN_FINDER_SUMMARY = "Pattern Finder failed validation and was not trusted."
-PARTIAL_FAILURE_AGENT_REVIEW_SUMMARY = (
-    "Agent review had partial failures; deterministic release decision still used metrics and policy."
-)
+PARTIAL_FAILURE_AGENT_REVIEW_SUMMARY = "Agent review had partial failures; deterministic release decision still used metrics and policy."
 _REFERENCE_ERROR_PREFIXES = (
     "unknown trace_id ",
     "unknown evidence_id ",
@@ -63,18 +62,14 @@ _PATTERN_TITLES = {
     "response_format_warning": "Response format warning",
     "technical_tool_failure_warning": "Technical tool failure warning",
 }
-_DATASET_CANDIDATE_ID_PATTERN = re.compile(
-    r"^dataset_candidate\.([a-z0-9_]+)\.(\d{2})$"
-)
+_DATASET_CANDIDATE_ID_PATTERN = re.compile(r"^dataset_candidate\.([a-z0-9_]+)\.(\d{2})$")
 _ANNOTATION_RECOMMENDATION_ID_PATTERN = re.compile(
     r"^annotation_recommendation\.([a-z0-9_]+)\.(\d{2})$"
 )
 _FUTURE_CONTROL_CANDIDATE_ID_PATTERN = re.compile(
     r"^future_control_candidate\.([a-z0-9_]+)\.(\d{2})$"
 )
-_DUPLICATE_OR_NOISE_GROUP_ID_PATTERN = re.compile(
-    r"^duplicate_or_noise\.([a-z0-9_]+)\.(\d{2})$"
-)
+_DUPLICATE_OR_NOISE_GROUP_ID_PATTERN = re.compile(r"^duplicate_or_noise\.([a-z0-9_]+)\.(\d{2})$")
 _DATASET_PLANNER_ITEM_KEYS = (
     "dataset_candidates",
     "annotation_recommendations",
@@ -123,9 +118,7 @@ def build_agent_review_artifacts(
     shared_status = _shared_agent_review_status(pattern_status)
     agent_review_input = {
         **base,
-        "packet_audit_id": (
-            f"agent_review_packet:{base['agent_id']}:{base['agent_version']}"
-        ),
+        "packet_audit_id": (f"agent_review_packet:{base['agent_id']}:{base['agent_version']}"),
         "agent_review": {
             "enabled": True,
             **shared_status,
@@ -287,9 +280,7 @@ def validate_dataset_planner_results(
     if not trusted:
         status = AGENT_REVIEW_STATUS_INVALID
         summary = "Dataset Planner failed validation and was not trusted."
-        validated_results = {
-            items_key: [] for items_key in _DATASET_PLANNER_ITEM_KEYS
-        }
+        validated_results = {items_key: [] for items_key in _DATASET_PLANNER_ITEM_KEYS}
         validation_counts = {
             validated_count_key: 0
             for _, validated_count_key, _ in _dataset_planner_collection_specs()
@@ -331,7 +322,9 @@ def _validate_review_collection(
 
 def _split_validation_errors(errors: list[str]) -> tuple[list[str], list[str]]:
     reference_errors = [
-        error for error in errors if any(error.startswith(prefix) for prefix in _REFERENCE_ERROR_PREFIXES)
+        error
+        for error in errors
+        if any(error.startswith(prefix) for prefix in _REFERENCE_ERROR_PREFIXES)
     ]
     schema_errors = [error for error in errors if error not in reference_errors]
     return reference_errors, schema_errors
@@ -452,11 +445,7 @@ def _aggregate_agent_review_status(
 
 def _review_reference_ids(agent_review_input: dict[str, Any]) -> tuple[set[str], set[str]]:
     trace_evidence = agent_review_input.get("trace_evidence", [])
-    trace_ids = {
-        str(trace.get("trace_id"))
-        for trace in trace_evidence
-        if trace.get("trace_id")
-    }
+    trace_ids = {str(trace.get("trace_id")) for trace in trace_evidence if trace.get("trace_id")}
     evidence_ids = {
         str(span.get("span_id"))
         for trace in trace_evidence
@@ -653,8 +642,7 @@ def _future_control_candidate_validation_errors(
         for finding_type in finding_types
     ):
         errors.append(
-            "future control candidates require critical blocker evidence "
-            f"for {candidate_id}"
+            f"future control candidates require critical blocker evidence for {candidate_id}"
         )
     return errors
 
@@ -1108,7 +1096,9 @@ def _pattern_focus_areas(
         return []
     first = critical_findings[0]
     role = first.get("user_role") or "unknown role"
-    repeated_types = sorted({str(finding.get("finding_type") or "") for finding in critical_findings})
+    repeated_types = sorted(
+        {str(finding.get("finding_type") or "") for finding in critical_findings}
+    )
     return [
         "Confirm the trace story matches the cited blocker evidence.",
         f"Check whether role {role} reached a dangerous path that policy should have blocked.",
@@ -1215,9 +1205,7 @@ def _first_nonempty_value(*values: Any) -> Any:
     return None
 
 
-def _trace_context(
-    finding: dict[str, Any], spans: list[dict[str, Any]]
-) -> dict[str, Any]:
+def _trace_context(finding: dict[str, Any], spans: list[dict[str, Any]]) -> dict[str, Any]:
     attributes = finding.get("attributes", {})
     return {
         "expected_intent_id": _first_nonempty_value(
@@ -1360,10 +1348,7 @@ def _dataset_candidate_identity_errors(
     if not candidate_id_match:
         return [f"invalid candidate_id {candidate_id}"]
     if source_finding_types and candidate_id_match.group(1) not in source_finding_types:
-        return [
-            "candidate_id finding type does not match source_finding_types "
-            f"for {candidate_id}"
-        ]
+        return [f"candidate_id finding type does not match source_finding_types for {candidate_id}"]
     return []
 
 
@@ -1382,7 +1367,7 @@ def _planner_source_evidence_ids(findings: list[dict[str, Any]]) -> list[str]:
 
 
 def _planner_result_findings(
-    grouped_findings: list[tuple[str, list[dict[str, Any]]]]
+    grouped_findings: list[tuple[str, list[dict[str, Any]]]],
 ) -> tuple[str, list[dict[str, Any]], str, list[dict[str, Any]]]:
     primary_finding_type, primary_findings = grouped_findings[0]
     annotation_finding_type, annotation_findings = grouped_findings[
@@ -1443,11 +1428,7 @@ def _dataset_candidate_tool_name(
     trace_evidence: list[dict[str, Any]], source_trace_ids: list[str]
 ) -> str:
     example_trace = next(
-        (
-            trace
-            for trace in trace_evidence
-            if str(trace.get("trace_id") or "") in source_trace_ids
-        ),
+        (trace for trace in trace_evidence if str(trace.get("trace_id") or "") in source_trace_ids),
         {},
     )
     tool_name = _first_nonempty_value(
@@ -1558,9 +1539,7 @@ def _build_policy_context(
     }
 
 
-def _build_metric_context(
-    pack: LoadedAgentPack, metrics_summary: dict[str, Any]
-) -> dict[str, Any]:
+def _build_metric_context(pack: LoadedAgentPack, metrics_summary: dict[str, Any]) -> dict[str, Any]:
     control_definitions = pack.control_definitions()
     metrics = []
     for metric in metrics_summary.get("metrics", []):
@@ -1655,8 +1634,7 @@ def _span_plain_language_summary(span_name: str, attributes: dict[str, Any]) -> 
     tool_name = attributes.get("tool_name")
     if span_name.startswith("router."):
         return (
-            "Router selected "
-            f"{attributes.get('selected_intent_id', 'an intent')} for this request."
+            f"Router selected {attributes.get('selected_intent_id', 'an intent')} for this request."
         )
     if span_name.startswith("policy_preflight."):
         return (
@@ -1672,9 +1650,7 @@ def _span_plain_language_summary(span_name: str, attributes: dict[str, Any]) -> 
 def _merge_trace_spans(
     pulled_trace_spans: list[dict[str, Any]], record_spans: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    record_by_span_id = {
-        span["span_id"]: span for span in record_spans if span.get("span_id")
-    }
+    record_by_span_id = {span["span_id"]: span for span in record_spans if span.get("span_id")}
     merged: list[dict[str, Any]] = []
     seen_span_ids: set[str] = set()
     for span in pulled_trace_spans:
@@ -1697,7 +1673,5 @@ def _merge_trace_spans(
             )
         if span_id:
             seen_span_ids.add(span_id)
-    merged.extend(
-        span for span in record_spans if span.get("span_id") not in seen_span_ids
-    )
+    merged.extend(span for span in record_spans if span.get("span_id") not in seen_span_ids)
     return merged

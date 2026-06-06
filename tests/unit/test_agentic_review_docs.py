@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 
-
 DOCS_DIR = Path(__file__).resolve().parents[2] / "docs"
 DOC_EXPECTATIONS = (
     (

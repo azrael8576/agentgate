@@ -24,6 +24,7 @@ DECISION_INPUT_ARTIFACT_NAMES = [
     "eval_suite",
 ]
 
+
 def write_release_artifacts(
     output_dir: Path,
     identity: dict[str, Any],

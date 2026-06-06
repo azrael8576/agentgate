@@ -204,9 +204,7 @@ def _artifact_filenames_from_manifest(manifest: dict[str, Any] | None) -> set[st
     artifacts = (manifest or {}).get("artifacts", {})
     if not isinstance(artifacts, dict):
         return set()
-    return {
-        name if str(name).endswith(".json") else f"{name}.json" for name in artifacts.keys()
-    }
+    return {name if str(name).endswith(".json") else f"{name}.json" for name in artifacts}
 
 
 def artifact_links(available_artifact_names: set[str] | None = None) -> list[dict[str, str]]:
@@ -731,10 +729,7 @@ def _agent_review_audit_summary(
 
 def _grouped_evidence_id_count(cards: list[dict[str, Any]]) -> int:
     evidence_ids = {
-        evidence_id
-        for card in cards
-        for evidence_id in card.get("evidence_ids", [])
-        if evidence_id
+        evidence_id for card in cards for evidence_id in card.get("evidence_ids", []) if evidence_id
     }
     return len(evidence_ids)
 
@@ -820,12 +815,8 @@ def _normalize_pattern_card(
     focus_areas: list[str],
     regression_gates: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    pattern_id = str(
-        pattern.get("pattern_id") or pattern.get("observation_id") or ""
-    )
-    evidence_ids = [
-        str(item) for item in pattern.get("supporting_evidence_ids", []) if item
-    ]
+    pattern_id = str(pattern.get("pattern_id") or pattern.get("observation_id") or "")
+    evidence_ids = [str(item) for item in pattern.get("supporting_evidence_ids", []) if item]
     trace_ids = [str(item) for item in pattern.get("supporting_trace_ids", []) if item]
     severity = str(pattern.get("severity") or "unknown")
     finding_type = _pattern_finding_type(pattern_id)
@@ -836,9 +827,7 @@ def _normalize_pattern_card(
         str(pattern.get("why_it_matters") or pattern.get("problem_summary") or ""),
         _WHY_TEXT_CHARS,
     )
-    evidence_preview = _preview_identifiers(
-        evidence_ids, limit=_EVIDENCE_CHIP_DEFAULT_LIMIT
-    )
+    evidence_preview = _preview_identifiers(evidence_ids, limit=_EVIDENCE_CHIP_DEFAULT_LIMIT)
     trace_preview = _preview_identifiers(trace_ids, limit=_TRACE_PREVIEW_DEFAULT_LIMIT)
     detail_evidence_ids = [
         _short(item) for item in preview_list(evidence_ids, max_items=_EVIDENCE_CHIP_DETAIL_LIMIT)
@@ -901,9 +890,7 @@ def _normalize_pattern_card(
 
 
 def _planner_suggested_label(item: dict[str, Any], *, item_id: str) -> str:
-    finding_types = [
-        str(value) for value in item.get("source_finding_types", []) if value
-    ]
+    finding_types = [str(value) for value in item.get("source_finding_types", []) if value]
     if finding_types:
         return _humanize_token(finding_types[0]).title()
     return _humanize_token(item_id.split(".", 1)[-1]).title() or item_id
@@ -932,18 +919,14 @@ def _normalize_planner_card(
 ) -> dict[str, Any]:
     item_id = str(item.get(id_field) or "")
     trace_ids = [str(value) for value in item.get("source_trace_ids", []) if value]
-    evidence_ids = [
-        str(value) for value in item.get("source_evidence_ids", []) if value
-    ]
+    evidence_ids = [str(value) for value in item.get("source_evidence_ids", []) if value]
     review_status = str(item.get("review_status") or "")
     status_label = (
         "Pending review"
         if item.get("requires_human_review") is True or review_status == "pending_review"
         else _humanize_token(review_status).title() or "Pending review"
     )
-    evidence_preview = _preview_identifiers(
-        evidence_ids, limit=_EVIDENCE_CHIP_DEFAULT_LIMIT
-    )
+    evidence_preview = _preview_identifiers(evidence_ids, limit=_EVIDENCE_CHIP_DEFAULT_LIMIT)
     trace_preview = _preview_identifiers(trace_ids, limit=_TRACE_PREVIEW_DEFAULT_LIMIT)
     shown_trace_count = min(len(trace_ids), _TRACE_PREVIEW_DEFAULT_LIMIT)
     shown_evidence_count = min(len(evidence_ids), _EVIDENCE_CHIP_DEFAULT_LIMIT)
@@ -951,8 +934,7 @@ def _normalize_planner_card(
         remaining_count(evidence_ids, _EVIDENCE_CHIP_DEFAULT_LIMIT)
     )
     detail_evidence_ids = [
-        _short(value)
-        for value in preview_list(evidence_ids, max_items=_EVIDENCE_CHIP_DETAIL_LIMIT)
+        _short(value) for value in preview_list(evidence_ids, max_items=_EVIDENCE_CHIP_DETAIL_LIMIT)
     ]
     detail_trace_ids = [
         _short(value) for value in preview_list(trace_ids, max_items=_TRACE_DETAIL_LIMIT)
@@ -1020,10 +1002,7 @@ def _normalize_planner_card(
 
 def _representative_trace_count(pattern_cards: list[dict[str, Any]]) -> int:
     trace_ids = {
-        trace_id
-        for card in pattern_cards
-        for trace_id in card.get("trace_ids", [])
-        if trace_id
+        trace_id for card in pattern_cards for trace_id in card.get("trace_ids", []) if trace_id
     }
     return len(trace_ids)
 
@@ -1046,14 +1025,11 @@ def _agent_review_unavailable(
         or (pattern_finder_results or {}).get("warning_observations")
     )
     planner_has_content = any(
-        (dataset_planner_results or {}).get(items_key)
-        for items_key in _DATASET_PLANNER_ITEM_KEYS
+        (dataset_planner_results or {}).get(items_key) for items_key in _DATASET_PLANNER_ITEM_KEYS
     )
     if pattern_status == "failed" and not pattern_has_content and not planner_has_content:
         return True
-    if planner_status == "failed" and not planner_has_content and not pattern_has_content:
-        return True
-    return False
+    return bool(planner_status == "failed" and not planner_has_content and not pattern_has_content)
 
 
 def _agent_review_section(
@@ -1098,21 +1074,15 @@ def _agent_review_section(
         pattern_finder_results.get("failure_patterns", []) if pattern_finder_results else []
     )
     warning_observations = (
-        pattern_finder_results.get("warning_observations", [])
-        if pattern_finder_results
-        else []
+        pattern_finder_results.get("warning_observations", []) if pattern_finder_results else []
     )
     gate_context = regression_gates or []
     pattern_cards = [
-        _normalize_pattern_card(
-            pattern, focus_areas=focus_areas, regression_gates=gate_context
-        )
+        _normalize_pattern_card(pattern, focus_areas=focus_areas, regression_gates=gate_context)
         for pattern in failure_patterns
     ]
     warning_cards = [
-        _normalize_pattern_card(
-            warning, focus_areas=focus_areas, regression_gates=gate_context
-        )
+        _normalize_pattern_card(warning, focus_areas=focus_areas, regression_gates=gate_context)
         for warning in warning_observations
     ]
     dataset_candidates = _review_result_items(dataset_planner_results, "dataset_candidates")
@@ -1140,17 +1110,13 @@ def _agent_review_section(
         limit=_AGENT_REVIEW_VISIBLE_PLANNER_LIMIT,
     )
     review_pattern_count = len(all_pattern_cards)
-    dataset_candidate_count = len(dataset_candidates)
+    len(dataset_candidates)
     counts_available = not unavailable
     empty_states = {
-        "human_review_queue": (
-            "No human-review candidates were recommended for this release."
-        ),
+        "human_review_queue": ("No human-review candidates were recommended for this release."),
         "dataset_candidates": "No dataset candidates recommended for this release.",
         "annotation_recommendations": "No annotation recommendations for this release.",
-        "future_control_candidates": (
-            "No future control candidates recommended by Agent Review."
-        ),
+        "future_control_candidates": ("No future control candidates recommended by Agent Review."),
         "critical_patterns": "No critical release-safety patterns found by Pattern Finder.",
     }
     human_review_candidate_count = len(planner_cards)
@@ -1182,7 +1148,9 @@ def _agent_review_section(
             "status": pattern_finder_results.get("status", "unknown")
             if pattern_finder_results
             else "unknown",
-            "summary": pattern_finder_results.get("summary", "Pattern Finder did not return findings.")
+            "summary": pattern_finder_results.get(
+                "summary", "Pattern Finder did not return findings."
+            )
             if pattern_finder_results
             else "Pattern Finder did not return findings.",
             "focus_areas": focus_areas,
@@ -1192,9 +1160,7 @@ def _agent_review_section(
             "warning_cards": warning_cards,
             "visible_pattern_cards": visible_pattern_cards,
             "overflow_pattern_count": len(additional_pattern_cards),
-            "empty_message": empty_states["critical_patterns"]
-            if not pattern_cards
-            else "",
+            "empty_message": empty_states["critical_patterns"] if not pattern_cards else "",
         },
         "dataset_planner": {
             "status": dataset_planner_results.get("status", "unknown")
@@ -1578,9 +1544,7 @@ def _fix_now(
     decision = release_decision.get("decision", "UNKNOWN")
     bridge_note = "Technical backing: regression_gates.json"
     agent_review_bridge_note = (
-        _RELEASE_CONTROLS_AGENT_REVIEW_BRIDGE
-        if decision == "BLOCKED"
-        else ""
+        _RELEASE_CONTROLS_AGENT_REVIEW_BRIDGE if decision == "BLOCKED" else ""
     )
     if decision == "APPROVED":
         return {
@@ -1910,9 +1874,7 @@ def _candidate_header(
     return {
         "candidate": str(release_decision.get("agent_version") or "candidate"),
         "agent": str(
-            agent_profile.get("display_name")
-            or release_decision.get("agent_id")
-            or "agent"
+            agent_profile.get("display_name") or release_decision.get("agent_id") or "agent"
         ),
         "evidence_source": evidence_type,
         "effective_policy": f"{policy_id} / {policy_version}",

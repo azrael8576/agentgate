@@ -474,7 +474,10 @@ def test_release_check_from_phoenix_mcp_queries_spans_and_dangerous_trace(
     pattern_results = json.loads((output_dir / "pattern_finder_results.json").read_text("utf-8"))
     dataset_results = json.loads((output_dir / "dataset_planner_results.json").read_text("utf-8"))
     assert agent_review_input["trace_evidence"][0]["trace_id"] == "trace_phoenix_unauth_deep_001"
-    assert agent_review_input["trace_evidence"][0]["trace_audit_id"] == "trace:trace_phoenix_unauth_deep_001"
+    assert (
+        agent_review_input["trace_evidence"][0]["trace_audit_id"]
+        == "trace:trace_phoenix_unauth_deep_001"
+    )
     assert agent_review_input["agent_context"]["display_name"] == "Reference Ops AI"
     assert agent_review_input["policy_context"]["tool_risk_catalog"]
     assert agent_review_input["metric_context"]["metrics"]

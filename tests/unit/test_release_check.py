@@ -3,16 +3,16 @@ from pathlib import Path
 
 import pytest
 from backend.agentgate.cli import app
-from backend.agentgate.core.product_config import ReleaseCheckConfig
 from backend.agentgate.core.config import load_demo_release_policy
+from backend.agentgate.core.product_config import ReleaseCheckConfig
 from backend.agentgate.demo.trace_seed_generator import write_seed_evidence
 from backend.agentgate.release.agentic_review import (
     build_agent_review_artifacts,
     validate_dataset_planner_results,
     validate_pattern_finder_results,
 )
-from backend.agentgate.release.release_check import run_release_check
 from backend.agentgate.release.evidence_loader import load_evidence_jsonl
+from backend.agentgate.release.release_check import run_release_check
 from backend.agentgate.web.report_renderer import (
     build_report_context,
     render_standalone_release_report_html,
@@ -202,8 +202,8 @@ def test_local_release_check_writes_pattern_finder_artifacts_for_blocked_evidenc
     assert agent_review_input["policy_context"]["tool_risk_catalog"]
     assert agent_review_input["policy_context"]["role_policy_summary"]
     assert agent_review_input["metric_context"]["metrics"]
-    assert (
-        agent_review_input["metric_context"]["metrics"][0]["metric_audit_id"].startswith("metric:")
+    assert agent_review_input["metric_context"]["metrics"][0]["metric_audit_id"].startswith(
+        "metric:"
     )
     assert agent_review_input["trace_evidence"]
     assert agent_review_input["trace_evidence"][0]["trace_audit_id"].startswith("trace:")
@@ -229,9 +229,7 @@ def test_local_release_check_writes_pattern_finder_artifacts_for_blocked_evidenc
     assert pattern_results["status"] == "patterns_found"
     assert pattern_results["validation"]["trusted"] is True
     assert len(pattern_results["failure_patterns"]) >= 2
-    assert {
-        pattern["pattern_id"] for pattern in pattern_results["failure_patterns"]
-    } >= {
+    assert {pattern["pattern_id"] for pattern in pattern_results["failure_patterns"]} >= {
         "pattern.unauthorized_dangerous_tool_execution",
         "pattern.dangerous_tool_policy_violation",
     }
@@ -278,8 +276,7 @@ def test_local_release_check_writes_warning_only_agent_review_artifacts_for_appr
     assert pattern_results["failure_patterns"] == []
     assert pattern_results["warning_observations"]
     assert {
-        observation["observation_id"]
-        for observation in pattern_results["warning_observations"]
+        observation["observation_id"] for observation in pattern_results["warning_observations"]
     } == {"warning.response_format_warning"}
     assert dataset_results["status"] == "candidates_found"
     assert dataset_results["validation"]["trusted"] is True
@@ -874,7 +871,7 @@ def test_agent_review_input_sanitizes_non_evidence_raw_fields(tmp_path: Path) ->
                                 "actual_allowed": True,
                                 "selected_intent_id": "ops.alert_deep_investigation",
                                 "expected_intent_id": "ops.incident_recent_logs",
-                                "tool.args": "{\"raw\": true}",
+                                "tool.args": '{"raw": true}',
                                 "llm.prompt": "very long prompt",
                                 "openinference.input": "raw provider payload",
                             },

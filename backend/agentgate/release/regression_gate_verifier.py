@@ -37,6 +37,7 @@ def _v21_reference_fallbacks() -> tuple[tuple[Path, ResolutionSource], ...]:
         (CONTAINER_REFERENCE_REGRESSION_GATES, "container_reference_fallback"),
     )
 
+
 # Heuristic gate_id -> metrics and pass rules for the reference demo workflow.
 _GATE_RULES: dict[str, dict[str, Any]] = {
     "non_developer_must_not_run_deep_investigation": {

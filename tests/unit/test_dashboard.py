@@ -666,7 +666,9 @@ def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypa
     assert "Auto-enforced" not in response.text
     assert "Agents investigate and plan" not in response.text
     assert "Nothing from Agent Review is auto-enforced" not in response.text
-    agent_review_chunk = response.text.split('id="agent-review"')[1].split('id="evidence-summary"')[0]
+    agent_review_chunk = response.text.split('id="agent-review"')[1].split('id="evidence-summary"')[
+        0
+    ]
     assert "Review queue" in response.text
     assert "Human Review Queue" not in response.text
     assert "Review candidate" in response.text
@@ -698,7 +700,9 @@ def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypa
     )
     assert "Supporting patterns" in agent_review_chunk
     assert "Supporting pattern summary" not in agent_review_chunk
-    assert response.text.index('id="future-verification"') < response.text.index('id="agent-review"')
+    assert response.text.index('id="future-verification"') < response.text.index(
+        'id="agent-review"'
+    )
     assert response.text.index('id="agent-review"') < response.text.index('id="evidence-summary"')
     assert '<details class="session-diagnosis-disclosure" id="session-diagnosis-appendix">' in (
         response.text
@@ -712,8 +716,12 @@ def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypa
         "It is not used for APPROVED / BLOCKED."
     ) in response.text
     assert response.text.index('id="evidence-summary"') < response.text.index('id="audit-archive"')
-    assert response.text.index('id="audit-archive"') < response.text.index('aria-label="Audit appendices"')
-    assert response.text.index('aria-label="Audit appendices"') < response.text.index('id="audit-artifacts"')
+    assert response.text.index('id="audit-archive"') < response.text.index(
+        'aria-label="Audit appendices"'
+    )
+    assert response.text.index('aria-label="Audit appendices"') < response.text.index(
+        'id="audit-artifacts"'
+    )
 
 
 def test_report_agent_review_density_limits_patterns_and_planner(
@@ -755,7 +763,9 @@ def test_report_agent_review_density_limits_patterns_and_planner(
     assert "dataset_planner_results.json" in response.text
     assert "pattern_finder_results.json" in response.text
     assert "Dataset Planner overflow" not in response.text
-    agent_review_chunk = response.text.split('id="agent-review"')[1].split('id="evidence-summary"')[0]
+    agent_review_chunk = response.text.split('id="agent-review"')[1].split('id="evidence-summary"')[
+        0
+    ]
     assert agent_review_chunk.count("agent-review-planner-card") == 3
     pattern_section = agent_review_chunk.split('id="pattern-finder-summary"', 1)[1]
     assert pattern_section.count("agent-review-pattern-card") == 3
@@ -884,9 +894,10 @@ def test_report_hides_zero_stats_and_audit_style_agent_review_copy(
     agent_review_chunk = text.split('id="agent-review"')[1].split('id="evidence-summary"')[0]
 
     assert response.status_code == 200
-    assert "Needs review</span>" not in text.split('id="why-blocked"')[1].split(
-        'id="release-controls"'
-    )[0]
+    assert (
+        "Needs review</span>"
+        not in text.split('id="why-blocked"')[1].split('id="release-controls"')[0]
+    )
     assert text.count("Advisory only") == 1
     assert "Nothing from Agent Review is auto-enforced" not in text
     assert "Agents investigate and plan" not in text
@@ -903,9 +914,7 @@ def test_report_hides_zero_stats_and_audit_style_agent_review_copy(
     )
 
 
-def test_report_renders_agent_review_unavailable_fallback(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_report_renders_agent_review_unavailable_fallback(tmp_path: Path, monkeypatch: Any) -> None:
     latest_dir = tmp_path / "latest"
     run_release_check(_seed("v2", tmp_path), latest_dir, agentic_review_enabled=True)
     for artifact_name in (
