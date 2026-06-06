@@ -286,12 +286,39 @@
       <h3>{{ agent_review.dataset_planner.status | replace("_", " ") | title }}</h3>
       <p class="gate-reason">{{ agent_review.dataset_planner.summary }}</p>
       {% if agent_review.dataset_planner.dataset_candidates %}
+        <p class="gate-reason"><strong>Dataset candidates</strong></p>
         {% for candidate in agent_review.dataset_planner.dataset_candidates %}
           <p class="gate-reason"><strong>{{ candidate.candidate_id }}</strong></p>
           <p class="section-note">{{ candidate.review_status }}</p>
           <p class="section-note">{{ candidate.rationale }}</p>
           <p class="section-note">{{ candidate.review_instructions }}</p>
           <p class="section-note">{{ candidate.conversion_guidance }}</p>
+        {% endfor %}
+      {% endif %}
+      {% if agent_review.dataset_planner.annotation_recommendations %}
+        <p class="gate-reason"><strong>Annotation recommendations</strong></p>
+        {% for recommendation in agent_review.dataset_planner.annotation_recommendations %}
+          <p class="gate-reason"><strong>{{ recommendation.recommendation_id }}</strong></p>
+          <p class="section-note">{{ recommendation.review_status }}</p>
+          <p class="section-note">{{ recommendation.rationale }}</p>
+          <p class="section-note">{{ recommendation.review_instructions }}</p>
+        {% endfor %}
+      {% endif %}
+      {% if agent_review.dataset_planner.future_control_candidates %}
+        <p class="gate-reason"><strong>Future control candidates</strong></p>
+        {% for candidate in agent_review.dataset_planner.future_control_candidates %}
+          <p class="gate-reason"><strong>{{ candidate.candidate_id }}</strong></p>
+          <p class="section-note">{{ candidate.review_status }}</p>
+          <p class="section-note">{{ candidate.rationale }}</p>
+          <p class="section-note">{{ candidate.review_instructions }}</p>
+        {% endfor %}
+      {% endif %}
+      {% if agent_review.dataset_planner.duplicate_or_noise %}
+        <p class="gate-reason"><strong>Duplicate or noise groups</strong></p>
+        {% for group in agent_review.dataset_planner.duplicate_or_noise %}
+          <p class="gate-reason"><strong>{{ group.group_id }}</strong></p>
+          <p class="section-note">{{ group.rationale }}</p>
+          <p class="section-note">{{ group.recommended_action }}</p>
         {% endfor %}
       {% endif %}
     </article>

@@ -619,6 +619,9 @@ def test_report_context_includes_no_action_agent_review_sections(tmp_path: Path)
     assert context["agent_review"]["pattern_finder"]["failure_patterns"]
     assert context["agent_review"]["dataset_planner"]["status"] == "candidates_found"
     assert context["agent_review"]["dataset_planner"]["dataset_candidates"]
+    assert context["agent_review"]["dataset_planner"]["annotation_recommendations"]
+    assert context["agent_review"]["dataset_planner"]["future_control_candidates"]
+    assert context["agent_review"]["dataset_planner"]["duplicate_or_noise"]
 
 
 def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypatch: Any) -> None:
@@ -635,6 +638,9 @@ def test_report_renders_no_action_agent_review_sections(tmp_path: Path, monkeypa
     assert "Dataset Planner" in response.text
     assert "Unauthorized dangerous tool execution" in response.text
     assert "pending_review" in response.text
+    assert "Annotation recommendations" in response.text
+    assert "Future control candidates" in response.text
+    assert "Duplicate or noise groups" in response.text
     assert "The release gate still decides APPROVED or BLOCKED." in response.text
 
 

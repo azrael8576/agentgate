@@ -13,6 +13,7 @@ from backend.agentgate.release.agentic_review import (
 )
 from backend.agentgate.release.release_check import run_release_check
 from backend.agentgate.release.evidence_loader import load_evidence_jsonl
+from backend.agentgate.web.report_renderer import render_standalone_release_report_html
 from typer.testing import CliRunner
 
 
@@ -24,6 +25,12 @@ def _seed(version: str, tmp_path: Path) -> Path:
 
 def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _rewrite_json(path: Path, update: object) -> None:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    update(payload)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def test_v2_release_check_is_blocked(tmp_path: Path) -> None:
@@ -447,6 +454,125 @@ def test_dataset_planner_validation_rejects_candidate_id_type_mismatch() -> None
     ) in validated["validation"]["errors"]
 
 
+def test_dataset_planner_validation_accepts_all_four_planning_buckets() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_001",
+                "finding_types": ["unauthorized_dangerous_tool_execution"],
+                "spans": [{"span_id": "span_real_001"}],
+            },
+            {
+                "trace_id": "trace_real_002",
+                "finding_types": ["policy_preflight_missing"],
+                "spans": [{"span_id": "span_real_002"}],
+            },
+        ]
+    }
+    results = {
+        "status": "candidates_found",
+        "dataset_candidates": [
+            {
+                "candidate_id": "dataset_candidate.unauthorized_dangerous_tool_execution.01",
+                "source_trace_ids": ["trace_real_001"],
+                "source_evidence_ids": ["span_real_001"],
+                "source_finding_types": ["unauthorized_dangerous_tool_execution"],
+                "rationale": "Use the blocker traces for future eval coverage.",
+                "review_instructions": "Confirm the traces are representative.",
+                "conversion_guidance": "Convert into a future release control or eval case.",
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+        "annotation_recommendations": [
+            {
+                "recommendation_id": "annotation_recommendation.policy_preflight_missing.01",
+                "source_trace_ids": ["trace_real_002"],
+                "source_evidence_ids": ["span_real_002"],
+                "source_finding_types": ["policy_preflight_missing"],
+                "rationale": "Add a consistent reviewer annotation for this warning family.",
+                "review_instructions": "Check whether the missing preflight is real or telemetry noise.",
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+        "future_control_candidates": [
+            {
+                "candidate_id": "future_control_candidate.unauthorized_dangerous_tool_execution.01",
+                "source_trace_ids": ["trace_real_001"],
+                "source_evidence_ids": ["span_real_001"],
+                "source_finding_types": ["unauthorized_dangerous_tool_execution"],
+                "rationale": "The blocker pattern is stable enough for a future control proposal.",
+                "review_instructions": "Validate the blocker pattern before adding any new control.",
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+        "duplicate_or_noise": [
+            {
+                "group_id": "duplicate_or_noise.policy_preflight_missing.01",
+                "source_trace_ids": ["trace_real_002"],
+                "source_evidence_ids": ["span_real_002"],
+                "rationale": "The warning evidence is repetitive and likely one telemetry family.",
+                "recommended_action": "merge_similar_examples",
+                "requires_human_review": False,
+            }
+        ],
+    }
+
+    validated = validate_dataset_planner_results(results, agent_review_input)
+
+    assert validated["status"] == "candidates_found"
+    assert validated["validation"]["trusted"] is True
+    assert validated["validation"]["validated_dataset_candidates"] == 1
+    assert validated["validation"]["validated_annotation_recommendations"] == 1
+    assert validated["validation"]["validated_future_control_candidates"] == 1
+    assert validated["validation"]["validated_duplicate_or_noise"] == 1
+    assert validated["annotation_recommendations"][0]["recommendation_id"].startswith(
+        "annotation_recommendation."
+    )
+    assert validated["future_control_candidates"][0]["candidate_id"].startswith(
+        "future_control_candidate."
+    )
+    assert validated["duplicate_or_noise"][0]["group_id"].startswith("duplicate_or_noise.")
+
+
+def test_dataset_planner_validation_rejects_warning_only_future_control_candidate() -> None:
+    agent_review_input = {
+        "trace_evidence": [
+            {
+                "trace_id": "trace_real_002",
+                "finding_types": ["policy_preflight_missing"],
+                "spans": [{"span_id": "span_real_002"}],
+            }
+        ]
+    }
+    results = {
+        "status": "candidates_found",
+        "future_control_candidates": [
+            {
+                "candidate_id": "future_control_candidate.policy_preflight_missing.01",
+                "source_trace_ids": ["trace_real_002"],
+                "source_evidence_ids": ["span_real_002"],
+                "source_finding_types": ["policy_preflight_missing"],
+                "rationale": "Promote the warning family directly into a blocker future control.",
+                "review_instructions": "Review and add the control.",
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+    }
+
+    validated = validate_dataset_planner_results(results, agent_review_input)
+
+    assert validated["status"] == "invalid"
+    assert validated["future_control_candidates"] == []
+    assert (
+        "future control candidates require critical blocker evidence "
+        "for future_control_candidate.policy_preflight_missing.01"
+    ) in validated["validation"]["errors"]
+
+
 def test_pattern_finder_validation_rejects_missing_example_traces() -> None:
     agent_review_input = {
         "trace_evidence": [
@@ -704,11 +830,56 @@ def test_release_report_includes_dataset_planner_candidate_details(tmp_path: Pat
     output_dir = tmp_path / "release" / "v2"
 
     run_release_check(evidence, output_dir, agentic_review_enabled=True)
+    _rewrite_json(
+        output_dir / "dataset_planner_results.json",
+        lambda payload: payload.update(
+            {
+                "annotation_recommendations": [
+                    {
+                        "recommendation_id": "annotation_recommendation.policy_preflight_missing.01",
+                        "source_trace_ids": ["trace_008"],
+                        "source_evidence_ids": ["span_008_policy"],
+                        "source_finding_types": ["policy_preflight_missing"],
+                        "rationale": "Add reviewer guidance for missing preflight warnings.",
+                        "review_instructions": "Check whether this is a telemetry gap or real policy issue.",
+                        "requires_human_review": True,
+                        "review_status": "pending_review",
+                    }
+                ],
+                "future_control_candidates": [
+                    {
+                        "candidate_id": "future_control_candidate.unauthorized_dangerous_tool_execution.01",
+                        "source_trace_ids": ["trace_008"],
+                        "source_evidence_ids": ["span_008_policy"],
+                        "source_finding_types": ["unauthorized_dangerous_tool_execution"],
+                        "rationale": "The blocker family is stable enough for future control review.",
+                        "review_instructions": "Confirm blocker severity before adding a future control.",
+                        "requires_human_review": True,
+                        "review_status": "pending_review",
+                    }
+                ],
+                "duplicate_or_noise": [
+                    {
+                        "group_id": "duplicate_or_noise.policy_preflight_missing.01",
+                        "source_trace_ids": ["trace_010"],
+                        "source_evidence_ids": ["span_010_tool"],
+                        "rationale": "Similar warnings should be merged before dataset work.",
+                        "recommended_action": "merge_similar_examples",
+                        "requires_human_review": False,
+                    }
+                ],
+            }
+        ),
+    )
+    render_standalone_release_report_html(output_dir)
     html = (output_dir / "release_report.html").read_text(encoding="utf-8")
 
     assert "dataset_candidate.unauthorized_dangerous_tool_execution.01" in html
     assert "Confirm the cited traces are representative before converting them" in html
     assert "Do not add it directly to a golden dataset." in html
+    assert "annotation_recommendation.policy_preflight_missing.01" in html
+    assert "future_control_candidate.unauthorized_dangerous_tool_execution.01" in html
+    assert "duplicate_or_noise.policy_preflight_missing.01" in html
 
 
 def test_release_check_writes_release_authority_audit_manifest(tmp_path: Path) -> None:

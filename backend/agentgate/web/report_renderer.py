@@ -555,6 +555,19 @@ def _agent_review_section(
             "dataset_candidates": dataset_planner_results.get("dataset_candidates", [])
             if dataset_planner_results
             else [],
+            "annotation_recommendations": dataset_planner_results.get(
+                "annotation_recommendations", []
+            )
+            if dataset_planner_results
+            else [],
+            "future_control_candidates": dataset_planner_results.get(
+                "future_control_candidates", []
+            )
+            if dataset_planner_results
+            else [],
+            "duplicate_or_noise": dataset_planner_results.get("duplicate_or_noise", [])
+            if dataset_planner_results
+            else [],
         },
     }
 

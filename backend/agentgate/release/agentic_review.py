@@ -64,6 +64,15 @@ _PATTERN_TITLES = {
 _DATASET_CANDIDATE_ID_PATTERN = re.compile(
     r"^dataset_candidate\.([a-z0-9_]+)\.(\d{2})$"
 )
+_ANNOTATION_RECOMMENDATION_ID_PATTERN = re.compile(
+    r"^annotation_recommendation\.([a-z0-9_]+)\.(\d{2})$"
+)
+_FUTURE_CONTROL_CANDIDATE_ID_PATTERN = re.compile(
+    r"^future_control_candidate\.([a-z0-9_]+)\.(\d{2})$"
+)
+_DUPLICATE_OR_NOISE_GROUP_ID_PATTERN = re.compile(
+    r"^duplicate_or_noise\.([a-z0-9_]+)\.(\d{2})$"
+)
 
 
 def build_agent_review_artifacts(
@@ -236,28 +245,86 @@ def validate_pattern_finder_results(
 def validate_dataset_planner_results(
     results: dict[str, Any], agent_review_input: dict[str, Any]
 ) -> dict[str, Any]:
-    return _validate_review_results(
+    trace_ids, evidence_ids = _review_reference_ids(agent_review_input)
+    validated_dataset_candidates, dataset_errors = _validate_review_collection(
         results=results,
-        agent_review_input=agent_review_input,
         items_key="dataset_candidates",
         validator=_dataset_candidate_validation_errors,
-        default_summary=NO_ACTION_DATASET_PLANNER_SUMMARY,
-        invalid_summary="Dataset Planner failed validation and was not trusted.",
-        validated_count_key="validated_dataset_candidates",
+        trace_ids=trace_ids,
+        evidence_ids=evidence_ids,
     )
+    validated_annotation_recommendations, annotation_errors = _validate_review_collection(
+        results=results,
+        items_key="annotation_recommendations",
+        validator=_annotation_recommendation_validation_errors,
+        trace_ids=trace_ids,
+        evidence_ids=evidence_ids,
+    )
+    validated_future_control_candidates, future_control_errors = _validate_review_collection(
+        results=results,
+        items_key="future_control_candidates",
+        validator=_future_control_candidate_validation_errors,
+        trace_ids=trace_ids,
+        evidence_ids=evidence_ids,
+    )
+    validated_duplicate_or_noise, duplicate_or_noise_errors = _validate_review_collection(
+        results=results,
+        items_key="duplicate_or_noise",
+        validator=_duplicate_or_noise_validation_errors,
+        trace_ids=trace_ids,
+        evidence_ids=evidence_ids,
+    )
+    errors = [
+        *dataset_errors,
+        *annotation_errors,
+        *future_control_errors,
+        *duplicate_or_noise_errors,
+    ]
+
+    trusted = not errors
+    status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
+    summary = results.get("summary", NO_ACTION_DATASET_PLANNER_SUMMARY)
+    if not trusted:
+        status = AGENT_REVIEW_STATUS_INVALID
+        summary = "Dataset Planner failed validation and was not trusted."
+        validated_dataset_candidates = []
+        validated_annotation_recommendations = []
+        validated_future_control_candidates = []
+        validated_duplicate_or_noise = []
+    reference_errors, schema_errors = _split_validation_errors(errors)
+    return {
+        **results,
+        "status": status,
+        "summary": summary,
+        "dataset_candidates": validated_dataset_candidates,
+        "annotation_recommendations": validated_annotation_recommendations,
+        "future_control_candidates": validated_future_control_candidates,
+        "duplicate_or_noise": validated_duplicate_or_noise,
+        "validation": {
+            "trusted": trusted,
+            "validated_dataset_candidates": len(validated_dataset_candidates),
+            "validated_annotation_recommendations": len(
+                validated_annotation_recommendations
+            ),
+            "validated_future_control_candidates": len(
+                validated_future_control_candidates
+            ),
+            "validated_duplicate_or_noise": len(validated_duplicate_or_noise),
+            "errors": errors,
+            "reference_errors": reference_errors,
+            "schema_errors": schema_errors,
+        },
+    }
 
 
-def _validate_review_results(
+def _validate_review_collection(
     *,
     results: dict[str, Any],
-    agent_review_input: dict[str, Any],
     items_key: str,
     validator: Callable[[dict[str, Any], set[str], set[str]], list[str]],
-    default_summary: str,
-    invalid_summary: str,
-    validated_count_key: str,
-) -> dict[str, Any]:
-    trace_ids, evidence_ids = _review_reference_ids(agent_review_input)
+    trace_ids: set[str],
+    evidence_ids: set[str],
+) -> tuple[list[dict[str, Any]], list[str]]:
     validated_items: list[dict[str, Any]] = []
     errors: list[str] = []
     for item in results.get(items_key, []):
@@ -266,28 +333,7 @@ def _validate_review_results(
             errors.extend(item_errors)
             continue
         validated_items.append(item)
-
-    trusted = not errors
-    status = results.get("status", AGENT_REVIEW_STATUS_NO_ACTION)
-    summary = results.get("summary", default_summary)
-    if not trusted:
-        status = AGENT_REVIEW_STATUS_INVALID
-        summary = invalid_summary
-        validated_items = []
-    reference_errors, schema_errors = _split_validation_errors(errors)
-    return {
-        **results,
-        "status": status,
-        "summary": summary,
-        items_key: validated_items,
-        "validation": {
-            "trusted": trusted,
-            validated_count_key: len(validated_items),
-            "errors": errors,
-            "reference_errors": reference_errors,
-            "schema_errors": schema_errors,
-        },
-    }
+    return validated_items, errors
 
 
 def _split_validation_errors(errors: list[str]) -> tuple[list[str], list[str]]:
@@ -569,44 +615,124 @@ def _dataset_candidate_validation_errors(
     return errors
 
 
+def _annotation_recommendation_validation_errors(
+    recommendation: dict[str, Any], trace_ids: set[str], evidence_ids: set[str]
+) -> list[str]:
+    errors = _planner_item_validation_errors(
+        recommendation,
+        trace_ids,
+        evidence_ids,
+        id_field="recommendation_id",
+        id_pattern=_ANNOTATION_RECOMMENDATION_ID_PATTERN,
+        prefix_label="recommendation_id",
+        required_text_fields=(
+            "recommendation_id",
+            "rationale",
+            "review_instructions",
+            "review_status",
+        ),
+        requires_human_review=True,
+    )
+    return errors
+
+
+def _future_control_candidate_validation_errors(
+    candidate: dict[str, Any], trace_ids: set[str], evidence_ids: set[str]
+) -> list[str]:
+    errors = _planner_item_validation_errors(
+        candidate,
+        trace_ids,
+        evidence_ids,
+        id_field="candidate_id",
+        id_pattern=_FUTURE_CONTROL_CANDIDATE_ID_PATTERN,
+        prefix_label="candidate_id",
+        required_text_fields=(
+            "candidate_id",
+            "rationale",
+            "review_instructions",
+            "review_status",
+        ),
+        requires_human_review=True,
+    )
+    finding_types = [str(item) for item in candidate.get("source_finding_types", [])]
+    candidate_id = str(candidate.get("candidate_id") or "")
+    if finding_types and not any(
+        finding_type in {"unauthorized_dangerous_tool_execution", "dangerous_tool_policy_violation"}
+        for finding_type in finding_types
+    ):
+        errors.append(
+            "future control candidates require critical blocker evidence "
+            f"for {candidate_id}"
+        )
+    return errors
+
+
+def _duplicate_or_noise_validation_errors(
+    group: dict[str, Any], trace_ids: set[str], evidence_ids: set[str]
+) -> list[str]:
+    errors: list[str] = []
+    group_id = str(group.get("group_id") or "")
+    group_id_match = _DUPLICATE_OR_NOISE_GROUP_ID_PATTERN.match(group_id)
+    if not group_id_match:
+        errors.append(f"invalid group_id {group_id}")
+    for field in ("group_id", "rationale", "recommended_action"):
+        if not str(group.get(field) or "").strip():
+            errors.append(f"missing {field}")
+    source_trace_ids = [str(item) for item in group.get("source_trace_ids", [])]
+    source_evidence_ids = [str(item) for item in group.get("source_evidence_ids", [])]
+    if not source_trace_ids:
+        errors.append("missing source_trace_ids")
+    if not source_evidence_ids:
+        errors.append("missing source_evidence_ids")
+    for trace_id in source_trace_ids:
+        if trace_id not in trace_ids:
+            errors.append(f"unknown trace_id {trace_id}")
+    for evidence_id in source_evidence_ids:
+        if evidence_id not in evidence_ids:
+            errors.append(f"unknown evidence_id {evidence_id}")
+    return errors
+
+
 def _dataset_planner_results(
     *,
     base: dict[str, Any],
     critical_findings: list[dict[str, Any]],
     trace_evidence: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    selected_findings = _selected_findings_by_type(critical_findings, trace_evidence)
-    if selected_findings is None:
+    grouped_findings = _group_findings_by_type(critical_findings, trace_evidence)
+    if not grouped_findings:
         return _no_action_review_results(
             base=base,
             agent="dataset_planner",
             summary=NO_ACTION_DATASET_PLANNER_SUMMARY,
-            items_key="dataset_candidates",
+            items_keys=(
+                "dataset_candidates",
+                "annotation_recommendations",
+                "future_control_candidates",
+                "duplicate_or_noise",
+            ),
         )
 
-    finding_type, findings = selected_findings
-    source_trace_ids = sorted({str(finding["trace_id"]) for finding in findings})
-    source_evidence_ids = sorted(
-        {
-            str(evidence_id)
-            for finding in findings
-            for evidence_id in finding.get("evidence_ids", [])
-        }
-    )
+    primary_finding_type, primary_findings = grouped_findings[0]
+    source_trace_ids = _planner_source_trace_ids(primary_findings)
+    source_evidence_ids = _planner_source_evidence_ids(primary_findings)
     tool_name = _dataset_candidate_tool_name(trace_evidence, source_trace_ids)
+    annotation_findings_type, annotation_findings = grouped_findings[min(1, len(grouped_findings) - 1)]
+    annotation_trace_ids = _planner_source_trace_ids(annotation_findings)
+    annotation_evidence_ids = _planner_source_evidence_ids(annotation_findings)
     return {
         **base,
         "agent": "dataset_planner",
         "status": AGENT_REVIEW_STATUS_CANDIDATES_FOUND,
-        "summary": DATASET_PLANNER_SUMMARY,
+        "summary": _dataset_planner_summary(grouped_findings),
         "dataset_candidates": [
             {
-                "candidate_id": _dataset_candidate_id(finding_type, 1),
+                "candidate_id": _planner_item_id("dataset_candidate", primary_finding_type, 1),
                 "source_trace_ids": source_trace_ids,
                 "source_evidence_ids": source_evidence_ids,
-                "source_finding_types": [finding_type],
+                "source_finding_types": [primary_finding_type],
                 "rationale": (
-                    f"Use the repeated {finding_type.replace('_', ' ')} evidence around "
+                    f"Use the repeated {primary_finding_type.replace('_', ' ')} evidence around "
                     f"{tool_name} as a human-reviewed dataset candidate for future release "
                     "coverage."
                 ),
@@ -622,6 +748,59 @@ def _dataset_planner_results(
                 ),
                 "requires_human_review": True,
                 "review_status": "pending_review",
+            }
+        ],
+        "annotation_recommendations": [
+            {
+                "recommendation_id": _planner_item_id(
+                    "annotation_recommendation", annotation_findings_type, 1
+                ),
+                "source_trace_ids": annotation_trace_ids,
+                "source_evidence_ids": annotation_evidence_ids,
+                "source_finding_types": [annotation_findings_type],
+                "rationale": (
+                    "Add human-review annotation guidance so similar evidence is labeled "
+                    "consistently before future dataset work."
+                ),
+                "review_instructions": (
+                    "Review whether the cited traces represent one stable failure family or "
+                    "multiple distinct cases before adding annotation guidance."
+                ),
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+        "future_control_candidates": [
+            {
+                "candidate_id": _planner_item_id(
+                    "future_control_candidate", primary_finding_type, 1
+                ),
+                "source_trace_ids": source_trace_ids,
+                "source_evidence_ids": source_evidence_ids,
+                "source_finding_types": [primary_finding_type],
+                "rationale": (
+                    "The blocker evidence is strong enough to review as a possible future "
+                    "release control after humans confirm scope and recurrence."
+                ),
+                "review_instructions": (
+                    "Confirm the blocker pattern is stable across traces before turning it into "
+                    "a future control candidate."
+                ),
+                "requires_human_review": True,
+                "review_status": "pending_review",
+            }
+        ],
+        "duplicate_or_noise": [
+            {
+                "group_id": _planner_item_id("duplicate_or_noise", annotation_findings_type, 1),
+                "source_trace_ids": annotation_trace_ids,
+                "source_evidence_ids": annotation_evidence_ids,
+                "rationale": (
+                    "These traces should be merged or triaged for noise before creating extra "
+                    "planning work."
+                ),
+                "recommended_action": "merge_similar_examples",
+                "requires_human_review": False,
             }
         ],
     }
@@ -990,8 +1169,14 @@ def _pattern_summary(pattern_count: int) -> str:
     return f"Pattern Finder found {pattern_count} release-safety {label}."
 
 
-def _dataset_candidate_id(finding_type: str, index: int) -> str:
-    return f"dataset_candidate.{finding_type}.{index:02d}"
+def _dataset_planner_summary(grouped_findings: list[tuple[str, list[dict[str, Any]]]]) -> str:
+    candidate_count = len(grouped_findings)
+    label = "candidate" if candidate_count == 1 else "candidates"
+    return f"Dataset Planner proposed {candidate_count} human-review {label}."
+
+
+def _planner_item_id(prefix: str, finding_type: str, index: int) -> str:
+    return f"{prefix}.{finding_type}.{index:02d}"
 
 
 def _dataset_candidate_identity_errors(
@@ -1006,6 +1191,63 @@ def _dataset_candidate_identity_errors(
             f"for {candidate_id}"
         ]
     return []
+
+
+def _planner_source_trace_ids(findings: list[dict[str, Any]]) -> list[str]:
+    return sorted({str(finding["trace_id"]) for finding in findings})
+
+
+def _planner_source_evidence_ids(findings: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        {
+            str(evidence_id)
+            for finding in findings
+            for evidence_id in finding.get("evidence_ids", [])
+        }
+    )
+
+
+def _planner_item_validation_errors(
+    item: dict[str, Any],
+    trace_ids: set[str],
+    evidence_ids: set[str],
+    *,
+    id_field: str,
+    id_pattern: re.Pattern[str],
+    prefix_label: str,
+    required_text_fields: tuple[str, ...],
+    requires_human_review: bool,
+) -> list[str]:
+    errors: list[str] = []
+    for field in required_text_fields:
+        if not str(item.get(field) or "").strip():
+            errors.append(f"missing {field}")
+    source_trace_ids = [str(value) for value in item.get("source_trace_ids", [])]
+    source_evidence_ids = [str(value) for value in item.get("source_evidence_ids", [])]
+    source_finding_types = [str(value) for value in item.get("source_finding_types", [])]
+    identifier = str(item.get(id_field) or "")
+    if not source_trace_ids:
+        errors.append("missing source_trace_ids")
+    if not source_evidence_ids:
+        errors.append("missing source_evidence_ids")
+    if not source_finding_types:
+        errors.append("missing source_finding_types")
+    id_match = id_pattern.match(identifier)
+    if not id_match:
+        errors.append(f"invalid {prefix_label} {identifier}")
+    elif source_finding_types and id_match.group(1) not in source_finding_types:
+        errors.append(
+            f"{prefix_label} finding type does not match source_finding_types for {identifier}"
+        )
+    if requires_human_review and item.get("requires_human_review") is not True:
+        errors.append("requires_human_review must be true")
+    for trace_id in source_trace_ids:
+        if trace_id not in trace_ids:
+            errors.append(f"unknown trace_id {trace_id}")
+    for evidence_id in source_evidence_ids:
+        if evidence_id not in evidence_ids:
+            errors.append(f"unknown evidence_id {evidence_id}")
+    return errors
 
 
 def _dataset_candidate_tool_name(
@@ -1034,15 +1276,17 @@ def _no_action_review_results(
     base: dict[str, Any],
     agent: str,
     summary: str,
-    items_key: str,
+    items_keys: tuple[str, ...],
 ) -> dict[str, Any]:
-    return {
+    payload = {
         **base,
         "agent": agent,
         "status": AGENT_REVIEW_STATUS_NO_ACTION,
         "summary": summary,
-        items_key: [],
     }
+    for items_key in items_keys:
+        payload[items_key] = []
+    return payload
 
 
 def _build_agent_context(pack: LoadedAgentPack) -> dict[str, Any]:
