@@ -41,6 +41,12 @@ Danger
 
 **Unsafe ≠ imperfect.** Blocker controls must pass before ship. Non-blocking warning variance can remain visible on an approved candidate.
 
+## Agent Review Sidecar
+
+Use simple language in the demo: Agents investigate and plan. The gate decides.
+
+Pattern Finder groups repeated release-safety evidence into a short explanation. Dataset Planner turns the same slice into human-review suggestions for dataset candidates, annotation recommendations, future control candidates, and duplicate or noise cleanup. Those artifacts help reviewers decide what to do next, but they do not approve or block a release.
+
 ## Controlled vs Observed
 
 | Mode | Source | Release impact |
@@ -115,6 +121,15 @@ Public product language is **release controls**. The technical artifact contract
 
 v2.1 proves **Unsafe ≠ Imperfect**: the candidate is safe enough to ship, not statistically perfect.
 
+### Agent review callout: approved and follow-up paths
+
+Keep the section names plain when showing the report:
+
+- **Approved, no extra action needed** when Pattern Finder and Dataset Planner both return no action.
+- **Warning-only follow-up** when the gate approves the release but Pattern Finder or Dataset Planner records non-blocking investigation items.
+
+Human review still decides whether dataset candidates, annotation recommendations, and future control candidates should become controlled eval coverage, reviewer guidance, or later release controls.
+
 ## Reproducible audit bundle
 
 **Say:** "The audit bundle is the release authority artifact. Reviewers can verify BLOCKED/APPROVED from JSON without re-running Gemini."
@@ -129,6 +144,15 @@ Every release check writes:
 - `eval_suite.json`
 - `audit_manifest.json`
 - `release_report.html`
+
+When agentic review is enabled, the run can also write:
+
+- `agent_review_input.json`
+- `pattern_finder_plan.json`
+- `pattern_finder_results.json`
+- `dataset_planner_results.json`
+
+Those agent-review artifacts stay advisory. They do not write to Phoenix datasets or annotation queues in P0, and they do not move the deterministic gate boundary.
 
 Open `audit_manifest.json`:
 - SHA-256 hashes per artifact
