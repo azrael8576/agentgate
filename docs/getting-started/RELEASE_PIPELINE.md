@@ -44,8 +44,8 @@ uv run agentgate demo seed-v2 --output configs/agents/stability_ops/seed/v2_evid
 uv run agentgate demo seed-v21 --output configs/agents/stability_ops/seed/v21_evidence.jsonl
 
 # 2. Replay spans into Phoenix (if traces were cleared)
-uv run agentgate telemetry replay --evidence artifacts/seed/seed_v2_evidence.jsonl
-uv run agentgate telemetry replay --evidence artifacts/seed/seed_v21_evidence.jsonl
+uv run agentgate telemetry replay --evidence configs/agents/stability_ops/seed/v2_evidence.jsonl
+uv run agentgate telemetry replay --evidence configs/agents/stability_ops/seed/v21_evidence.jsonl
 
 # 3. Eval automation (Phoenix annotations)
 uv run agentgate eval sync-dataset
@@ -82,10 +82,10 @@ Local fixture fallback using the current CLI fixture command:
 
 ```bash
 uv run agentgate release check --source local \
-  --evidence artifacts/seed/seed_v2_evidence.jsonl \
+  --evidence configs/agents/stability_ops/seed/v2_evidence.jsonl \
   --output-dir artifacts/release/reference-v2
 uv run agentgate release check --source local \
-  --evidence artifacts/seed/seed_v21_evidence.jsonl \
+  --evidence configs/agents/stability_ops/seed/v21_evidence.jsonl \
   --output-dir artifacts/release/reference-v21
 ```
 

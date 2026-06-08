@@ -229,7 +229,7 @@ If Phoenix annotations appear empty, check two integration details first:
 Verify coverage (optional, against local seed):
 
 ```bash
-uv run agentgate eval coverage --evidence artifacts/seed/seed_v21_evidence.jsonl
+uv run agentgate eval coverage --evidence configs/agents/stability_ops/seed/v21_evidence.jsonl
 ```
 
 ---
@@ -250,7 +250,7 @@ Local fallback (no Phoenix):
 
 ```bash
 uv run agentgate release check --source local \
-  --evidence artifacts/seed/seed_v21_evidence.jsonl \
+  --evidence configs/agents/stability_ops/seed/v21_evidence.jsonl \
   --output-dir artifacts/release/reference-v21
 ```
 
