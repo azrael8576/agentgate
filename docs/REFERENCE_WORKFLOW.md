@@ -169,15 +169,15 @@ agentgate suites validate --suite configs/agents/stability_ops/suite.json
 agentgate gate check --suite configs/agents/stability_ops/suite.json --agent-version v2
 
 # Current CLI fixture command naming still uses `demo`.
-agentgate demo seed-v2 --output artifacts/seed/seed_v2_evidence.jsonl
+agentgate demo seed-v2 --output configs/agents/stability_ops/seed/v2_evidence.jsonl
 agentgate release check --source local \
-  --evidence artifacts/seed/seed_v2_evidence.jsonl \
+  --evidence configs/agents/stability_ops/seed/v2_evidence.jsonl \
   --output-dir artifacts/release/reference-v2 \
   --agent-pack configs/agents/stability_ops
 
-agentgate demo seed-v21 --output artifacts/seed/seed_v21_evidence.jsonl
+agentgate demo seed-v21 --output configs/agents/stability_ops/seed/v21_evidence.jsonl
 agentgate release check --source local \
-  --evidence artifacts/seed/seed_v21_evidence.jsonl \
+  --evidence configs/agents/stability_ops/seed/v21_evidence.jsonl \
   --output-dir artifacts/release/reference-v21 \
   --agent-pack configs/agents/stability_ops
 ```
