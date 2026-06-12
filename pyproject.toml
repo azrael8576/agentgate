@@ -33,10 +33,10 @@ agentgate = "backend.agentgate.cli:app"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.27.0",
+    "httpx>=0.28.1",
     "mypy>=2.1.0",
-    "pytest>=8.3.0",
-    "ruff>=0.15.16",
+    "pytest>=9.0.3",
+    "ruff>=0.15.17",
 ]
 
 [build-system]
