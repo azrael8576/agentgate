@@ -47,6 +47,7 @@ class ReleaseCheckRequest(BaseModel):
 
 @router.get("/", response_class=HTMLResponse)
 def landing(request: Request) -> HTMLResponse:
+    """Render the landing page from the active AgentPack and latest artifacts."""
     settings = load_dashboard_settings()
     release_config = ReleaseCheckConfig()
     pack = release_config.load_pack()
@@ -93,7 +94,10 @@ def landing(request: Request) -> HTMLResponse:
 
 @router.get("/run", response_class=HTMLResponse)
 def run_dashboard(request: Request) -> HTMLResponse:
+    """Render the release-check runner page with AgentPack-owned defaults."""
     settings = load_dashboard_settings()
+    release_config = ReleaseCheckConfig()
+    pack = release_config.load_pack()
     latest = _latest_payload_or_none(settings.latest_artifact_dir)
     default_candidate_version = (
         str(latest.get("agent_version"))
@@ -110,6 +114,7 @@ def run_dashboard(request: Request) -> HTMLResponse:
             "settings": settings,
             "steps": _run_steps(settings.diagnosis_mode),
             "candidate_versions": settings.candidate_versions,
+            "run_page_copy": pack.demo_run_page_copy(),
             "artifact_links": artifact_links(),
             "active_nav": "run",
         },
@@ -120,6 +125,7 @@ def run_dashboard(request: Request) -> HTMLResponse:
 def run_release_check(
     request_payload: ReleaseCheckRequest | None = None,
 ) -> JSONResponse:
+    """Run a release check from the dashboard API and return UI-ready status."""
     settings = load_dashboard_settings()
     payload = request_payload or ReleaseCheckRequest()
     output_dir = payload.output_dir or settings.latest_artifact_dir
@@ -184,6 +190,7 @@ def run_release_check(
 
 @router.get("/api/agentgate/runs/latest")
 def latest_run() -> dict[str, Any]:
+    """Return the latest persisted release run payload for the dashboard."""
     settings = load_dashboard_settings()
     if not latest_artifacts_exist(settings.latest_artifact_dir):
         raise HTTPException(
@@ -195,6 +202,7 @@ def latest_run() -> dict[str, Any]:
 
 @router.get("/reports/latest", response_class=HTMLResponse)
 def latest_report(request: Request) -> HTMLResponse:
+    """Render the latest release report or a missing-report page."""
     settings = load_dashboard_settings()
     if not latest_artifacts_exist(settings.latest_artifact_dir):
         return templates.TemplateResponse(
@@ -210,6 +218,7 @@ def latest_report(request: Request) -> HTMLResponse:
 
 @router.get("/artifacts/{artifact_name}", response_model=None)
 def artifact(artifact_name: str) -> Response:
+    """Serve a whitelisted latest-run artifact from the dashboard."""
     if artifact_name == BUNDLE_ZIP_FILENAME:
         settings = load_dashboard_settings()
         if not latest_artifacts_exist(settings.latest_artifact_dir):
@@ -234,12 +243,14 @@ def artifact(artifact_name: str) -> Response:
 
 
 def _latest_payload_or_none(output_dir: Path) -> dict[str, Any] | None:
+    """Return latest-run payload when all required artifacts exist."""
     if not latest_artifacts_exist(output_dir):
         return None
     return build_latest_run_payload(output_dir)
 
 
 def _resolve_artifact_dir(parent: Path, names: tuple[str, ...]) -> Path | None:
+    """Find the first artifact directory matching one configured candidate name."""
     for name in names:
         candidate = parent / name
         if latest_artifacts_exist(candidate):
@@ -248,6 +259,7 @@ def _resolve_artifact_dir(parent: Path, names: tuple[str, ...]) -> Path | None:
 
 
 def _run_steps(diagnosis_mode: DiagnosisMode) -> list[dict[str, str]]:
+    """Return fixed UI steps for the release-check progress timeline."""
     _ = diagnosis_mode
     return [
         {"label": "Collect candidate evidence", "state": "ready"},
@@ -261,6 +273,7 @@ def _run_steps(diagnosis_mode: DiagnosisMode) -> list[dict[str, str]]:
 
 
 def _last_completed_run(latest: dict[str, Any] | None) -> dict[str, str] | None:
+    """Return compact copy for the last completed run card."""
     if not latest:
         return None
     version = str(latest.get("agent_version") or "candidate")
@@ -282,6 +295,7 @@ def _last_completed_run(latest: dict[str, Any] | None) -> dict[str, str] | None:
 
 
 def _saved_run_summary(latest: dict[str, Any] | None) -> str:
+    """Return user-facing summary copy for a persisted run."""
     if not latest:
         return "No saved report yet."
     version = latest.get("agent_version", "candidate")
@@ -303,6 +317,7 @@ def _saved_run_summary(latest: dict[str, Any] | None) -> str:
 
 
 def _run_result_copy(latest: dict[str, Any]) -> dict[str, str]:
+    """Return user-facing completion copy for a just-finished run."""
     version = latest.get("agent_version", "candidate")
     decision = latest.get("decision", "UNKNOWN")
     report_url = str(latest.get("report_url") or "/reports/latest")
@@ -340,6 +355,7 @@ def _run_result_copy(latest: dict[str, Any]) -> dict[str, str]:
 
 
 def _warning_failure_count(latest: dict[str, Any]) -> int:
+    """Count non-blocking warning metrics that failed their thresholds."""
     metrics = latest.get("metrics")
     if not isinstance(metrics, list):
         return 0

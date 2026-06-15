@@ -132,17 +132,8 @@ SERVABLE_ARTIFACT_FILENAMES = ARTIFACT_FILENAMES | {HTML_ARTIFACT_FILENAME}
 
 CONTROL_DEFINITIONS: dict[str, dict[str, str]] = {}
 
-RELEASE_CONTROL_DISPLAY_TITLES: dict[str, str] = {
-    "critical_tools_must_pass_policy_preflight": "Critical tools must pass policy preflight",
-    "non_developer_must_not_run_deep_investigation": "Non-developer must not run deep investigation",
-    "crash_analysis_must_not_dump_raw_events": "Crash analysis must not dump raw events",
-    "ambiguous_incident_question_must_not_escalate_to_deep_investigation": (
-        "Ambiguous incident question must not escalate"
-    ),
-}
-
-
 def control_definitions(pack: Any | None = None) -> dict[str, dict[str, str]]:
+    """Return AgentPack control definitions for report display."""
     resolved = pack or get_default_agent_pack()
     return resolved.control_definitions()
 
@@ -197,6 +188,7 @@ _jinja_env = Environment(
 
 
 def read_json_artifact(output_dir: Path, filename: str) -> dict[str, Any]:
+    """Read a supported JSON artifact from a release output directory."""
     if filename not in ARTIFACT_FILENAMES:
         raise ValueError(f"Unsupported artifact filename: {filename}")
     path = output_dir / filename
@@ -206,6 +198,7 @@ def read_json_artifact(output_dir: Path, filename: str) -> dict[str, Any]:
 
 
 def latest_artifacts_exist(output_dir: Path) -> bool:
+    """Return true when the core release artifacts exist in the directory."""
     return all((output_dir / filename).exists() for filename in CORE_ARTIFACT_FILENAMES)
 
 
@@ -217,6 +210,7 @@ def _artifact_filenames_from_manifest(manifest: dict[str, Any] | None) -> set[st
 
 
 def artifact_links(available_artifact_names: set[str] | None = None) -> list[dict[str, str]]:
+    """Return dashboard artifact links with purpose metadata."""
     links = [*BASE_ARTIFACT_LINKS]
     if available_artifact_names and AGENT_REVIEW_ARTIFACT_FILENAMES.issubset(
         available_artifact_names
@@ -227,6 +221,7 @@ def artifact_links(available_artifact_names: set[str] | None = None) -> list[dic
 
 
 def render_standalone_release_report_html(output_dir: Path) -> Path:
+    """Render the standalone HTML report with embedded CSS and favicon."""
     context = build_report_context(output_dir)
     embedded_css = (STATIC_DIR / "dashboard.css").read_text(encoding="utf-8")
     html = _jinja_env.get_template("release_report_standalone.html").render(**context)
@@ -248,6 +243,7 @@ def render_standalone_release_report_html(output_dir: Path) -> Path:
 def update_release_decision_artifact_paths(
     output_dir: Path, artifact_paths: dict[str, str]
 ) -> None:
+    """Persist artifact path metadata into release_decision and audit manifest."""
     decision_path = output_dir / "release_decision.json"
     decision = json.loads(decision_path.read_text(encoding="utf-8"))
     decision["artifact_paths"] = artifact_paths
@@ -591,6 +587,7 @@ _ACTIONABLE_PLANNER_TYPES = frozenset(
 
 
 def truncate_text(value: str, max_chars: int) -> str:
+    """Trim text for compact report display without changing empty values."""
     normalized = str(value or "").strip()
     if not normalized or len(normalized) <= max_chars:
         return normalized
@@ -598,14 +595,17 @@ def truncate_text(value: str, max_chars: int) -> str:
 
 
 def preview_list(items: list[str], *, max_items: int) -> list[str]:
+    """Return the visible prefix of a string list for compact cards."""
     return [str(item) for item in items if item][:max_items]
 
 
 def remaining_count(items: list[str], max_items: int) -> int:
+    """Return how many non-empty list items are hidden after a preview."""
     return max(0, len([str(item) for item in items if item]) - max_items)
 
 
 def hide_if_zero(value: int | float | None) -> int | None:
+    """Return None for zero values so templates can hide empty counters."""
     if value is None:
         return None
     numeric = int(value)
@@ -1367,7 +1367,9 @@ def _future_verification_row_decision_impact(row: dict[str, Any]) -> dict[str, s
 def _sort_future_verification_rows(
     results: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    """Sort inherited control rows so blocking failures appear first."""
     def sort_key(row: dict[str, Any]) -> tuple[int, int, str]:
+        """Sort one inherited control row by severity and stable id."""
         status = row.get("verification_status", "")
         is_fail = 0 if status == "FAIL" else 1
         is_blocking_fail = 0 if status == "FAIL" and row.get("blocking") else 1
@@ -1390,9 +1392,7 @@ def _future_verification_table_rows(
         verification_status = row.get("verification_status", "NOT_AVAILABLE")
         impact = _future_verification_row_decision_impact(row)
         gate_id = str(row.get("gate_id") or "")
-        release_control = (
-            RELEASE_CONTROL_DISPLAY_TITLES.get(gate_id) or row.get("control_title") or gate_id
-        )
+        release_control = row.get("control_title") or gate_id
         rows.append(
             {
                 "release_control": release_control,
@@ -1410,6 +1410,7 @@ def _future_verification_section(
     release_decision: dict[str, Any],
     control_verification: dict[str, Any],
 ) -> dict[str, Any]:
+    """Build report section copy for inherited release-control verification."""
     future = release_decision.get("future_verification") or {}
     status = future.get("status") or control_verification.get("status") or "not_available"
     counts = _future_verification_summary_counts(future, control_verification)
@@ -1469,7 +1470,9 @@ def _future_verification_section(
             "compact_only": False,
         }
 
-    source_version = control_verification.get("source_release", {}).get("agent_version") or "v2"
+    source_version = (
+        control_verification.get("source_release", {}).get("agent_version") or "source release"
+    )
     agent_version = release_decision.get("agent_version", "candidate")
     copy = (
         f"{agent_version} verified the release controls generated by the blocked {source_version} run. "
@@ -1712,6 +1715,7 @@ def _artifact_bundle_download_link() -> dict[str, str]:
 
 
 def bundle_artifact_filenames(output_dir: Path) -> list[str]:
+    """Return servable artifact filenames that exist in the output directory."""
     return [
         filename
         for filename in sorted(SERVABLE_ARTIFACT_FILENAMES)
@@ -1720,6 +1724,7 @@ def bundle_artifact_filenames(output_dir: Path) -> list[str]:
 
 
 def build_artifact_bundle_zip(output_dir: Path) -> bytes:
+    """Build an in-memory ZIP containing all servable release artifacts."""
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for filename in bundle_artifact_filenames(output_dir):
@@ -1859,6 +1864,7 @@ def _format_ratio(numerator: Any, denominator: Any) -> str:
 
 
 def format_display_timestamp(value: Any) -> str:
+    """Format an ISO timestamp as a compact UTC display value."""
     if not isinstance(value, str) or not value.strip():
         return "unknown"
     normalized = value.replace("Z", "+00:00")
@@ -1897,6 +1903,7 @@ def _candidate_header(
 
 
 def build_report_context(output_dir: Path) -> dict[str, Any]:
+    """Build the complete template context for a release report."""
     pack = _resolve_report_pack(output_dir)
     release_decision = read_json_artifact(output_dir, "release_decision.json")
     metrics_summary = read_json_artifact(output_dir, "metrics_summary.json")
@@ -2154,6 +2161,7 @@ def build_report_context(output_dir: Path) -> dict[str, Any]:
 
 
 def build_latest_run_payload(output_dir: Path) -> dict[str, Any]:
+    """Build the compact latest-run payload used by dashboard endpoints."""
     context = build_report_context(output_dir)
     decision = context["release_decision"]
     metrics_summary = context["metrics_summary"]
@@ -2260,6 +2268,7 @@ def _apply_regression_gate_catalog(
     regression_gates: list[dict[str, Any]],
     catalog: RegressionGateCatalog,
 ) -> list[dict[str, Any]]:
+    """Enrich generated release controls with AgentPack ReportConfig templates."""
     enriched: list[dict[str, Any]] = []
     for gate in regression_gates:
         template = _regression_gate_template(gate, catalog)
@@ -2272,6 +2281,7 @@ def _apply_regression_gate_catalog(
                 "expected_behavior": template.get("expected_behavior")
                 or gate.get("expected_behavior"),
                 "required_fix": template.get("required_fix") or gate.get("required_fix"),
+                "display_title": template.get("display_title") or gate.get("display_title"),
             }
         )
     return enriched
@@ -2281,6 +2291,7 @@ def _regression_gate_template(
     gate: dict[str, Any],
     catalog: RegressionGateCatalog,
 ) -> dict[str, str] | None:
+    """Find the AgentPack template that matches one generated release control."""
     trigger = str(gate.get("trigger") or "")
     trigger_kind, _, trigger_name = trigger.partition(":")
     if trigger_kind in {"material_violation", "indeterminate_session"}:
@@ -2448,6 +2459,7 @@ def _normalize_regression_gate(
     release_decision: dict[str, Any],
     findings: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    """Normalize one release control for HTML rendering."""
     evidence_ids = set(gate.get("source_evidence_ids") or [])
     matching_finding = next(
         (
@@ -2459,7 +2471,7 @@ def _normalize_regression_gate(
         None,
     )
     gate_id = str(gate.get("gate_id") or "")
-    display_title = RELEASE_CONTROL_DISPLAY_TITLES.get(gate_id)
+    display_title = str(gate.get("display_title") or gate.get("expected_behavior") or gate_id).strip()
     normalized = {
         **gate,
         "matching_finding": matching_finding,
@@ -2472,7 +2484,7 @@ def _normalize_regression_gate(
     normalized["source_evidence_count"] = len(source_ids) if isinstance(source_ids, list) else 0
     behavior = str(gate.get("required_fix") or gate.get("expected_behavior") or "").strip()
     normalized["required_behavior_line"] = truncate_text(behavior, _SUMMARY_TEXT_LIMIT)
-    normalized["control_title"] = display_title or gate_id
+    normalized["control_title"] = display_title
     return normalized
 
 
@@ -2553,6 +2565,7 @@ def _developer_remediation_context(
         control_id: str | None = None,
         failed_metric: str | None = None,
     ) -> None:
+        """Append one unique remediation entry derived from a report subject."""
         candidate = _remediation_entry(
             subject,
             release_decision=release_decision,
@@ -2629,6 +2642,7 @@ def _developer_remediation_context(
 
 
 def build_ide_debug_prompt(subject: dict[str, Any], *, release_decision: dict[str, Any]) -> str:
+    """Build a copy-paste prompt for investigating one release finding."""
     evidence_ids = subject.get("evidence_ids") or subject.get("source_evidence_ids") or []
     if isinstance(evidence_ids, list):
         evidence_text = ", ".join(str(value) for value in evidence_ids) or "n/a"

@@ -24,14 +24,11 @@ class DashboardSettings(BaseModel):
 
 
 def load_dashboard_settings() -> DashboardSettings:
+    """Load dashboard settings from env vars plus the active AgentPack."""
     project_identifier = os.getenv("AGENTGATE_PHOENIX_PROJECT") or os.getenv("PHOENIX_PROJECT_NAME")
     release_config = ReleaseCheckConfig()
     pack = release_config.load_pack()
-    demo_versions = pack.demo.get("candidate_versions", [])
-    if isinstance(demo_versions, list) and demo_versions:
-        candidate_versions = tuple(str(version) for version in demo_versions)
-    else:
-        candidate_versions = ("v1",)
+    candidate_versions = pack.demo_candidate_versions() or ("v1",)
     default_version = candidate_versions[0]
     seed_path = pack.seed_path(default_version)
     default_local_evidence = seed_path

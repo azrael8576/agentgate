@@ -10,6 +10,8 @@ def build_landing_story(
     demo_story: dict[str, Any],
     pack: LoadedAgentPack,
 ) -> dict[str, Any]:
+    """Build the landing-page view model from artifacts and AgentPack story copy."""
+    story_copy = _story_copy_with_pack_defaults(demo_story, pack)
     story_context = blocked_context or latest_context
     if not story_context and not latest_context:
         return {
@@ -25,9 +27,9 @@ def build_landing_story(
             "agent_display_name": pack.display_name,
             "verdict_note": None,
             "card_dangerous_trace_count": 0,
-            "reference_demo_section_title": demo_story.get("section_title", "Demo workflow"),
-            "reference_demo_section_note": demo_story.get("section_note"),
-            "reference_demo_nav_label": demo_story.get("nav_label"),
+            "reference_demo_section_title": story_copy.get("section_title", "Demo workflow"),
+            "reference_demo_section_note": story_copy.get("section_note"),
+            "reference_demo_nav_label": story_copy.get("nav_label"),
             "deployment_stack_title": _deployment_stack_title(pack),
             "deployment_stack_note": _deployment_stack_note(pack),
             "live_demo_label": _live_demo_label(pack),
@@ -41,7 +43,7 @@ def build_landing_story(
     card_dangerous_trace_count = len(
         {finding.get("trace_id") for finding in card_findings if finding.get("trace_id")}
     )
-    blocked_cards = blocked_cards_from_findings(findings, demo_story, story_context)
+    blocked_cards = blocked_cards_from_findings(findings, story_copy, story_context)
     dangerous_trace_count = len(
         {finding.get("trace_id") for finding in findings if finding.get("trace_id")}
     )
@@ -59,19 +61,19 @@ def build_landing_story(
         "improvement_loop": _improvement_loop(
             blocked_context or latest_context,
             approved_context,
-            demo_story,
+            story_copy,
         ),
-        "featured_intervention": _featured_intervention(blocked_context or story_context),
-        "secondary_proof": _secondary_proof(approved_context),
+        "featured_intervention": _featured_intervention(blocked_context or story_context, story_copy),
+        "secondary_proof": _secondary_proof(approved_context, story_copy),
         "operational_status": _operational_status(latest_context),
         "regression_gate_count": len(card_regression_gates),
         "policy_highlights": _policy_highlights(story_context, pack),
         "agent_display_name": _agent_display_name(latest_context or story_context),
         "verdict_note": _verdict_note(latest_context),
         "card_dangerous_trace_count": card_dangerous_trace_count,
-        "reference_demo_section_title": demo_story.get("section_title", "Demo workflow"),
-        "reference_demo_section_note": demo_story.get("section_note"),
-        "reference_demo_nav_label": demo_story.get("nav_label"),
+        "reference_demo_section_title": story_copy.get("section_title", "Demo workflow"),
+        "reference_demo_section_note": story_copy.get("section_note"),
+        "reference_demo_nav_label": story_copy.get("nav_label"),
         "deployment_stack_title": _deployment_stack_title(pack),
         "deployment_stack_note": _deployment_stack_note(pack),
         "live_demo_label": _live_demo_label(pack),
@@ -83,6 +85,7 @@ def blocked_cards_from_findings(
     demo_story: dict[str, Any],
     story_context: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
+    """Return landing cards for the most important blocker findings."""
     if not findings:
         return []
 
@@ -133,6 +136,7 @@ def primary_blocker_label(
     latest_context: dict[str, Any] | None,
     blocked_cards: list[dict[str, Any]],
 ) -> str:
+    """Return the landing hero summary for the current release decision."""
     if latest_context:
         decision = latest_context.get("release_decision", {}).get("decision")
         drivers = latest_context.get("why_blocked", {}).get("blocking_drivers", [])
@@ -312,10 +316,28 @@ def _verdict_note(latest_context: dict[str, Any] | None) -> str | None:
     return None
 
 
-def _featured_intervention(context: dict[str, Any] | None) -> dict[str, Any] | None:
+def _story_copy_with_pack_defaults(
+    demo_story: dict[str, Any],
+    pack: LoadedAgentPack,
+) -> dict[str, Any]:
+    """Merge ReportConfig story copy with AgentPack demo candidate metadata."""
+    story_copy = dict(demo_story)
+    versions = pack.demo_candidate_versions()
+    if versions:
+        story_copy.setdefault("blocked_candidate_version", versions[0])
+    if len(versions) >= 2:
+        story_copy.setdefault("approved_candidate_version", versions[1])
+    return story_copy
+
+
+def _featured_intervention(
+    context: dict[str, Any] | None,
+    demo_story: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Return the landing card for the blocked reference intervention."""
     if not context:
         return None
-    finding = _select_featured_finding(context.get("critical_findings", []))
+    finding = _select_featured_finding(context.get("critical_findings", []), demo_story)
     dangerous_trace_count = len(
         {
             item.get("trace_id")
@@ -325,29 +347,40 @@ def _featured_intervention(context: dict[str, Any] | None) -> dict[str, Any] | N
     )
     decision = context.get("release_decision", {})
     agent_version = decision.get("agent_version", "blocked")
-    future_note = _future_verification_homepage_note(context)
+    future_note = _future_verification_homepage_note(context, demo_story)
+    featured_config = _featured_finding_config(demo_story)
+    intervention_template = featured_config.get(
+        "blocked_intervention_note_template",
+        "AgentGate blocked {agent_version} before release and generated controls for the follow-up candidate.",
+    )
     return {
         "version": agent_version,
         "decision": decision.get("decision", "BLOCKED"),
-        "path_summary": _featured_path_summary(finding),
-        "risk_summary": _featured_risk_summary(finding),
-        "intervention_note": (
-            f"AgentGate blocked {agent_version} before release and generated controls "
-            "for the follow-up candidate."
-        ),
+        "path_summary": _featured_path_summary(finding, demo_story),
+        "risk_summary": _featured_risk_summary(finding, demo_story),
+        "intervention_note": intervention_template.format(agent_version=agent_version),
         "dangerous_trace_count": dangerous_trace_count,
         "regression_gate_count": len(context.get("regression_gates", [])),
         "future_verification_note": future_note,
     }
 
 
-def _secondary_proof(context: dict[str, Any] | None) -> dict[str, Any] | None:
+def _secondary_proof(
+    context: dict[str, Any] | None,
+    demo_story: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Return the landing card for the approved follow-up candidate."""
     if not context:
         return None
     decision = context.get("release_decision", {})
-    agent_version = decision.get("agent_version", "v2.1")
+    agent_version = decision.get(
+        "agent_version",
+        demo_story.get("approved_candidate_version", "approved"),
+    )
     control_verification = context.get("control_verification") or {}
-    source_version = control_verification.get("source_release", {}).get("agent_version") or "v2"
+    source_version = control_verification.get("source_release", {}).get(
+        "agent_version"
+    ) or demo_story.get("blocked_candidate_version", "blocked")
     failing_warnings = [
         metric
         for metric in context.get("failing_metrics", [])
@@ -381,16 +414,25 @@ def _secondary_proof(context: dict[str, Any] | None) -> dict[str, Any] | None:
     }
 
 
-def _future_verification_homepage_note(context: dict[str, Any]) -> str:
+def _future_verification_homepage_note(
+    context: dict[str, Any],
+    demo_story: dict[str, Any],
+) -> str:
+    """Return landing-page copy for inherited release-control verification."""
     release_decision = context.get("release_decision", {})
     agent_version = release_decision.get("agent_version", "")
+    blocked_version = demo_story.get("blocked_candidate_version")
+    featured_config = _featured_finding_config(demo_story)
     future = release_decision.get("future_verification") or {}
     status = future.get("status")
     blocking_failed = int(future.get("blocking_failed") or 0)
     failed = int(future.get("failed") or 0)
 
-    if agent_version == "v2" or status == "not_applicable":
-        return "This blocked candidate generated release controls for the next candidate."
+    if agent_version == blocked_version or status == "not_applicable":
+        return featured_config.get(
+            "blocked_future_controls_note",
+            "This blocked candidate generated release controls for the next candidate.",
+        )
     if status == "verified":
         if blocking_failed == 0 and failed > 0:
             return (
@@ -411,6 +453,7 @@ def _future_verification_homepage_note(context: dict[str, Any]) -> str:
 
 
 def _operational_status(context: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Return compact status copy for the latest run."""
     if not context:
         return None
     decision = context.get("release_decision", {})
@@ -428,9 +471,24 @@ def _operational_status(context: dict[str, Any] | None) -> dict[str, Any] | None
     }
 
 
-def _select_featured_finding(findings: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _featured_finding_config(demo_story: dict[str, Any]) -> dict[str, Any]:
+    """Return featured-finding copy and prioritization config from ReportConfig."""
+    config = demo_story.get("featured_finding")
+    return config if isinstance(config, dict) else {}
+
+
+def _select_featured_finding(
+    findings: list[dict[str, Any]],
+    demo_story: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Select the blocker finding that should anchor the landing story."""
     if not findings:
         return None
+    priority_tools = tuple(
+        str(tool)
+        for tool in _featured_finding_config(demo_story).get("tool_priority", [])
+        if str(tool).strip()
+    )
     priority = {
         "unauthorized_dangerous_tool_execution": 0,
         "unauthorized_dangerous_tool_attempt": 0,
@@ -441,24 +499,40 @@ def _select_featured_finding(findings: list[dict[str, Any]]) -> dict[str, Any] |
     }
 
     def sort_key(finding: dict[str, Any]) -> tuple[int, int, int]:
+        """Sort blocker findings by configured story priority."""
         role = str(finding.get("user_role") or "")
         tool_name = str(finding.get("tool_name") or "")
         return (
             priority.get(str(finding.get("finding_type") or ""), 9),
             0 if role and role not in {"developer", "sre"} else 1,
-            0 if tool_name == "deep_investigate_alert" else 1,
+            0 if tool_name in priority_tools else 1,
         )
 
     return min(findings, key=sort_key)
 
 
-def _featured_path_summary(finding: dict[str, Any] | None) -> str:
+def _featured_path_summary(
+    finding: dict[str, Any] | None,
+    demo_story: dict[str, Any],
+) -> str:
+    """Return configured copy for the featured dangerous path."""
     _ = finding
-    return "A low-privilege role reached `deep_investigate_alert` in controlled release evidence."
+    return _featured_finding_config(demo_story).get(
+        "path_summary",
+        "A release-blocking path appeared in controlled release evidence.",
+    )
 
 
-def _featured_risk_summary(finding: dict[str, Any] | None) -> str:
-    return "Policy expected DENY — but the dangerous tool was still called."
+def _featured_risk_summary(
+    finding: dict[str, Any] | None,
+    demo_story: dict[str, Any],
+) -> str:
+    """Return configured copy for why the featured path matters."""
+    _ = finding
+    return _featured_finding_config(demo_story).get(
+        "risk_summary",
+        "Policy evidence showed a release-blocking dangerous session.",
+    )
 
 
 def _improvement_loop(
@@ -466,6 +540,7 @@ def _improvement_loop(
     approved_context: dict[str, Any] | None,
     demo_story: dict[str, Any],
 ) -> dict[str, Any] | None:
+    """Return side-by-side blocked and approved candidate story copy."""
     if not blocked_context or not approved_context:
         return None
 
@@ -509,6 +584,7 @@ def _improvement_loop(
 
 
 def _default_landing_timeline() -> list[dict[str, str]]:
+    """Return generic release authority timeline steps for an empty dashboard."""
     return [
         {
             "label": "Collect evidence",
