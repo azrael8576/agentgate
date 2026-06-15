@@ -1,6 +1,6 @@
 {
   "name": "agentgate",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "AgentGate blocks unsafe AI agent versions before production.",
   "main": "index.js",
   "directories": {
