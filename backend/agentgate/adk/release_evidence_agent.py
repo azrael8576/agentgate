@@ -24,11 +24,12 @@ RELEASE_EVIDENCE_AGENT_INSTRUCTION = (
     "You orchestrate AgentGate release evidence workflows. "
     "Use the provided tools to query Phoenix evidence, compute deterministic metrics, "
     "diagnose only selected dangerous sessions, and write single candidate-version artifacts. "
-    "Do not answer operational user questions or execute production Reference Ops AI tools."
+    "Do not answer operational user questions or execute production agent tools."
 )
 
 
 def build_release_evidence_agent() -> Any | None:
+    """Build the optional ADK agent when Google ADK dependencies are installed."""
     try:
         from google.adk.agents import Agent
         from google.adk.models import Gemini
@@ -59,6 +60,7 @@ def run_local_release_evidence_check(
     output_dir: Path,
     diagnosis_mode: DiagnosisMode = "deterministic",
 ) -> dict[str, Any]:
+    """Run the release evidence workflow from local JSONL evidence."""
     records = load_local_evidence_records(evidence_path)
     return run_release_evidence_workflow(
         records=records,

@@ -76,23 +76,29 @@ class LoadedAgentPack:
 
     @property
     def profile_path(self) -> Path:
+        """Return the AgentProfile file path inside this AgentPack."""
         return self.pack_dir / "profile.json"
 
     @property
     def suite_path(self) -> Path:
+        """Return the EvalSuite file path inside this AgentPack."""
         return self.pack_dir / "suite.json"
 
     @property
     def policy_path(self) -> Path:
+        """Return the AgentCustom policy file path inside this AgentPack."""
         return self.pack_dir / "policy_custom.json"
 
     def metric_graders(self) -> dict[str, list[str]]:
+        """Return source graders keyed by effective runtime metric id."""
         return {entry.metric_id: list(entry.source_grader_ids) for entry in self.effective_metrics}
 
     def metric_decision_impact(self) -> dict[str, str]:
+        """Return decision impact keyed by effective runtime metric id."""
         return {entry.metric_id: entry.decision_impact for entry in self.effective_metrics}
 
     def control_definitions(self) -> dict[str, dict[str, str]]:
+        """Return ReportConfig control definitions keyed by metric id."""
         controls: dict[str, dict[str, str]] = {}
         for control in self.report_config.get("controls", []):
             if not isinstance(control, dict):
@@ -109,10 +115,26 @@ class LoadedAgentPack:
         return controls
 
     def demo_story(self) -> dict[str, Any]:
+        """Return pack-owned story copy for demo-aware report and landing views."""
         demo = self.report_config.get("demo")
         return demo if isinstance(demo, dict) else {}
 
+    def demo_candidate_versions(self) -> tuple[str, ...]:
+        """Return candidate versions declared by the AgentPack demo metadata."""
+        versions = self.demo.get("candidate_versions", [])
+        if not isinstance(versions, list):
+            return ()
+        return tuple(str(version) for version in versions if str(version).strip())
+
+    def demo_run_page_copy(self) -> dict[str, str]:
+        """Return run-page copy owned by ReportConfig rather than HTML templates."""
+        run_page = self.demo_story().get("run_page")
+        if not isinstance(run_page, dict):
+            return {}
+        return {str(key): str(value) for key, value in run_page.items() if value is not None}
+
     def decision_copy(self) -> dict[str, str]:
+        """Return decision-copy templates from ReportConfig."""
         report = self.report_config.get("report")
         if not isinstance(report, dict):
             return {}
@@ -122,6 +144,7 @@ class LoadedAgentPack:
         return {str(key): str(value) for key, value in decision_copy.items() if value is not None}
 
     def seed_path(self, candidate_version: str) -> Path | None:
+        """Resolve the configured seed evidence path for one candidate version."""
         seed_map = self.demo.get("seed", {})
         if not isinstance(seed_map, dict):
             return None
@@ -131,6 +154,7 @@ class LoadedAgentPack:
         return self.pack_dir / str(relative)
 
     def supported_span_names(self) -> set[str]:
+        """Return span names accepted for this AgentPack's tool manifest."""
         static_names = self.span_contract.get("static_span_names", [])
         names = {str(name) for name in static_names} if isinstance(static_names, list) else set()
         patterns = self.span_contract.get("tool_span_patterns", {})
@@ -146,12 +170,14 @@ class LoadedAgentPack:
         return names
 
     def dangerous_intent_ids(self) -> set[str]:
+        """Return intent ids that should be treated as dangerous routing targets."""
         configured = self.span_contract.get("dangerous_intent_ids", [])
         if isinstance(configured, list):
             return {str(intent_id) for intent_id in configured if str(intent_id).strip()}
         return set()
 
     def regression_gate_catalog(self) -> RegressionGateCatalog:
+        """Return pack-owned templates for generated release controls."""
         configured = self.report_config.get("regression_gates", {})
         if not isinstance(configured, dict):
             return RegressionGateCatalog(findings={}, metrics={}, metric_trace_filters={})
@@ -166,6 +192,7 @@ class LoadedAgentPack:
                 if isinstance(template, dict):
                     findings[str(finding_type)] = {
                         "gate_id": str(template.get("gate_id", "")),
+                        "display_title": str(template.get("display_title", "")),
                         "expected_behavior": str(template.get("expected_behavior", "")),
                         "required_fix": str(template.get("required_fix", "")),
                     }
@@ -176,6 +203,7 @@ class LoadedAgentPack:
                 if isinstance(template, dict):
                     metrics[str(metric_name)] = {
                         "gate_id": str(template.get("gate_id", "")),
+                        "display_title": str(template.get("display_title", "")),
                         "expected_behavior": str(template.get("expected_behavior", "")),
                         "required_fix": str(template.get("required_fix", "")),
                     }
@@ -195,6 +223,7 @@ class LoadedAgentPack:
         )
 
     def llm_classifier_specs(self) -> tuple[LLMClassifierSpec, ...]:
+        """Return LLM classifier specs declared by the AgentPack."""
         configured = self.evaluator_specs.get("llm_classifiers", [])
         if not isinstance(configured, list):
             return ()
@@ -224,16 +253,19 @@ class LoadedAgentPack:
         return tuple(specs)
 
     def eval_dataset_name(self) -> str:
+        """Return the Phoenix eval dataset name for this AgentPack."""
         configured = self.demo.get("eval_dataset_name")
         if isinstance(configured, str) and configured.strip():
             return configured.strip()
         return f"{self.agent_id}_release_eval_v1"
 
     def load_gate_binding(self) -> dict[str, Any] | None:
+        """Return the suite release gate binding when one is configured."""
         gate_binding = self.suite.release_gate_binding
         return gate_binding if isinstance(gate_binding, dict) else None
 
     def demo_reference_subdirs(self) -> dict[str, tuple[str, ...]]:
+        """Return artifact subdirectory candidates for blocked and approved demo runs."""
         demo = self.demo
         configured = demo.get("reference_subdirs")
         if isinstance(configured, dict):
@@ -259,6 +291,7 @@ class LoadedAgentPack:
         return {"blocked": (), "approved": ()}
 
     def landing_policy_highlights(self) -> list[dict[str, str]]:
+        """Return policy highlights used by the landing view."""
         demo = self.report_config.get("demo", {})
         if not isinstance(demo, dict):
             return []
@@ -296,6 +329,7 @@ class LoadedAgentPack:
 
 
 def resolve_agent_pack_path(pack_path: Path | str | None = None) -> Path:
+    """Resolve the active AgentPack path from argument, env var, or default."""
     if pack_path is not None:
         return Path(pack_path)
     env_path = os.getenv("AGENTGATE_AGENT_PACK", "").strip()
@@ -309,6 +343,7 @@ def find_agent_pack_dir_by_agent_id(
     *,
     agents_root: Path | None = None,
 ) -> Path | None:
+    """Find an AgentPack directory whose manifest declares the given agent id."""
     normalized = agent_id.strip()
     if not normalized:
         return None
@@ -333,6 +368,7 @@ def resolve_agent_pack_for_artifacts(
     *,
     fallback: Path | None = None,
 ) -> LoadedAgentPack:
+    """Resolve the AgentPack that produced a release artifact directory."""
     for filename in ("release_decision.json", "agent_profile.json"):
         artifact_path = output_dir / filename
         if not artifact_path.exists():
@@ -402,6 +438,7 @@ def _parse_metric_entries(payload: dict[str, Any]) -> tuple[MetricDefinitionEntr
 def load_phoenix_base(
     phoenix_base_dir: Path | None = None,
 ) -> tuple[tuple[MetricDefinitionEntry, ...], dict[str, Any]]:
+    """Load PhoenixBase metrics and policy JSON from disk."""
     base_dir = phoenix_base_dir or DEFAULT_PHOENIX_BASE_PATH
     metrics_payload = _load_json(base_dir / "metrics.json")
     policy_payload = _load_json(base_dir / "policy.json")
@@ -409,6 +446,7 @@ def load_phoenix_base(
 
 
 def load_agent_pack(pack_path: Path | str | None = None) -> LoadedAgentPack:
+    """Load and validate an AgentPack plus its merged EffectiveConfig."""
     pack_dir = resolve_agent_pack_path(pack_path)
     manifest_path = pack_dir / "pack.yaml"
     if not manifest_path.exists():
@@ -486,8 +524,10 @@ def load_agent_pack(pack_path: Path | str | None = None) -> LoadedAgentPack:
 
 @lru_cache(maxsize=4)
 def get_default_agent_pack() -> LoadedAgentPack:
+    """Load the default AgentPack with a small process-local cache."""
     return load_agent_pack(None)
 
 
 def validate_agent_pack(pack_path: Path | str | None = None) -> LoadedAgentPack:
+    """Validate that an AgentPack can be loaded successfully."""
     return load_agent_pack(pack_path)
