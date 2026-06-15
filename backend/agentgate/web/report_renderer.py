@@ -132,6 +132,7 @@ SERVABLE_ARTIFACT_FILENAMES = ARTIFACT_FILENAMES | {HTML_ARTIFACT_FILENAME}
 
 CONTROL_DEFINITIONS: dict[str, dict[str, str]] = {}
 
+
 def control_definitions(pack: Any | None = None) -> dict[str, dict[str, str]]:
     """Return AgentPack control definitions for report display."""
     resolved = pack or get_default_agent_pack()
@@ -1368,6 +1369,7 @@ def _sort_future_verification_rows(
     results: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Sort inherited control rows so blocking failures appear first."""
+
     def sort_key(row: dict[str, Any]) -> tuple[int, int, str]:
         """Sort one inherited control row by severity and stable id."""
         status = row.get("verification_status", "")
@@ -2471,7 +2473,9 @@ def _normalize_regression_gate(
         None,
     )
     gate_id = str(gate.get("gate_id") or "")
-    display_title = str(gate.get("display_title") or gate.get("expected_behavior") or gate_id).strip()
+    display_title = str(
+        gate.get("display_title") or gate.get("expected_behavior") or gate_id
+    ).strip()
     normalized = {
         **gate,
         "matching_finding": matching_finding,

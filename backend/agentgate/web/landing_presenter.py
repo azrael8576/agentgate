@@ -63,7 +63,9 @@ def build_landing_story(
             approved_context,
             story_copy,
         ),
-        "featured_intervention": _featured_intervention(blocked_context or story_context, story_copy),
+        "featured_intervention": _featured_intervention(
+            blocked_context or story_context, story_copy
+        ),
         "secondary_proof": _secondary_proof(approved_context, story_copy),
         "operational_status": _operational_status(latest_context),
         "regression_gate_count": len(card_regression_gates),
