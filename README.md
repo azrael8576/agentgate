@@ -9,7 +9,7 @@
 
 AgentGate is a CI/CD-style release gate for AI agents. It analyzes trace evidence, blocks risky tool behavior, generates audit reports, and turns failures into controls for the next version.
 
-**Ship AI. Not Incidents.**
+### Ship AI. Not Incidents.
 
 ## Demo video: 
 [![AgentGate Demo](docs/images/youtube-cover.png)](https://www.youtube.com/watch?v=JIT5eH17Q_s)
