@@ -2,6 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/azrael8576/agentgate/blob/main/LICENSE)
 [![CI](https://github.com/azrael8576/agentgate/actions/workflows/ci.yml/badge.svg)](https://github.com/azrael8576/agentgate/actions/workflows/ci.yml)
+![GitHub Release](https://img.shields.io/github/v/release/azrael8576/agentgate)
 
 ![Logo](docs/images/logo.png)
 
