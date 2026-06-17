@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=3840, height=2160" />
+  <title>AgentGate — YouTube Thumbnail</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 3840px;
+      height: 2160px;
+      overflow: hidden;
+      background: #14141f;
+    }
+
+    body {
+      font-family: Inter, "SF Pro Display", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .slide {
+      position: relative;
+      width: 3840px;
+      height: 2160px;
+      background: #14141f;
+      overflow: hidden;
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      top: 10%;
+      left: -8%;
+      width: 2200px;
+      height: 2200px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(22, 163, 74, 0.18) 0%, transparent 58%);
+      pointer-events: none;
+    }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      top: 5%;
+      right: -5%;
+      width: 2000px;
+      height: 2000px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(22, 163, 74, 0.1) 0%, transparent 58%);
+      pointer-events: none;
+    }
+
+    /* ── Badge: LIVE DEMO — matches saved narrative ── */
+    .badge-live {
+      position: absolute;
+      top: 160px;
+      right: 200px;
+      z-index: 3;
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+      padding: 24px 44px;
+      border-radius: 999px;
+      border: 2px solid rgba(22, 163, 74, 0.5);
+      background: rgba(22, 163, 74, 0.1);
+      box-shadow: 0 0 48px -12px rgba(22, 163, 74, 0.45);
+    }
+
+    .badge-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 16px 3px rgba(74, 222, 128, 0.65);
+    }
+
+    .badge-text {
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: #86efac;
+      text-transform: uppercase;
+    }
+
+    /* ── Two-column stage ── */
+    .stage {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      padding: 160px 200px;
+      gap: 120px;
+      z-index: 2;
+    }
+
+    /* ── Left: DEPLOY SAVED — vertically centered with terminal ── */
+    .hero-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100%;
+    }
+
+    .headline {
+      padding-left: 48px;
+      font-size: 420px;
+      font-weight: 900;
+      line-height: 0.88;
+      letter-spacing: -0.055em;
+      transform: translateY(-48px);
+    }
+
+    .headline .deploy {
+      display: block;
+      color: #ffffff;
+    }
+
+    .headline .saved {
+      display: block;
+      color: #4ade80;
+      text-shadow: 0 0 100px rgba(74, 222, 128, 0.38);
+    }
+
+    /* ── Right: terminal with before → after arc ── */
+    .terminal-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .terminal {
+      position: relative;
+      width: 100%;
+      max-width: 1580px;
+      border-radius: 24px;
+      border: 3px solid rgba(22, 163, 74, 0.55);
+      background: #0a0a10;
+      box-shadow:
+        0 0 0 1px rgba(22, 163, 74, 0.15),
+        0 0 160px -20px rgba(22, 163, 74, 0.35),
+        0 64px 140px -64px rgba(0, 0, 0, 0.75);
+      overflow: hidden;
+    }
+
+    .terminal::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 8px;
+      background: linear-gradient(180deg, #4ade80, #16a34a);
+      z-index: 1;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 32px 44px;
+      border-bottom: 1px solid #27272f;
+      background: #101018;
+    }
+
+    .terminal-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .terminal-dot.red { background: #ff5f57; }
+    .terminal-dot.yellow { background: #febc2e; }
+    .terminal-dot.green { background: #28c840; }
+
+    .terminal-body {
+      padding: 100px 72px 120px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: center;
+      gap: 56px;
+    }
+
+    /* "Before" — threat context */
+    .threat-line {
+      font-family: "SF Mono", ui-monospace, "Cascadia Code", "Fira Code", Menlo, monospace;
+      font-size: 56px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: #a1a1aa;
+      text-align: center;
+      padding: 36px 48px;
+      border-radius: 14px;
+      border: 1.5px solid #3f3f46;
+      background: rgba(24, 24, 32, 0.6);
+    }
+
+    .threat-line .agent {
+      color: #e4e4e7;
+      font-weight: 700;
+    }
+
+    .threat-line .arrow {
+      color: #71717a;
+      margin: 0 12px;
+    }
+
+    .threat-line .risk {
+      color: #fbbf24;
+      font-weight: 700;
+    }
+
+    .threat-divider {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #3f3f46 20%, #3f3f46 80%, transparent);
+    }
+
+    /* "After" — blocked result */
+    .result-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 48px;
+    }
+
+    .check {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: #16a34a;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 80px -8px rgba(22, 163, 74, 0.75);
+    }
+
+    .check::after {
+      content: "";
+      width: 44px;
+      height: 72px;
+      border-right: 14px solid #fff;
+      border-bottom: 14px solid #fff;
+      transform: rotate(45deg) translate(-8px, -12px);
+    }
+
+    .result-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .result-line1 {
+      font-size: 140px;
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      color: #4ade80;
+      text-shadow: 0 0 80px rgba(74, 222, 128, 0.3);
+    }
+
+    .result-line2 {
+      font-size: 84px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #4ade80;
+    }
+
+    .result-line2 .by {
+      color: #4ade80;
+      font-weight: 800;
+    }
+
+    .result-line2 .brand {
+      color: #16a34a;
+      font-size: 96px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      text-shadow: 0 0 72px rgba(22, 163, 74, 0.45);
+    }
+  </style>
+</head>
+<body>
+  <div class="slide" role="img" aria-label="DEPLOY SAVED — live demo of AgentGate blocking a risky agent release">
+
+    <div class="badge-live">
+      <span class="badge-dot" aria-hidden="true"></span>
+      <span class="badge-text">Live Demo</span>
+    </div>
+
+    <div class="stage">
+      <div class="hero-wrap">
+        <h1 class="headline">
+          <span class="deploy">DEPLOY</span>
+          <span class="saved">SAVED</span>
+        </h1>
+      </div>
+
+      <div class="terminal-wrap">
+        <div class="terminal">
+          <div class="terminal-bar" aria-hidden="true">
+            <span class="terminal-dot red"></span>
+            <span class="terminal-dot yellow"></span>
+            <span class="terminal-dot green"></span>
+          </div>
+          <div class="terminal-body">
+            <p class="threat-line">
+              <span class="agent">Agent v2</span>
+              <span class="arrow">→</span>
+              <span class="risk">attempted risky deploy</span>
+            </p>
+            <div class="threat-divider" aria-hidden="true"></div>
+            <div class="result-row">
+              <span class="check" aria-hidden="true"></span>
+              <div class="result-text">
+                <span class="result-line1">Release BLOCKED</span>
+                <span class="result-line2"><span class="by">by </span><span class="brand">AgentGate</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
