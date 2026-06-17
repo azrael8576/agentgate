@@ -11,7 +11,8 @@ AgentGate is a CI/CD-style release gate for AI agents. It analyzes trace evidenc
 
 **Ship AI. Not Incidents.**
 
-Demo video: [_AgentGate walkthrough_](https://www.youtube.com/watch?v=JIT5eH17Q_s)
+Demo video: 
+[![AgentGate Demo](docs/images/youtube-cover.png)](https://www.youtube.com/watch?v=JIT5eH17Q_s)
 
 ## Why AgentGate
 
