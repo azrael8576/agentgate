@@ -3,6 +3,8 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/azrael8576/agentgate/blob/main/LICENSE)
 [![CI](https://github.com/azrael8576/agentgate/actions/workflows/ci.yml/badge.svg)](https://github.com/azrael8576/agentgate/actions/workflows/ci.yml)
 
+![Logo](docs/images/logo.png)
+
 **Release Authority for AI Agents**
 
 AgentGate is a CI/CD-style release gate for AI agents. It analyzes trace evidence, blocks risky tool behavior, generates audit reports, and turns failures into controls for the next version.
